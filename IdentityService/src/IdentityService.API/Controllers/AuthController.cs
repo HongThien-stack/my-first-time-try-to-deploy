@@ -185,10 +185,10 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Forgot password endpoint - generates reset token and sends to email
+    /// Forgot password endpoint - sends reset token to user email
     /// </summary>
-    /// <param name="request">Email address</param>
-    /// <returns>Success message</returns>
+    /// <param name="request">User email address</param>
+    /// <returns>Password reset link and token</returns>
     [HttpPost("forgot-password")]
     [AllowAnonymous]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
@@ -197,13 +197,13 @@ public class AuthController : ControllerBase
         {
             var response = await _authService.ForgotPasswordAsync(request);
             
-            _logger.LogInformation("Password reset requested for {Email}", request.Email);
+            _logger.LogInformation("Forgot password requested for {Email}", request.Email);
             
             return Ok(new
             {
-                success = true,
+                success = response.Success,
                 message = response.Message,
-                data = response
+                data = new { resetToken = response.ResetToken }
             });
         }
         catch (InvalidOperationException ex)
@@ -227,10 +227,10 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Reset password endpoint - resets password using token
+    /// Reset password endpoint - resets user password using token
     /// </summary>
-    /// <param name="request">Reset token and new password</param>
-    /// <returns>Success message</returns>
+    /// <param name="request">Email, reset token, and new password</param>
+    /// <returns>Password reset confirmation</returns>
     [HttpPost("reset-password")]
     [AllowAnonymous]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
@@ -239,18 +239,17 @@ public class AuthController : ControllerBase
         {
             var response = await _authService.ResetPasswordAsync(request);
             
-            _logger.LogInformation("Password reset successfully");
+            _logger.LogInformation("Password reset successfully for {Email}", request.Email);
             
             return Ok(new
             {
-                success = true,
-                message = response.Message,
-                data = response
+                success = response.Success,
+                message = response.Message
             });
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning("Password reset failed: {Message}", ex.Message);
+            _logger.LogWarning("Reset password failed for {Email}: {Message}", request.Email, ex.Message);
             return Unauthorized(new
             {
                 success = false,
@@ -259,7 +258,7 @@ public class AuthController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogWarning("Password reset failed: {Message}", ex.Message);
+            _logger.LogWarning("Reset password validation failed for {Email}: {Message}", request.Email, ex.Message);
             return BadRequest(new
             {
                 success = false,
@@ -268,7 +267,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during password reset");
+            _logger.LogError(ex, "Error during password reset for {Email}", request.Email);
             return StatusCode(500, new
             {
                 success = false,

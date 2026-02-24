@@ -370,6 +370,169 @@ public class AuthService : IAuthService
         };
     }
 
+    public async Task<UserDto> UpdateUserAsync(Guid id, UpdateUserRequestDto request)
+    {
+        var user = await _userRepository.GetByIdAsync(id);
+        if (user == null)
+        {
+            throw new InvalidOperationException("User not found");
+        }
+
+        if (!string.IsNullOrEmpty(request.FullName))
+        {
+            user.FullName = request.FullName;
+        }
+
+        if (!string.IsNullOrEmpty(request.Phone))
+        {
+            user.Phone = request.Phone;
+        }
+
+        if (!string.IsNullOrEmpty(request.Password))
+        {
+            user.PasswordHash = _passwordHasher.HashPassword(request.Password);
+        }
+
+        await _userRepository.UpdateAsync(user);
+        return MapToUserDto(user);
+    }
+
+    public async Task<UserDto> CreateUserAsync(CreateUserRequestDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            throw new ArgumentException("Full name is required");
+
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new ArgumentException("Email is required");
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+            throw new ArgumentException("Password is required");
+
+        if (string.IsNullOrWhiteSpace(request.RoleName))
+            throw new ArgumentException("Role name is required");
+
+        if (await _userRepository.ExistsAsync(request.Email))
+        {
+            throw new InvalidOperationException("Email already exists");
+        }
+
+        var role = await _roleRepository.GetByNameAsync(request.RoleName);
+        if (role == null)
+        {
+            throw new InvalidOperationException($"Role '{request.RoleName}' not found");
+        }
+
+        var passwordHash = _passwordHasher.HashPassword(request.Password);
+
+        var newUser = new User
+        {
+            Id = Guid.NewGuid(),
+            FullName = request.FullName,
+            Email = request.Email,
+            PasswordHash = passwordHash,
+            Phone = request.Phone,
+            RoleId = role.Id,
+            Status = "ACTIVE",
+            EmailVerified = false,
+            OtpAttempts = 0
+        };
+
+        await _userRepository.CreateAsync(newUser);
+
+        return MapToUserDto(newUser);
+    }
+
+    public async Task<List<UserDto>> GetAllUsersAsync()
+    {
+        var users = await _userRepository.GetAllAsync();
+        return users.Select(user => MapToUserDto(user)).ToList();
+    }
+
+    public async Task<UserDto> DeleteUserAsync(Guid id)
+    {
+        var user = await _userRepository.GetByIdAsync(id);
+        if (user == null)
+        {
+            throw new InvalidOperationException("User not found");
+        }
+
+        await _userRepository.DeleteAsync(id);
+        return MapToUserDto(user);
+    }
+
+    public async Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request)
+    {
+        var user = await _userRepository.GetByEmailAsync(request.Email);
+        if (user == null)
+        {
+            // Don't reveal whether email exists or not for security
+            return new ForgotPasswordResponseDto
+            {
+                Success = true,
+                Message = "If email exists in our system, you will receive a password reset link"
+            };
+        }
+
+        // Generate OTP/Reset Token
+        var resetToken = Guid.NewGuid().ToString("N").Substring(0, 20);
+        user.OtpCode = resetToken;
+        user.OtpPurpose = "PASSWORD_RESET";
+        user.OtpExpiresAt = DateTime.UtcNow.AddHours(24);
+
+        await _userRepository.UpdateAsync(user);
+
+        return new ForgotPasswordResponseDto
+        {
+            Success = true,
+            Message = "If email exists in our system, you will receive a password reset link",
+            ResetToken = resetToken
+        };
+    }
+
+    public async Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request)
+    {
+        var users = await _userRepository.GetAllAsync();
+        var user = users.FirstOrDefault(u =>
+            u.OtpCode == request.Token &&
+            u.OtpPurpose == "PASSWORD_RESET");
+
+        if (user == null)
+        {
+            throw new UnauthorizedAccessException("Invalid or expired reset token");
+        }
+
+        if (user.OtpExpiresAt == null || user.OtpExpiresAt < DateTime.UtcNow)
+        {
+            user.OtpCode = null;
+            user.OtpPurpose = null;
+            user.OtpExpiresAt = null;
+            await _userRepository.UpdateAsync(user);
+
+            throw new UnauthorizedAccessException("Reset token has expired");
+        }
+
+        if (request.NewPassword != request.ConfirmPassword)
+        {
+            throw new InvalidOperationException("Passwords do not match");
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        user.OtpCode = null;
+        user.OtpPurpose = null;
+        user.OtpExpiresAt = null;
+        user.OtpAttempts = 0;
+        user.RefreshToken = null;
+        user.RefreshTokenExpiresAt = null;
+
+        await _userRepository.UpdateAsync(user);
+
+        return new ResetPasswordResponseDto
+        {
+            Success = true,
+            Message = "Password has been reset successfully. Please login with your new password."
+        };
+    }
+
     private async Task LogLoginAttemptAsync(Guid userId, string status, string? failureReason, string? ipAddress, string? userAgent)
     {
         try
