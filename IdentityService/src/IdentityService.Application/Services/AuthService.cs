@@ -169,6 +169,7 @@ public class AuthService : IAuthService
     }
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     public async Task<UserDto> UpdateUserAsync(Guid id, UpdateUserRequestDto request)
     {
         var user = await _userRepository.GetByIdAsync(id);
@@ -253,6 +254,8 @@ public class AuthService : IAuthService
 
         return MapToUserDto(newUser);
 =======
+=======
+>>>>>>> Stashed changes
     public async Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request)
     {
         // Find user by email
@@ -353,6 +356,9 @@ public class AuthService : IAuthService
         // Generate a 6-digit random code
         var random = new Random();
         return random.Next(100000, 999999).ToString();
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     }
 
