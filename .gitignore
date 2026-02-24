@@ -1,0 +1,49 @@
+# Build results
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.cache
+
+# User-specific files
+*.rsuser
+*.userosscache
+*.sln.docstates
+
+# Visual Studio
+.vscode/
+.idea/
+
+# .NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+
+# Test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+
+# Secrets
+appsettings.Development.json
+appsettings.Local.json
+*.secrets.json
+/IdentityService/README.md
+/.gitignore
