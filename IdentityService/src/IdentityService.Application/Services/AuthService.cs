@@ -15,7 +15,7 @@ public class AuthService : IAuthService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
     private readonly IUserLoginLogRepository _loginLogRepository;
-    private readonly ILogger<AuthService> _logger;
+    private readonly ILogger<AuthService>? _logger;
 
     public AuthService(
         IUserRepository userRepository,
@@ -23,7 +23,7 @@ public class AuthService : IAuthService
         IPasswordHasher passwordHasher,
         IJwtService jwtService,
         IUserLoginLogRepository loginLogRepository,
-        ILogger<AuthService> logger = null)  
+        ILogger<AuthService>? logger = null)  
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
