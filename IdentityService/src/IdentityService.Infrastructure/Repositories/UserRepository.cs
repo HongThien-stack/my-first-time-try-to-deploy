@@ -35,7 +35,7 @@ public class UserRepository : IUserRepository
             .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
     }
 
-    public async Task<IEnumerable<User>> GetAllAsync()
+    public async Task<List<User>> GetAllAsync()
     {
         return await _context.Users
             .Include(u => u.Role)
@@ -69,8 +69,11 @@ public class UserRepository : IUserRepository
         }
     }
 
-    public async Task<bool> ExistsAsync(string email)
+    public async Task<bool> ExistsByEmailAsync(string email)
     {
         return await _context.Users.AnyAsync(u => u.Email == email);
     }
+
+
+
 }

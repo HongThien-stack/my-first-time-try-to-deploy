@@ -45,3 +45,5 @@ Thumbs.db
 appsettings.Development.json
 appsettings.Local.json
 *.secrets.json
+/IdentityService/README.md
+/.gitignore
