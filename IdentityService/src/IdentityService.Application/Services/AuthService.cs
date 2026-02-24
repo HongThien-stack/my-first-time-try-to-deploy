@@ -11,7 +11,7 @@ namespace IdentityService.Application.Services;
 public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
-    private readonly IRoleRepository _roleRepository;  // Thêm để query role bằng tên
+    private readonly IRoleRepository _roleRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
     private readonly IUserLoginLogRepository _loginLogRepository;
@@ -19,7 +19,7 @@ public class AuthService : IAuthService
 
     public AuthService(
         IUserRepository userRepository,
-        IRoleRepository roleRepository,  // Thêm dependency mới
+        IRoleRepository roleRepository,
         IPasswordHasher passwordHasher,
         IJwtService jwtService,
         IUserLoginLogRepository loginLogRepository,
@@ -35,17 +35,16 @@ public class AuthService : IAuthService
 
     public async Task<RegisterResponseDto> RegisterAsync(RegisterRequestDto request)
     {
-        // Check if email already exists
         if (await _userRepository.ExistsByEmailAsync(request.Email))
         {
             throw new InvalidOperationException("Email already exists");
         }
-        // Check if passwords match (additional server-side validation)
+        
         if (request.Password != request.ConfirmPassword)
         {
             throw new InvalidOperationException("Passwords do not match");
         }
-        // Create new user
+        
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -53,12 +52,14 @@ public class AuthService : IAuthService
             FullName = request.FullName,
             Phone = request.Phone,
             PasswordHash = _passwordHasher.HashPassword(request.Password),
-            RoleId = 5, // Default role: Customer
+            RoleId = 5,
             Status = "ACTIVE",
             EmailVerified = false,
             OtpAttempts = 0
         };
+        
         await _userRepository.CreateAsync(user);
+        
         return new RegisterResponseDto
         {
             UserId = user.Id,
@@ -70,40 +71,36 @@ public class AuthService : IAuthService
 
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request, string? ipAddress = null)
     {
-        // Find user by email
         var user = await _userRepository.GetByEmailAsync(request.Email);
 
         if (user == null)
         {
-            // Log failed login attempt - user not found
             await LogLoginAttemptAsync(Guid.Empty, "FAILED", "User not found", ipAddress, null);
             throw new UnauthorizedAccessException("Invalid email or password");
         }
-        // Verify password
+        
         if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
         {
-            // Log failed login attempt - invalid password
             await LogLoginAttemptAsync(user.Id, "FAILED", "Invalid password", ipAddress, null);
             throw new UnauthorizedAccessException("Invalid email or password");
         }
-        // Check user status
+        
         if (user.Status != "ACTIVE")
         {
-            // Log failed login attempt - account not active
             await LogLoginAttemptAsync(user.Id, "BLOCKED", $"Account is {user.Status}", ipAddress, null);
             throw new UnauthorizedAccessException($"Account is {user.Status.ToLower()}");
         }
-        // Generate tokens
+        
         var accessToken = _jwtService.GenerateAccessToken(user);
         var refreshToken = _jwtService.GenerateRefreshToken();
         var refreshTokenExpiry = _jwtService.GetRefreshTokenExpiryTime();
-        // Update user with refresh token
+        
         user.RefreshToken = refreshToken;
         user.RefreshTokenExpiresAt = refreshTokenExpiry;
         await _userRepository.UpdateAsync(user);
-        // Log successful login
+        
         await LogLoginAttemptAsync(user.Id, "SUCCESS", null, ipAddress, null);
-        // Map to response DTO
+        
         return new LoginResponseDto
         {
             AccessToken = accessToken,
@@ -119,12 +116,13 @@ public class AuthService : IAuthService
         {
             throw new ArgumentException("Refresh token is required");
         }
+        
         var user = await _userRepository.GetByRefreshTokenAsync(refreshToken);
         if (user == null)
         {
             throw new UnauthorizedAccessException("Invalid refresh token");
         }
-        // Clear refresh token
+        
         user.RefreshToken = null;
         user.RefreshTokenExpiresAt = null;
         await _userRepository.UpdateAsync(user);
@@ -136,29 +134,31 @@ public class AuthService : IAuthService
         {
             throw new ArgumentException("Refresh token is required");
         }
+        
         var user = await _userRepository.GetByRefreshTokenAsync(refreshToken);
         if (user == null)
         {
             throw new UnauthorizedAccessException("Invalid refresh token");
         }
-        // Check if refresh token is expired
+        
         if (user.RefreshTokenExpiresAt == null || user.RefreshTokenExpiresAt < DateTime.UtcNow)
         {
             throw new UnauthorizedAccessException("Refresh token has expired");
         }
-        // Check user status
+        
         if (user.Status != "ACTIVE")
         {
             throw new UnauthorizedAccessException($"Account is {user.Status.ToLower()}");
         }
-        // Generate new tokens
+        
         var newAccessToken = _jwtService.GenerateAccessToken(user);
         var newRefreshToken = _jwtService.GenerateRefreshToken();
         var newRefreshTokenExpiry = _jwtService.GetRefreshTokenExpiryTime();
-        // Update user with new refresh token
+        
         user.RefreshToken = newRefreshToken;
         user.RefreshTokenExpiresAt = newRefreshTokenExpiry;
         await _userRepository.UpdateAsync(user);
+        
         return new LoginResponseDto
         {
             AccessToken = newAccessToken,
@@ -168,8 +168,6 @@ public class AuthService : IAuthService
         };
     }
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     public async Task<UserDto> UpdateUserAsync(Guid id, UpdateUserRequestDto request)
     {
         var user = await _userRepository.GetByIdAsync(id);
@@ -177,32 +175,28 @@ public class AuthService : IAuthService
         {
             throw new InvalidOperationException("User not found");
         }
-        // Update fields if provided
+        
         if (!string.IsNullOrEmpty(request.FullName))
         {
             user.FullName = request.FullName;
         }
+        
         if (!string.IsNullOrEmpty(request.Phone))
         {
             user.Phone = request.Phone;
         }
-        if (!string.IsNullOrEmpty(request.Email))
+        
+        if (!string.IsNullOrEmpty(request.Password))
         {
-            if (string.IsNullOrWhiteSpace(request.Password))
-            {
-                throw new InvalidOperationException("Password cannot be empty");
-            }
-
             user.PasswordHash = _passwordHasher.HashPassword(request.Password);
         }
+        
         await _userRepository.UpdateAsync(user);
         return MapToUserDto(user);
     }
 
-    // CreateUserAsync (Admin tạo user nhân viên)
     public async Task<UserDto> CreateUserAsync(CreateUserRequestDto request)
     {
-        // Check cơ bản thủ công (không dùng validator)
         if (string.IsNullOrWhiteSpace(request.FullName))
             throw new ArgumentException("Họ và tên không được để trống");
 
@@ -215,14 +209,12 @@ public class AuthService : IAuthService
         if (string.IsNullOrWhiteSpace(request.RoleName))
             throw new ArgumentException("Vai trò không được để trống");
 
-        // Check email tồn tại
         if (await _userRepository.ExistsByEmailAsync(request.Email))
         {
             _logger?.LogWarning("Email {Email} already exists when creating user", request.Email);
             throw new InvalidOperationException("Email đã tồn tại trong hệ thống");
         }
 
-        // Tìm role bằng tên
         var role = await _roleRepository.GetByNameAsync(request.RoleName);
         if (role == null)
         {
@@ -230,10 +222,8 @@ public class AuthService : IAuthService
             throw new InvalidOperationException($"Vai trò '{request.RoleName}' không tồn tại");
         }
 
-        // Hash password
         var passwordHash = _passwordHasher.HashPassword(request.Password);
 
-        // Tạo user mới
         var newUser = new User
         {
             Id = Guid.NewGuid(),
@@ -245,7 +235,6 @@ public class AuthService : IAuthService
             Status = "ACTIVE",
             EmailVerified = false,
             OtpAttempts = 0
-            // OTP, RefreshToken giữ null
         };
 
         await _userRepository.CreateAsync(newUser);
@@ -253,34 +242,27 @@ public class AuthService : IAuthService
         _logger?.LogInformation("Created new user: {Email} with role {RoleName}", request.Email, request.RoleName);
 
         return MapToUserDto(newUser);
-=======
-=======
->>>>>>> Stashed changes
+    }
+
     public async Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request)
     {
-        // Find user by email
         var user = await _userRepository.GetByEmailAsync(request.Email);
         
         if (user == null)
         {
-            // For security reasons, don't reveal that the email doesn't exist
-            // Return success message anyway
             return new ForgotPasswordResponseDto
             {
                 Message = "If the email exists, a password reset token has been sent."
             };
         }
 
-        // Check user status
         if (user.Status != "ACTIVE")
         {
             throw new InvalidOperationException($"Account is {user.Status.ToLower()}");
         }
 
-        // Generate random reset token (6-digit code)
         var resetToken = GenerateRandomToken();
         
-        // Set OTP for password reset (expires in 15 minutes)
         user.OtpCode = resetToken;
         user.OtpPurpose = "PASSWORD_RESET";
         user.OtpExpiresAt = DateTime.UtcNow.AddMinutes(15);
@@ -288,20 +270,15 @@ public class AuthService : IAuthService
 
         await _userRepository.UpdateAsync(user);
 
-        // TODO: Send email with reset token
-        // For now, we'll return the token in the response for testing
-        // In production, this should be sent via email only
-
         return new ForgotPasswordResponseDto
         {
             Message = "Password reset token has been sent to your email.",
-            ResetToken = resetToken // Remove this in production!
+            ResetToken = resetToken
         };
     }
 
     public async Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request)
     {
-        // Find user by OTP code
         var users = await _userRepository.GetAllAsync();
         var user = users.FirstOrDefault(u => 
             u.OtpCode == request.Token && 
@@ -312,10 +289,8 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Invalid or expired reset token");
         }
 
-        // Check if token is expired
         if (user.OtpExpiresAt == null || user.OtpExpiresAt < DateTime.UtcNow)
         {
-            // Clear expired OTP
             user.OtpCode = null;
             user.OtpPurpose = null;
             user.OtpExpiresAt = null;
@@ -324,22 +299,16 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("Reset token has expired");
         }
 
-        // Check if passwords match
         if (request.NewPassword != request.ConfirmPassword)
         {
             throw new InvalidOperationException("Passwords do not match");
         }
 
-        // Update password
         user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
-        
-        // Clear OTP data
         user.OtpCode = null;
         user.OtpPurpose = null;
         user.OtpExpiresAt = null;
         user.OtpAttempts = 0;
-
-        // Clear refresh token to force re-login
         user.RefreshToken = null;
         user.RefreshTokenExpiresAt = null;
 
@@ -351,15 +320,35 @@ public class AuthService : IAuthService
         };
     }
 
+    public async Task<List<UserDto>> GetAllUsersAsync()
+    {
+        var users = await _userRepository.GetAllAsync();  
+        var userDtos = users.Select(user => MapToUserDto(user)).ToList();
+        _logger?.LogInformation("Retrieved {Count} users", userDtos.Count);
+        return userDtos;
+    }
+
+    public async Task<UserDto> DeleteUserAsync(Guid id)
+    {
+        var user = await _userRepository.GetByIdAsync(id);
+        if (user == null)
+        {
+            _logger?.LogWarning("User with ID {UserId} not found for deletion", id);
+            throw new InvalidOperationException("User not found");
+        }
+
+        user.Status = "INACTIVE";
+        await _userRepository.UpdateAsync(user);
+
+        _logger?.LogInformation("User with ID {UserId} has been set to INACTIVE", id);
+
+        return MapToUserDto(user);
+    }
+
     private string GenerateRandomToken()
     {
-        // Generate a 6-digit random code
         var random = new Random();
         return random.Next(100000, 999999).ToString();
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     }
 
     private UserDto MapToUserDto(User user)
@@ -379,35 +368,6 @@ public class AuthService : IAuthService
                 Description = user.Role?.Description
             }
         };
-    }
-
-    public async Task<List<UserDto>> GetAllUsersAsync()
-    {
-        var users = await _userRepository.GetAllAsync();  
-
-        var userDtos = users.Select(user => MapToUserDto(user)).ToList();
-
-        _logger?.LogInformation("Retrieved {Count} users", userDtos.Count);
-
-        return userDtos;
-    }
-
-    public async Task<UserDto> DeleteUserAsync(Guid id)
-    {
-        var user = await _userRepository.GetByIdAsync(id);
-        if (user == null)
-        {
-            _logger?.LogWarning("User with ID {UserId} not found for deletion", id);
-            throw new InvalidOperationException("User not found");
-        }
-
-        // Soft delete: chuyển status thành INACTIVE
-        user.Status = "INACTIVE";
-        await _userRepository.UpdateAsync(user);
-
-        _logger?.LogInformation("User with ID {UserId} has been set to INACTIVE", id);
-
-        return MapToUserDto(user);
     }
 
     private async Task LogLoginAttemptAsync(Guid userId, string status, string? failureReason, string? ipAddress, string? userAgent)

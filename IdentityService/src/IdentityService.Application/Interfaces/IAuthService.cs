@@ -8,18 +8,10 @@ public interface IAuthService
     Task<LoginResponseDto> LoginAsync(LoginRequestDto request, string? ipAddress = null);
     Task LogoutAsync(string refreshToken);
     Task<LoginResponseDto> RefreshTokenAsync(string refreshToken);
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
     Task<UserDto> UpdateUserAsync(Guid id, UpdateUserRequestDto request);
     Task<UserDto> CreateUserAsync(CreateUserRequestDto request);
     Task<List<UserDto>> GetAllUsersAsync();
     Task<UserDto> DeleteUserAsync(Guid id);
-=======
     Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request);
     Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request);
->>>>>>> Stashed changes
-=======
-    Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request);
-    Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request);
->>>>>>> Stashed changes
 }
