@@ -21,4 +21,25 @@ public class ProductRepository : IProductRepository
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
     }
+
+    public async Task<Product?> GetByIdAsync(Guid id)
+    {
+        return await _context.Products
+            .Include(p => p.Category)
+            .FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task<Product> UpdateAsync(Product product)
+    {
+        _context.Products.Update(product);
+        await _context.SaveChangesAsync();
+        await _context.Entry(product).Reference(p => p.Category).LoadAsync();
+        return product;
+    }
+
+    public async Task SoftDeleteAsync(Product product)
+    {
+        _context.Products.Update(product);
+        await _context.SaveChangesAsync();
+    }
 }
