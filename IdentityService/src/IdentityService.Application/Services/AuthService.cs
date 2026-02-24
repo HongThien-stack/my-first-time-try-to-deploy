@@ -168,6 +168,7 @@ public class AuthService : IAuthService
         };
     }
 
+<<<<<<< Updated upstream
     public async Task<UserDto> UpdateUserAsync(Guid id, UpdateUserRequestDto request)
     {
         var user = await _userRepository.GetByIdAsync(id);
@@ -251,6 +252,108 @@ public class AuthService : IAuthService
         _logger?.LogInformation("Created new user: {Email} with role {RoleName}", request.Email, request.RoleName);
 
         return MapToUserDto(newUser);
+=======
+    public async Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request)
+    {
+        // Find user by email
+        var user = await _userRepository.GetByEmailAsync(request.Email);
+        
+        if (user == null)
+        {
+            // For security reasons, don't reveal that the email doesn't exist
+            // Return success message anyway
+            return new ForgotPasswordResponseDto
+            {
+                Message = "If the email exists, a password reset token has been sent."
+            };
+        }
+
+        // Check user status
+        if (user.Status != "ACTIVE")
+        {
+            throw new InvalidOperationException($"Account is {user.Status.ToLower()}");
+        }
+
+        // Generate random reset token (6-digit code)
+        var resetToken = GenerateRandomToken();
+        
+        // Set OTP for password reset (expires in 15 minutes)
+        user.OtpCode = resetToken;
+        user.OtpPurpose = "PASSWORD_RESET";
+        user.OtpExpiresAt = DateTime.UtcNow.AddMinutes(15);
+        user.OtpAttempts = 0;
+
+        await _userRepository.UpdateAsync(user);
+
+        // TODO: Send email with reset token
+        // For now, we'll return the token in the response for testing
+        // In production, this should be sent via email only
+
+        return new ForgotPasswordResponseDto
+        {
+            Message = "Password reset token has been sent to your email.",
+            ResetToken = resetToken // Remove this in production!
+        };
+    }
+
+    public async Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request)
+    {
+        // Find user by OTP code
+        var users = await _userRepository.GetAllAsync();
+        var user = users.FirstOrDefault(u => 
+            u.OtpCode == request.Token && 
+            u.OtpPurpose == "PASSWORD_RESET");
+
+        if (user == null)
+        {
+            throw new UnauthorizedAccessException("Invalid or expired reset token");
+        }
+
+        // Check if token is expired
+        if (user.OtpExpiresAt == null || user.OtpExpiresAt < DateTime.UtcNow)
+        {
+            // Clear expired OTP
+            user.OtpCode = null;
+            user.OtpPurpose = null;
+            user.OtpExpiresAt = null;
+            await _userRepository.UpdateAsync(user);
+            
+            throw new UnauthorizedAccessException("Reset token has expired");
+        }
+
+        // Check if passwords match
+        if (request.NewPassword != request.ConfirmPassword)
+        {
+            throw new InvalidOperationException("Passwords do not match");
+        }
+
+        // Update password
+        user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        
+        // Clear OTP data
+        user.OtpCode = null;
+        user.OtpPurpose = null;
+        user.OtpExpiresAt = null;
+        user.OtpAttempts = 0;
+
+        // Clear refresh token to force re-login
+        user.RefreshToken = null;
+        user.RefreshTokenExpiresAt = null;
+
+        await _userRepository.UpdateAsync(user);
+
+        return new ResetPasswordResponseDto
+        {
+            Message = "Password has been reset successfully. Please login with your new password."
+        };
+    }
+
+    private string GenerateRandomToken()
+    {
+        // Generate a 6-digit random code
+        var random = new Random();
+        return random.Next(100000, 999999).ToString();
+>>>>>>> Stashed changes
     }
 
     private UserDto MapToUserDto(User user)

@@ -185,6 +185,99 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Forgot password endpoint - generates reset token and sends to email
+    /// </summary>
+    /// <param name="request">Email address</param>
+    /// <returns>Success message</returns>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.ForgotPasswordAsync(request);
+            
+            _logger.LogInformation("Password reset requested for {Email}", request.Email);
+            
+            return Ok(new
+            {
+                success = true,
+                message = response.Message,
+                data = response
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Forgot password failed for {Email}: {Message}", request.Email, ex.Message);
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during forgot password for {Email}", request.Email);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred during password reset request"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Reset password endpoint - resets password using token
+    /// </summary>
+    /// <param name="request">Reset token and new password</param>
+    /// <returns>Success message</returns>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.ResetPasswordAsync(request);
+            
+            _logger.LogInformation("Password reset successfully");
+            
+            return Ok(new
+            {
+                success = true,
+                message = response.Message,
+                data = response
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Password reset failed: {Message}", ex.Message);
+            return Unauthorized(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Password reset failed: {Message}", ex.Message);
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during password reset");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred during password reset"
+            });
+        }
+    }
+
+    /// <summary>
     /// Test endpoint to verify authentication
     /// </summary>
     [HttpGet("me")]
