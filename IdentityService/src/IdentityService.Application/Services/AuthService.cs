@@ -53,7 +53,7 @@ public class AuthService : IAuthService
             FullName = request.FullName,
             Phone = request.Phone,
             PasswordHash = _passwordHasher.HashPassword(request.Password),
-            RoleId = 5, // Default role: Customer
+            RoleId = 6, // Default role: Customer
             Status = "ACTIVE",
             EmailVerified = false,
             OtpAttempts = 0
