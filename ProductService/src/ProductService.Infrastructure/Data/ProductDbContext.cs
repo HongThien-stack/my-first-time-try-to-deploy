@@ -11,6 +11,7 @@ public class ProductDbContext : DbContext
 
     public DbSet<Product> Products { get; set; }
     public DbSet<Category> Categories { get; set; }
+    public DbSet<ProductAuditLog> ProductAuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -110,6 +111,33 @@ public class ProductDbContext : DbContext
             entity.HasIndex(e => e.IsOnSale).HasDatabaseName("IX_products_is_on_sale");
             entity.HasIndex(e => e.Price).HasDatabaseName("IX_products_price");
             entity.HasIndex(e => e.CreatedAt).HasDatabaseName("IX_products_created_at");
+        });
+
+        // Configure ProductAuditLog
+        modelBuilder.Entity<ProductAuditLog>(entity =>
+        {
+            entity.ToTable("product_audit_logs");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ProductId).HasColumnName("product_id").IsRequired();
+            entity.Property(e => e.PerformedBy).HasColumnName("performed_by").IsRequired();
+            entity.Property(e => e.PerformedByName).HasColumnName("performed_by_name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Action).HasColumnName("action").HasMaxLength(100).IsRequired();
+            entity.Property(e => e.OldValues).HasColumnName("old_values");
+            entity.Property(e => e.NewValues).HasColumnName("new_values");
+            entity.Property(e => e.Description).HasColumnName("description").HasMaxLength(500);
+            entity.Property(e => e.IpAddress).HasColumnName("ip_address").HasMaxLength(50);
+            entity.Property(e => e.PerformedAt).HasColumnName("performed_at").IsRequired();
+
+            entity.HasOne(e => e.Product)
+                .WithMany()
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_product_audit_logs_product_id");
+            entity.HasIndex(e => e.PerformedBy).HasDatabaseName("IX_product_audit_logs_performed_by");
+            entity.HasIndex(e => e.Action).HasDatabaseName("IX_product_audit_logs_action");
+            entity.HasIndex(e => e.PerformedAt).HasDatabaseName("IX_product_audit_logs_performed_at");
         });
     }
 }
