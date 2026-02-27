@@ -12,4 +12,16 @@ public interface IAuthService
     Task<UserDto> CreateUserAsync(CreateUserRequestDto request);
     Task<List<UserDto>> GetAllUsersAsync();
     Task<UserDto> DeleteUserAsync(Guid id);
+
+    /// <summary>
+    /// Verifies the email OTP submitted by an authenticated user.
+    /// On success sets IsEmailVerified = true.
+    /// </summary>
+    Task<VerifyEmailOtpResponseDto> VerifyEmailOtpAsync(Guid userId, VerifyEmailOtpRequestDto request);
+
+    /// <summary>
+    /// Re-sends a fresh OTP to the authenticated user's email.
+    /// </summary>
+    Task ResendEmailOtpAsync(Guid userId);
 }
+

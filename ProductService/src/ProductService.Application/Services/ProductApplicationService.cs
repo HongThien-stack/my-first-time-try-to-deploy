@@ -166,8 +166,9 @@ public class ProductApplicationService : IProductService
         if (product == null)
             return false;
 
-        // Soft delete: ẩn sản phẩm khỏi danh sách bằng is_available = false
+        // Soft delete: ẩn sản phẩm khỏi danh sách
         product.IsAvailable = false;
+        product.IsDeleted = true;
         product.UpdatedAt = DateTime.UtcNow;
 
         await _productRepository.SoftDeleteAsync(product);
