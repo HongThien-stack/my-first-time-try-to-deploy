@@ -42,4 +42,37 @@ public class ProductApplicationService : IProductService
             CreatedAt = p.CreatedAt
         });
     }
+
+    public async Task<ProductDto?> GetProductByIdAsync(Guid id)
+    {
+        var product = await _productRepository.GetByIdAsync(id);
+        
+        if (product == null)
+            return null;
+
+        return new ProductDto
+        {
+            Id = product.Id,
+            Sku = product.Sku,
+            Barcode = product.Barcode,
+            Name = product.Name,
+            Description = product.Description,
+            CategoryId = product.CategoryId,
+            CategoryName = product.Category?.Name,
+            Brand = product.Brand,
+            Origin = product.Origin,
+            Price = product.Price,
+            OriginalPrice = product.OriginalPrice,
+            Unit = product.Unit,
+            Weight = product.Weight,
+            Volume = product.Volume,
+            IsAvailable = product.IsAvailable,
+            IsFeatured = product.IsFeatured,
+            IsNew = product.IsNew,
+            IsOnSale = product.IsOnSale,
+            ImageUrl = product.ImageUrl,
+            Slug = product.Slug,
+            CreatedAt = product.CreatedAt
+        };
+    }
 }

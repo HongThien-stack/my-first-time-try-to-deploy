@@ -12,4 +12,6 @@ public interface IAuthService
     Task<UserDto> CreateUserAsync(CreateUserRequestDto request);
     Task<List<UserDto>> GetAllUsersAsync();
     Task<UserDto> DeleteUserAsync(Guid id);
+    Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request);
+    Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request);
 }

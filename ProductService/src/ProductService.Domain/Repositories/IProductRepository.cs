@@ -5,5 +5,5 @@ namespace ProductService.Domain.Repositories;
 public interface IProductRepository
 {
     Task<IEnumerable<Product>> GetAllAsync();
-    // Các methods khác sẽ thêm sau
+    Task<Product?> GetByIdAsync(Guid id);
 }

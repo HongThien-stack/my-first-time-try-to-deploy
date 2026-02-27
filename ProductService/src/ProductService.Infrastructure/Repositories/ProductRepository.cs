@@ -21,4 +21,11 @@ public class ProductRepository : IProductRepository
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
     }
+
+    public async Task<Product?> GetByIdAsync(Guid id)
+    {
+        return await _context.Products
+            .Include(p => p.Category)
+            .FirstOrDefaultAsync(p => p.Id == id);
+    }
 }
