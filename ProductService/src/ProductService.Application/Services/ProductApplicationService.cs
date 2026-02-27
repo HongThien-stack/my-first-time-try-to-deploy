@@ -71,14 +71,14 @@ public class ProductApplicationService : IProductService
         }
 
         // Validate pricing logic
-        if (request.OriginalPrice.HasValue && request.OriginalPrice < request.Price)
+        if (request.OriginalPrice.HasValue && request.OriginalPrice >= request.Price)
         {
-            throw new ArgumentException("Giá gốc không thể nhỏ hơn giá bán");
+            throw new ArgumentException("Giá gốc = giá bán hoặc giá gốc lớn hơn giá bán  ");
         }
 
-        if (request.CostPrice.HasValue && request.CostPrice > request.Price)
+        if (request.CostPrice.HasValue && request.CostPrice < request.OriginalPrice)
         {
-            _logger.LogWarning("Cost price ({CostPrice}) is higher than selling price ({Price})", 
+            _logger.LogWarning("giá vốn phải nhỏ hơn giá gốc", 
                 request.CostPrice, request.Price);
         }
 
