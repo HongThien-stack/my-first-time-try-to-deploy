@@ -19,6 +19,8 @@ public class RegisterRequestDto
 
     [Required(ErrorMessage = "Password is required")]
     [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters")]
+    [RegularExpression(@"^[A-Z](?=.*[a-z])(?=.*[!@#$%^&*(),.?""':;{}|<>_\-+=\[\]\\\/~`]).{5,}$", 
+        ErrorMessage = "Password must start with an uppercase letter, contain at least one lowercase letter, and include at least one special character")]
     public string Password { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Confirm password is required")]

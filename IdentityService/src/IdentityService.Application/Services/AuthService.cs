@@ -40,6 +40,11 @@ public class AuthService : IAuthService
         {
             throw new InvalidOperationException("Email already exists");
         }
+        // Check if phone already exists
+        if (await _userRepository.ExistsByPhoneAsync(request.Phone))
+        {
+            throw new InvalidOperationException("Phone number already exists");
+        }
         // Check if passwords match (additional server-side validation)
         if (request.Password != request.ConfirmPassword)
         {
@@ -53,7 +58,7 @@ public class AuthService : IAuthService
             FullName = request.FullName,
             Phone = request.Phone,
             PasswordHash = _passwordHasher.HashPassword(request.Password),
-            RoleId = 5, // Default role: Customer
+            RoleId = 6, // Default role: Customer
             Status = "ACTIVE",
             EmailVerified = false,
             OtpAttempts = 0
