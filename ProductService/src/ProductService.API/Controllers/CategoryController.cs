@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ProductService.Application.DTOs;
 using ProductService.Application.Interfaces;
-using Productservice.Application.Services;
+using ProductService.Application.Services;
 namespace ProductService.API.Controllers;
 
 [ApiController]
