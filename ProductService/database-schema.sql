@@ -27,12 +27,14 @@ BEGIN
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         name NVARCHAR(255) NOT NULL,
         status NVARCHAR(50) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE | INACTIVE
+        is_deleted BIT NOT NULL DEFAULT 0, -- Soft delete flag
         created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         updated_at DATETIME2
     );
     
     CREATE INDEX IX_categories_name ON categories(name);
     CREATE INDEX IX_categories_status ON categories(status);
+    CREATE INDEX IX_categories_is_deleted ON categories(is_deleted);
 END
 GO
 
@@ -85,6 +87,7 @@ BEGIN
         is_featured BIT DEFAULT 0, -- Sản phẩm nổi bật
         is_new BIT DEFAULT 0, -- Sản phẩm mới
         is_on_sale BIT DEFAULT 0, -- Đang khuyến mãi
+        is_deleted BIT NOT NULL DEFAULT 0, -- Soft delete flag
         
         -- SEO
         slug NVARCHAR(255) UNIQUE, -- URL-friendly name
@@ -112,6 +115,7 @@ BEGIN
     CREATE INDEX IX_products_is_on_sale ON products(is_on_sale);
     CREATE INDEX IX_products_price ON products(price);
     CREATE INDEX IX_products_created_at ON products(created_at);
+    CREATE INDEX IX_products_is_deleted ON products(is_deleted);
 END
 GO
 

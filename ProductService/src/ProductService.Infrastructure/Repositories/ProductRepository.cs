@@ -40,10 +40,10 @@ public class ProductRepository : IProductRepository
     {
         await _context.Products.AddAsync(product);
         await _context.SaveChangesAsync();
-        
+
         // Load category after save
         await _context.Entry(product).Reference(p => p.Category).LoadAsync();
-        
+
         return product;
     }
 
@@ -51,6 +51,7 @@ public class ProductRepository : IProductRepository
     {
         _context.Products.Update(product);
         await _context.SaveChangesAsync();
+        await _context.Entry(product).Reference(p => p.Category).LoadAsync();
         return product;
     }
 
@@ -62,5 +63,11 @@ public class ProductRepository : IProductRepository
     public async Task<bool> ExistsByBarcodeAsync(string barcode)
     {
         return await _context.Products.AnyAsync(p => p.Barcode == barcode);
+    }
+
+    public async Task SoftDeleteAsync(Product product)
+    {
+        _context.Products.Update(product);
+        await _context.SaveChangesAsync();
     }
 }
