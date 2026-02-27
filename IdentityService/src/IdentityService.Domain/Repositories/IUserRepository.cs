@@ -12,6 +12,7 @@ public interface IUserRepository
     Task UpdateAsync(User user);
     Task DeleteAsync(Guid id);
     Task<bool> ExistsByEmailAsync(string email);
+    Task<bool> ExistsByPhoneAsync(string phone);
 
 
 }
