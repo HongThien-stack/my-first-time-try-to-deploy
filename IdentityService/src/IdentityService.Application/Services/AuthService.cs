@@ -4,6 +4,7 @@ using IdentityService.Domain.Entities;
 using IdentityService.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace IdentityService.Application.Services;
@@ -258,6 +259,85 @@ public class AuthService : IAuthService
         return MapToUserDto(newUser);
     }
 
+    public async Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request)
+    {
+        var user = await _userRepository.GetByEmailAsync(request.Email);
+
+        if (user == null)
+        {
+            return new ForgotPasswordResponseDto
+            {
+                Success = true,
+                Message = "If the email exists, a password reset token has been sent."
+            };
+        }
+
+        if (user.Status != "ACTIVE")
+        {
+            throw new InvalidOperationException($"Account is {user.Status.ToLower()}");
+        }
+
+        var resetToken = GenerateRandomToken();
+
+        user.OtpCode = resetToken;
+        user.OtpPurpose = "PASSWORD_RESET";
+        user.OtpExpiresAt = DateTime.UtcNow.AddMinutes(15);
+        user.OtpAttempts = 0;
+
+        await _userRepository.UpdateAsync(user);
+
+        return new ForgotPasswordResponseDto
+        {
+            Success = true,
+            Message = "Password reset token has been sent to your email.",
+            ResetToken = resetToken
+        };
+    }
+
+    public async Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request)
+    {
+        var users = await _userRepository.GetAllAsync();
+        var user = users.FirstOrDefault(u =>
+            u.OtpCode == request.Token &&
+            u.OtpPurpose == "PASSWORD_RESET");
+
+        if (user == null)
+        {
+            throw new UnauthorizedAccessException("Invalid or expired reset token");
+        }
+
+        if (user.OtpExpiresAt == null || user.OtpExpiresAt < DateTime.UtcNow)
+        {
+            user.OtpCode = null;
+            user.OtpPurpose = null;
+            user.OtpExpiresAt = null;
+            await _userRepository.UpdateAsync(user);
+
+            throw new UnauthorizedAccessException("Reset token has expired");
+        }
+
+        if (request.NewPassword != request.ConfirmPassword)
+        {
+            throw new InvalidOperationException("Passwords do not match");
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        user.OtpCode = null;
+        user.OtpPurpose = null;
+        user.OtpExpiresAt = null;
+        user.OtpAttempts = 0;
+        user.RefreshToken = null;
+        user.RefreshTokenExpiresAt = null;
+
+        await _userRepository.UpdateAsync(user);
+
+        return new ResetPasswordResponseDto
+        {
+            Success = true,
+            Message = "Password has been reset successfully. Please login with your new password."
+        };
+    }
+
     private UserDto MapToUserDto(User user)
     {
         return new UserDto
@@ -275,6 +355,12 @@ public class AuthService : IAuthService
                 Description = user.Role?.Description
             }
         };
+    }
+
+    private string GenerateRandomToken()
+    {
+        var random = new Random();
+        return random.Next(100000, 999999).ToString();
     }
 
     public async Task<List<UserDto>> GetAllUsersAsync()

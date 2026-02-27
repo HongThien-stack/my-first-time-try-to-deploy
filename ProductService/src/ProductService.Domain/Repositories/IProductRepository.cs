@@ -11,4 +11,5 @@ public interface IProductRepository
     Task<Product> UpdateAsync(Product product);
     Task<bool> ExistsBySkuAsync(string sku);
     Task<bool> ExistsByBarcodeAsync(string barcode);
+
 }

@@ -8,4 +8,5 @@ public interface IProductService
     Task<CreateProductResponseDto> CreateProductAsync(
         CreateProductRequestDto request, 
         Guid userId);
+    Task<ProductDto?> GetProductByIdAsync(Guid id);
 }
