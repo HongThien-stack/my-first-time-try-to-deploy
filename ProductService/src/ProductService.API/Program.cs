@@ -55,7 +55,6 @@ builder.Services.Configure<CloudinarySettings>(
 
 // Add repositories
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
-builder.Services.AddScoped<IProductAuditLogRepository, ProductAuditLogRepository>();
 
 // Add services
 builder.Services.AddScoped<IProductService, ProductApplicationService>();

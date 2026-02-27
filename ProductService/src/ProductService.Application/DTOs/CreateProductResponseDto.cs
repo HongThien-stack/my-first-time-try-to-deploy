@@ -17,5 +17,4 @@ public class CreateProductResponseDto
     public string? Slug { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
-    public string? CreatedByName { get; set; }
 }

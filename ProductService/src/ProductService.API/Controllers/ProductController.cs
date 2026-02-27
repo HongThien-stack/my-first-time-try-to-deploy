@@ -76,7 +76,6 @@ public class ProductController : ControllerBase
 
             var userName = JwtHelper.GetUserFullName(User) ?? JwtHelper.GetUserEmail(User) ?? "Unknown";
             var userRole = JwtHelper.GetUserRole(User);
-            var ipAddress = JwtHelper.GetIpAddress(HttpContext);
 
             _logger.LogInformation(
                 "User {UserName} (ID: {UserId}, Role: {Role}) is creating product {Sku}", 
@@ -101,9 +100,7 @@ public class ProductController : ControllerBase
             // Create product
             var result = await _productService.CreateProductAsync(
                 request, 
-                userId.Value, 
-                userName, 
-                ipAddress);
+                userId.Value);
 
             _logger.LogInformation(
                 "Product {ProductId} - {ProductName} created successfully by {UserName}", 
@@ -131,10 +128,17 @@ public class ProductController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating product");
+            
+            // Return detailed error in development
+            var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+            
             return StatusCode(500, new
             {
                 success = false,
-                message = "Đã xảy ra lỗi khi tạo sản phẩm. Vui lòng thử lại sau."
+                message = "Đã xảy ra lỗi khi tạo sản phẩm. Vui lòng thử lại sau.",
+                error = isDevelopment ? ex.Message : null,
+                stackTrace = isDevelopment ? ex.StackTrace : null,
+                innerError = isDevelopment && ex.InnerException != null ? ex.InnerException.Message : null
             });
         }
     }

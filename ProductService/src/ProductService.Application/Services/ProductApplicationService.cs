@@ -10,18 +10,15 @@ namespace ProductService.Application.Services;
 public class ProductApplicationService : IProductService
 {
     private readonly IProductRepository _productRepository;
-    private readonly IProductAuditLogRepository _auditLogRepository;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly ILogger<ProductApplicationService> _logger;
 
     public ProductApplicationService(
         IProductRepository productRepository,
-        IProductAuditLogRepository auditLogRepository,
         ICloudinaryService cloudinaryService,
         ILogger<ProductApplicationService> logger)
     {
         _productRepository = productRepository;
-        _auditLogRepository = auditLogRepository;
         _cloudinaryService = cloudinaryService;
         _logger = logger;
     }
@@ -58,9 +55,7 @@ public class ProductApplicationService : IProductService
 
     public async Task<CreateProductResponseDto> CreateProductAsync(
         CreateProductRequestDto request, 
-        Guid userId, 
-        string userName, 
-        string? ipAddress)
+        Guid userId)
     {
         // Validate SKU uniqueness
         if (await _productRepository.ExistsBySkuAsync(request.Sku))
@@ -111,8 +106,10 @@ public class ProductApplicationService : IProductService
                     request.AdditionalImages, "products");
             }
 
-            // Generate slug if not provided
-            var slug = request.Slug ?? GenerateSlug(request.Name);
+            // Generate slug if not provided or invalid
+            var slug = string.IsNullOrWhiteSpace(request.Slug) || request.Slug.ToLower() == "string" 
+                ? GenerateUniqueSlug(request.Name) 
+                : request.Slug;
 
             // Create product entity
             var product = new Product
@@ -157,32 +154,9 @@ public class ProductApplicationService : IProductService
             // Save product to database
             var createdProduct = await _productRepository.CreateAsync(product);
 
-            // Create audit log
-            var auditLog = new ProductAuditLog
-            {
-                ProductId = createdProduct.Id,
-                PerformedBy = userId,
-                PerformedByName = userName,
-                Action = "CREATE",
-                NewValues = JsonSerializer.Serialize(new
-                {
-                    createdProduct.Sku,
-                    createdProduct.Name,
-                    createdProduct.Price,
-                    createdProduct.CategoryId,
-                    createdProduct.ImageUrl,
-                    ImagesCount = additionalImageUrls?.Count ?? 0
-                }),
-                Description = $"Tạo sản phẩm mới: {createdProduct.Name}",
-                IpAddress = ipAddress,
-                PerformedAt = DateTime.UtcNow
-            };
-
-            await _auditLogRepository.CreateAsync(auditLog);
-
             _logger.LogInformation(
-                "Product created successfully: {ProductId} - {ProductName} by {UserName}", 
-                createdProduct.Id, createdProduct.Name, userName);
+                "Product created successfully: {ProductId} - {ProductName}", 
+                createdProduct.Id, createdProduct.Name);
 
             // Return response
             return new CreateProductResponseDto
@@ -201,8 +175,7 @@ public class ProductApplicationService : IProductService
                 Images = additionalImageUrls,
                 Slug = createdProduct.Slug,
                 CreatedAt = createdProduct.CreatedAt,
-                CreatedBy = createdProduct.CreatedBy,
-                CreatedByName = userName
+                CreatedBy = createdProduct.CreatedBy
             };
         }
         catch (Exception ex)
@@ -233,6 +206,36 @@ public class ProductApplicationService : IProductService
 
             throw;
         }
+    }
+
+    private string GenerateUniqueSlug(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return $"product-{Guid.NewGuid().ToString().Substring(0, 8)}";
+
+        // Convert to lowercase
+        var slug = name.ToLowerInvariant();
+
+        // Remove Vietnamese diacritics
+        slug = RemoveVietnameseDiacritics(slug);
+
+        // Replace spaces with hyphens
+        slug = slug.Replace(' ', '-');
+
+        // Remove special characters
+        slug = new string(slug.Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
+
+        // Remove consecutive hyphens
+        while (slug.Contains("--"))
+        {
+            slug = slug.Replace("--", "-");
+        }
+
+        slug = slug.Trim('-');
+        
+        // Add timestamp suffix to ensure uniqueness
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+        return $"{slug}-{timestamp}";
     }
 
     private string GenerateSlug(string name)
