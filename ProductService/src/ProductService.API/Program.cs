@@ -18,9 +18,11 @@ builder.Services.AddDbContext<ProductDbContext>(options =>
 
 // Add repositories
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 
 // Add services
 builder.Services.AddScoped<IProductService, ProductApplicationService>();
+builder.Services.AddScoped<ICategoryService, CategoryApplicationService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
