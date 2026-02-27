@@ -56,4 +56,21 @@ public class CategoryApplicationService : ICategoryService
             UpdatedAt = updated.UpdatedAt
         };
     }
+    public async Task<bool> DeleteCategoryAsync(Guid id)
+    {
+        var category = await _categoryRepository.GetByIdAsync(id);
+
+        if (category is null)
+            return false;
+
+        // Check if category has products
+        var hasProducts = await _categoryRepository.HasProductsAsync(id);
+        if (hasProducts)
+        {
+            throw new InvalidOperationException("Không thể xóa danh mục đang có sản phẩm");
+        }
+
+        return await _categoryRepository.DeleteAsync(id);
+    }
+
 }

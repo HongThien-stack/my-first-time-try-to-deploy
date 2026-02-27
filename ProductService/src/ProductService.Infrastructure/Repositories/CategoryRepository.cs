@@ -27,4 +27,19 @@ public class CategoryRepository : ICategoryRepository
         await _context.SaveChangesAsync();
         return category;
     }
+     public async Task<bool> DeleteAsync(Guid id)
+    {
+        var category = await _context.Categories.FindAsync(id);
+        if (category == null)
+            return false;
+
+        _context.Categories.Remove(category);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> HasProductsAsync(Guid id)
+    {
+        return await _context.Products.AnyAsync(p => p.CategoryId == id);
+    }
 }
