@@ -14,4 +14,15 @@ public interface IAuthService
     Task<UserDto> DeleteUserAsync(Guid id);
     Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request);
     Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request);
+    /// <summary>
+    /// Verifies the email OTP submitted by an authenticated user.
+    /// On success sets IsEmailVerified = true.
+    /// </summary>
+    Task<VerifyEmailOtpResponseDto> VerifyEmailOtpAsync(Guid userId, VerifyEmailOtpRequestDto request);
+
+    /// <summary>
+    /// Re-sends a fresh OTP to the authenticated user's email.
+    /// </summary>
+    Task ResendEmailOtpAsync(Guid userId);
 }
+

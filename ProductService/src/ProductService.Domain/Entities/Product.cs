@@ -45,6 +45,7 @@ public class Product
     public bool IsFeatured { get; set; } = false;
     public bool IsNew { get; set; } = false;
     public bool IsOnSale { get; set; } = false;
+    public bool IsDeleted { get; set; } = false;
     
     // SEO
     public string? Slug { get; set; }

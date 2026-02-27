@@ -299,4 +299,68 @@ public class AuthController : ControllerBase
             }
         });
     }
+
+    /// <summary>
+    /// Verify email using OTP. User must be authenticated (JWT).
+    /// OTP was sent to the user's email during registration.
+    /// </summary>
+    [HttpPost("verify-email")]
+    [Authorize]
+    public async Task<IActionResult> VerifyEmailOtp([FromBody] VerifyEmailOtpRequestDto request)
+    {
+        try
+        {
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized(new { success = false, message = "Invalid token." });
+
+            var result = await _authService.VerifyEmailOtpAsync(userId, request);
+
+            return Ok(new
+            {
+                success = result.Success,
+                message = result.Message,
+                data = new { isEmailVerified = result.IsEmailVerified }
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Email OTP verification failed: {Message}", ex.Message);
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during email OTP verification");
+            return StatusCode(500, new { success = false, message = "An error occurred during email verification." });
+        }
+    }
+
+    /// <summary>
+    /// Resend a new OTP to the authenticated user's email.
+    /// </summary>
+    [HttpPost("resend-email-otp")]
+    [Authorize]
+    public async Task<IActionResult> ResendEmailOtp()
+    {
+        try
+        {
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized(new { success = false, message = "Invalid token." });
+
+            await _authService.ResendEmailOtpAsync(userId);
+
+            return Ok(new { success = true, message = "A new OTP has been sent to your email." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Resend OTP failed: {Message}", ex.Message);
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during OTP resend");
+            return StatusCode(500, new { success = false, message = "An error occurred while resending OTP." });
+        }
+    }
 }

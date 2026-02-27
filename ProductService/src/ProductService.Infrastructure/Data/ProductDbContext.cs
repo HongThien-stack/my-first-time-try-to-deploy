@@ -79,6 +79,7 @@ public class ProductDbContext : DbContext
             entity.Property(e => e.IsFeatured).HasColumnName("is_featured").HasDefaultValue(false);
             entity.Property(e => e.IsNew).HasColumnName("is_new").HasDefaultValue(false);
             entity.Property(e => e.IsOnSale).HasColumnName("is_on_sale").HasDefaultValue(false);
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").IsRequired().HasDefaultValue(false);
             
             // SEO
             entity.Property(e => e.Slug).HasColumnName("slug").HasMaxLength(255);
@@ -110,6 +111,7 @@ public class ProductDbContext : DbContext
             entity.HasIndex(e => e.IsOnSale).HasDatabaseName("IX_products_is_on_sale");
             entity.HasIndex(e => e.Price).HasDatabaseName("IX_products_price");
             entity.HasIndex(e => e.CreatedAt).HasDatabaseName("IX_products_created_at");
+            entity.HasIndex(e => e.IsDeleted).HasDatabaseName("IX_products_is_deleted");
         });
     }
 }
