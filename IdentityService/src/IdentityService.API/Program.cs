@@ -5,6 +5,7 @@ using IdentityService.Domain.Repositories;
 using IdentityService.Infrastructure.Data;
 using IdentityService.Infrastructure.Repositories;
 using IdentityService.Infrastructure.Security;
+using IdentityService.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -101,6 +102,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasherService>();
+builder.Services.AddScoped<IOtpService, IdentityService.Infrastructure.Security.OtpGenerator>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Register Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();

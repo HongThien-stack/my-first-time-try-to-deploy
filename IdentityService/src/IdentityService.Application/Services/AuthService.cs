@@ -4,6 +4,7 @@ using IdentityService.Domain.Entities;
 using IdentityService.Domain.Repositories;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace IdentityService.Application.Services;
@@ -11,25 +12,31 @@ namespace IdentityService.Application.Services;
 public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
-    private readonly IRoleRepository _roleRepository;  // Thêm để query role bằng tên
+    private readonly IRoleRepository _roleRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
     private readonly IUserLoginLogRepository _loginLogRepository;
+    private readonly IOtpService _otpService;
+    private readonly IEmailService _emailService;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         IUserRepository userRepository,
-        IRoleRepository roleRepository,  // Thêm dependency mới
+        IRoleRepository roleRepository,
         IPasswordHasher passwordHasher,
         IJwtService jwtService,
         IUserLoginLogRepository loginLogRepository,
-        ILogger<AuthService> logger = null)  
+        IOtpService otpService,
+        IEmailService emailService,
+        ILogger<AuthService> logger = null)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
         _loginLogRepository = loginLogRepository;
+        _otpService = otpService;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -59,17 +66,21 @@ public class AuthService : IAuthService
             Phone = request.Phone,
             PasswordHash = _passwordHasher.HashPassword(request.Password),
             RoleId = 6, // Default role: Customer
-            Status = "ACTIVE",
+            Status = "INACTIVE",
             EmailVerified = false,
             OtpAttempts = 0
         };
         await _userRepository.CreateAsync(user);
+
+        // Generate and send OTP for email verification
+        await SendEmailOtpAsync(user);
+
         return new RegisterResponseDto
         {
             UserId = user.Id,
             Email = user.Email,
             FullName = user.FullName ?? string.Empty,
-            Message = "Registration successful. Please verify your email."
+            Message = "Account created. Please verify your email in profile page."
         };
     }
 
@@ -91,12 +102,11 @@ public class AuthService : IAuthService
             await LogLoginAttemptAsync(user.Id, "FAILED", "Invalid password", ipAddress, null);
             throw new UnauthorizedAccessException("Invalid email or password");
         }
-        // Check user status
-        if (user.Status != "ACTIVE")
+        // Check user status — only block SUSPENDED accounts; allow INACTIVE (email not yet verified)
+        if (user.Status == "SUSPENDED")
         {
-            // Log failed login attempt - account not active
-            await LogLoginAttemptAsync(user.Id, "BLOCKED", $"Account is {user.Status}", ipAddress, null);
-            throw new UnauthorizedAccessException($"Account is {user.Status.ToLower()}");
+            await LogLoginAttemptAsync(user.Id, "BLOCKED", "Account is SUSPENDED", ipAddress, null);
+            throw new UnauthorizedAccessException("Account is suspended. Please contact support.");
         }
         // Generate tokens
         var accessToken = _jwtService.GenerateAccessToken(user);
@@ -114,7 +124,9 @@ public class AuthService : IAuthService
             AccessToken = accessToken,
             Email = user.Email,
             FullName = user.FullName,
-            RoleId = user.RoleId
+            RoleId = user.RoleId,
+            IsEmailVerified = user.EmailVerified,
+            Message = user.EmailVerified ? null : "Email not verified. Please check your inbox and verify your email."
         };
     }
 
@@ -151,10 +163,10 @@ public class AuthService : IAuthService
         {
             throw new UnauthorizedAccessException("Refresh token has expired");
         }
-        // Check user status
-        if (user.Status != "ACTIVE")
+        // Check user status — only block SUSPENDED, allow INACTIVE (email not yet verified)
+        if (user.Status == "SUSPENDED")
         {
-            throw new UnauthorizedAccessException($"Account is {user.Status.ToLower()}");
+            throw new UnauthorizedAccessException("Account is suspended. Please contact support.");
         }
         // Generate new tokens
         var newAccessToken = _jwtService.GenerateAccessToken(user);
@@ -169,7 +181,9 @@ public class AuthService : IAuthService
             AccessToken = newAccessToken,
             Email = user.Email,
             FullName = user.FullName,
-            RoleId = user.RoleId
+            RoleId = user.RoleId,
+            IsEmailVerified = user.EmailVerified,
+            Message = user.EmailVerified ? null : "Email not verified. Please check your inbox and verify your email."
         };
     }
 
@@ -258,6 +272,85 @@ public class AuthService : IAuthService
         return MapToUserDto(newUser);
     }
 
+    public async Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request)
+    {
+        var user = await _userRepository.GetByEmailAsync(request.Email);
+
+        if (user == null)
+        {
+            return new ForgotPasswordResponseDto
+            {
+                Success = true,
+                Message = "If the email exists, a password reset token has been sent."
+            };
+        }
+
+        if (user.Status != "ACTIVE")
+        {
+            throw new InvalidOperationException($"Account is {user.Status.ToLower()}");
+        }
+
+        var resetToken = GenerateRandomToken();
+
+        user.OtpCode = resetToken;
+        user.OtpPurpose = "PASSWORD_RESET";
+        user.OtpExpiresAt = DateTime.UtcNow.AddMinutes(15);
+        user.OtpAttempts = 0;
+
+        await _userRepository.UpdateAsync(user);
+
+        return new ForgotPasswordResponseDto
+        {
+            Success = true,
+            Message = "Password reset token has been sent to your email.",
+            ResetToken = resetToken
+        };
+    }
+
+    public async Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request)
+    {
+        var users = await _userRepository.GetAllAsync();
+        var user = users.FirstOrDefault(u =>
+            u.OtpCode == request.Token &&
+            u.OtpPurpose == "PASSWORD_RESET");
+
+        if (user == null)
+        {
+            throw new UnauthorizedAccessException("Invalid or expired reset token");
+        }
+
+        if (user.OtpExpiresAt == null || user.OtpExpiresAt < DateTime.UtcNow)
+        {
+            user.OtpCode = null;
+            user.OtpPurpose = null;
+            user.OtpExpiresAt = null;
+            await _userRepository.UpdateAsync(user);
+
+            throw new UnauthorizedAccessException("Reset token has expired");
+        }
+
+        if (request.NewPassword != request.ConfirmPassword)
+        {
+            throw new InvalidOperationException("Passwords do not match");
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        user.OtpCode = null;
+        user.OtpPurpose = null;
+        user.OtpExpiresAt = null;
+        user.OtpAttempts = 0;
+        user.RefreshToken = null;
+        user.RefreshTokenExpiresAt = null;
+
+        await _userRepository.UpdateAsync(user);
+
+        return new ResetPasswordResponseDto
+        {
+            Success = true,
+            Message = "Password has been reset successfully. Please login with your new password."
+        };
+    }
+
     private UserDto MapToUserDto(User user)
     {
         return new UserDto
@@ -275,6 +368,12 @@ public class AuthService : IAuthService
                 Description = user.Role?.Description
             }
         };
+    }
+
+    private string GenerateRandomToken()
+    {
+        var random = new Random();
+        return random.Next(100000, 999999).ToString();
     }
 
     public async Task<List<UserDto>> GetAllUsersAsync()
@@ -304,6 +403,91 @@ public class AuthService : IAuthService
         _logger?.LogInformation("User with ID {UserId} has been set to INACTIVE", id);
 
         return MapToUserDto(user);
+    }
+
+    // ── Email OTP ──────────────────────────────────────────────────────────────
+
+    public async Task<VerifyEmailOtpResponseDto> VerifyEmailOtpAsync(Guid userId, VerifyEmailOtpRequestDto request)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null)
+            throw new InvalidOperationException("User not found");
+
+        if (user.EmailVerified)
+        {
+            return new VerifyEmailOtpResponseDto
+            {
+                Success = true,
+                Message = "Email is already verified.",
+                IsEmailVerified = true
+            };
+        }
+
+        if (string.IsNullOrEmpty(user.OtpCode))
+            throw new InvalidOperationException("No OTP found. Please request a new OTP.");
+
+        if (user.OtpPurpose != "EMAIL_VERIFICATION")
+            throw new InvalidOperationException("Invalid OTP purpose. Please request a new OTP.");
+
+        if (user.OtpExpiresAt == null || user.OtpExpiresAt < DateTime.UtcNow)
+            throw new InvalidOperationException("OTP has expired. Please request a new OTP.");
+
+        if (user.OtpCode?.Trim() != request.Otp.Trim())
+            throw new InvalidOperationException("Invalid OTP code.");
+
+        // Mark email as verified, activate account and clear OTP fields
+        user.EmailVerified = true;
+        user.Status = "ACTIVE";
+        user.OtpCode = null;
+        user.OtpPurpose = null;
+        user.OtpExpiresAt = null;
+        user.OtpAttempts = 0;
+        await _userRepository.UpdateAsync(user);
+
+        _logger?.LogInformation("Email verified successfully for user {UserId}", userId);
+
+        return new VerifyEmailOtpResponseDto
+        {
+            Success = true,
+            Message = "Email verified successfully.",
+            IsEmailVerified = true
+        };
+    }
+
+    public async Task ResendEmailOtpAsync(Guid userId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null)
+            throw new InvalidOperationException("User not found");
+
+        if (user.EmailVerified)
+            throw new InvalidOperationException("Email is already verified.");
+
+        await SendEmailOtpAsync(user);
+
+        _logger?.LogInformation("OTP resent for user {UserId}", userId);
+    }
+
+    /// <summary>Generates a new OTP, saves it to user fields, and sends via email.</summary>
+    private async Task SendEmailOtpAsync(User user)
+    {
+        var code = _otpService.GenerateOtp();
+
+        user.OtpCode = code;
+        user.OtpPurpose = "EMAIL_VERIFICATION";
+        user.OtpExpiresAt = DateTime.UtcNow.AddMinutes(5);
+        user.OtpAttempts = 0;
+        await _userRepository.UpdateAsync(user);
+
+        try
+        {
+            await _emailService.SendOtpEmailAsync(user.Email, user.FullName ?? user.Email, code);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to send OTP email to {Email}", user.Email);
+            // Don't rethrow — OTP is stored, user can request resend
+        }
     }
 
     private async Task LogLoginAttemptAsync(Guid userId, string status, string? failureReason, string? ipAddress, string? userAgent)

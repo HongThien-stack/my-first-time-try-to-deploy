@@ -185,6 +185,98 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Forgot password endpoint - sends reset token to user email
+    /// </summary>
+    /// <param name="request">User email address</param>
+    /// <returns>Password reset link and token</returns>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.ForgotPasswordAsync(request);
+
+            _logger.LogInformation("Forgot password requested for {Email}", request.Email);
+
+            return Ok(new
+            {
+                success = response.Success,
+                message = response.Message,
+                data = new { resetToken = response.ResetToken }
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Forgot password failed for {Email}: {Message}", request.Email, ex.Message);
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during forgot password for {Email}", request.Email);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred during password reset request"
+            });
+        }
+    }
+
+    /// <summary>
+    /// Reset password endpoint - resets user password using token
+    /// </summary>
+    /// <param name="request">Email, reset token, and new password</param>
+    /// <returns>Password reset confirmation</returns>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request)
+    {
+        try
+        {
+            var response = await _authService.ResetPasswordAsync(request);
+
+            _logger.LogInformation("Password reset successfully for {Email}", request.Email);
+
+            return Ok(new
+            {
+                success = response.Success,
+                message = response.Message
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Reset password failed for {Email}: {Message}", request.Email, ex.Message);
+            return Unauthorized(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Reset password validation failed for {Email}: {Message}", request.Email, ex.Message);
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during password reset for {Email}", request.Email);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred during password reset"
+            });
+        }
+    }
+
+    /// <summary>
     /// Test endpoint to verify authentication
     /// </summary>
     [HttpGet("me")]
@@ -206,5 +298,69 @@ public class AuthController : ControllerBase
                 claims = User.Claims.Select(c => new { c.Type, c.Value })
             }
         });
+    }
+
+    /// <summary>
+    /// Verify email using OTP. User must be authenticated (JWT).
+    /// OTP was sent to the user's email during registration.
+    /// </summary>
+    [HttpPost("verify-email")]
+    [Authorize]
+    public async Task<IActionResult> VerifyEmailOtp([FromBody] VerifyEmailOtpRequestDto request)
+    {
+        try
+        {
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized(new { success = false, message = "Invalid token." });
+
+            var result = await _authService.VerifyEmailOtpAsync(userId, request);
+
+            return Ok(new
+            {
+                success = result.Success,
+                message = result.Message,
+                data = new { isEmailVerified = result.IsEmailVerified }
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Email OTP verification failed: {Message}", ex.Message);
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during email OTP verification");
+            return StatusCode(500, new { success = false, message = "An error occurred during email verification." });
+        }
+    }
+
+    /// <summary>
+    /// Resend a new OTP to the authenticated user's email.
+    /// </summary>
+    [HttpPost("resend-email-otp")]
+    [Authorize]
+    public async Task<IActionResult> ResendEmailOtp()
+    {
+        try
+        {
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userIdStr, out var userId))
+                return Unauthorized(new { success = false, message = "Invalid token." });
+
+            await _authService.ResendEmailOtpAsync(userId);
+
+            return Ok(new { success = true, message = "A new OTP has been sent to your email." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Resend OTP failed: {Message}", ex.Message);
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during OTP resend");
+            return StatusCode(500, new { success = false, message = "An error occurred while resending OTP." });
+        }
     }
 }

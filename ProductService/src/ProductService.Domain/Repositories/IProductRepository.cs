@@ -5,5 +5,11 @@ namespace ProductService.Domain.Repositories;
 public interface IProductRepository
 {
     Task<IEnumerable<Product>> GetAllAsync();
-    // Các methods khác sẽ thêm sau
+    Task<Product?> GetByIdAsync(Guid id);
+    Task<Product?> GetBySkuAsync(string sku);
+    Task<Product> CreateAsync(Product product);
+    Task<Product> UpdateAsync(Product product);
+    Task<bool> ExistsBySkuAsync(string sku);
+    Task<bool> ExistsByBarcodeAsync(string barcode);
+    Task SoftDeleteAsync(Product product);
 }
