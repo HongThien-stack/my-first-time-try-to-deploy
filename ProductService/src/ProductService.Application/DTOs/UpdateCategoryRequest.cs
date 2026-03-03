@@ -16,4 +16,6 @@ public class UpdateCategoryRequest
     [Required(ErrorMessage = "Status is required")]
     [RegularExpression("ACTIVE|INACTIVE", ErrorMessage = "Status must be either 'ACTIVE' or 'INACTIVE'")]
     public string Status { get; set; } = "ACTIVE";
+    public bool IsDeleted { get; set; } = false;
+
 }
