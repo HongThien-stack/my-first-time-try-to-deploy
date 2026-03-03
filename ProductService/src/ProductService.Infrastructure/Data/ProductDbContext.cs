@@ -24,11 +24,13 @@ public class ProductDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).IsRequired().HasDefaultValue("ACTIVE");
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").IsRequired().HasDefaultValue(false);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").IsRequired();
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
             entity.HasIndex(e => e.Name).HasDatabaseName("IX_categories_name");
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_categories_status");
+            entity.HasIndex(e => e.IsDeleted).HasDatabaseName("IX_categories_is_deleted");
         });
 
         // Configure Product
