@@ -56,6 +56,7 @@ builder.Services.Configure<CloudinarySettings>(
 // Add repositories
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 
 // Add services
 builder.Services.AddScoped<IProductService, ProductApplicationService>();
@@ -89,6 +90,9 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<ICategoryService, CategoryApplicationService>();
 
 // Configure CORS
+builder.Services.AddScoped<ICategoryService, CategoryApplicationService>();
+
+// Add CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
