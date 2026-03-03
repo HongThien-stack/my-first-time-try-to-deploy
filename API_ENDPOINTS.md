@@ -65,7 +65,31 @@ Response: 200 OK
       "id": "uuid",
       "email": "admin@company.com",
       "fullName": "Admin User",
-      "role": "Admin"
+      "role": "Admin",
+      "workplace": null
+    }
+  }
+}
+
+// For Manager/Staff with workplace:
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJhbGc...",
+    "refreshToken": "refresh_token_here",
+    "expiresIn": 3600,
+    "user": {
+      "id": "22222222-2222-2222-2222-222222222221",
+      "email": "manager1@company.com",
+      "fullName": "Trần Thị Manager",
+      "role": "Manager",
+      "workplace": {
+        "type": "WAREHOUSE",
+        "id": "W0000001-0001-0001-0001-000000000001",
+        "name": "Kho Tổng HCM",
+        "code": "W-HCM",
+        "address": "123 Đường ABC, Q. Thủ Đức, TP.HCM"
+      }
     }
   }
 }
@@ -100,7 +124,31 @@ Reset mật khẩu với OTP
 Đổi mật khẩu
 
 ### ✅ **GET /api/auth/me** [P0]
-Lấy thông tin user hiện tại
+Lấy thông tin user hiện tại (bao gồm workplace)
+```json
+Response: 200 OK
+{
+  "success": true,
+  "data": {
+    "id": "22222222-2222-2222-2222-222222222221",
+    "email": "manager1@company.com",
+    "fullName": "Trần Thị Manager",
+    "role": "Manager",
+    "workplace": {
+      "type": "WAREHOUSE",
+      "id": "W0000001-0001-0001-0001-000000000001",
+      "name": "Kho Tổng HCM",
+      "code": "W-HCM",
+      "address": "123 Đường ABC, Q. Thủ Đức"
+    },
+    "permissions": {
+      "can_manage_inventory": true,
+      "can_approve_transfers": true,
+      "can_approve_restocks": true
+    }
+  }
+}
+```
 
 ### ✅ **POST /api/auth/verify-email** [P2]
 Xác thực email với OTP
@@ -159,60 +207,6 @@ Tạo role mới (Admin only)
 
 ### **PUT /api/roles/:id** [P2]
 Cập nhật role
-
----
-
-## **User Location APIs** ⭐ NEW
-
-### **GET /api/user-locations/me** [P0]
-Lấy danh sách locations được gán cho user hiện tại
-```json
-Response: 200 OK
-{
-  "success": true,
-  "data": {
-    "user_id": "uuid",
-    "primary_location": {
-      "location_id": "uuid",
-      "location_type": "WAREHOUSE",
-      "location_name": "Kho Tổng HCM",
-      "location_code": "W-HCM",
-      "role_at_location": "MANAGER",
-      "is_primary": true
-    },
-    "additional_locations": [...],
-    "permissions": {
-      "can_manage_inventory": true,
-      "can_approve_transfers": true
-    }
-  }
-}
-```
-
-### **GET /api/user-locations/user/:userId** [P0]
-Lấy danh sách locations của một user (Admin only)
-
-### **POST /api/user-locations** [P0]
-Gán user vào location
-```json
-Request:
-{
-  "user_id": "uuid",
-  "location_type": "WAREHOUSE",
-  "location_id": "uuid",
-  "role_at_location": "MANAGER",
-  "is_primary": true
-}
-```
-
-### **PUT /api/user-locations/:id** [P1]
-Cập nhật user location assignment
-
-### **DELETE /api/user-locations/:id** [P1]
-Xóa user location assignment
-
-### **GET /api/user-locations/location/:locationId/users** [P0]
-Lấy danh sách users được gán vào một location
 
 ---
 
@@ -1360,15 +1354,15 @@ Báo cáo thành viên loyalty
 
 # **📊 API SUMMARY**
 
-## **Total APIs: 137+**
+## **Total APIs: 131**
 
 ### **Implementation Status:**
 - ✅ **Implemented:** 20 APIs (IdentityService: 10, ProductService: 10)
-- ⭐ **New (Need to implement):** 17 APIs (User Locations: 6, Notifications: 7, System Settings: 4)
-- ⏳ **Pending:** 100+ APIs
+- ⭐ **New (Need to implement):** 11 APIs (Notifications: 7, System Settings: 4)
+- ⏳ **Pending:** 100 APIs
 
 ### **By Service:**
-- IdentityService: 37 APIs (✅ 10 implemented, ⭐ 17 new)
+- IdentityService: 31 APIs (✅ 10 implemented, ⭐ 11 new)
 - ProductService: 15 APIs (✅ 10 implemented)
 - InventoryService: 45 APIs
 - POSService: 10 APIs

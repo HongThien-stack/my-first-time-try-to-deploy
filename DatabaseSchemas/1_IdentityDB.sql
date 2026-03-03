@@ -62,6 +62,10 @@ BEGIN
         
         -- Email verification
         email_verified BIT NOT NULL DEFAULT 0,
+        
+        -- Workplace Assignment (Option 2: Simple single location per user)
+        workplace_type NVARCHAR(50) NULL, -- WAREHOUSE | STORE | NULL (for Admin/Customer)
+        workplace_id UNIQUEIDENTIFIER NULL, -- InventoryDB.warehouses.id
 
         CONSTRAINT FK_users_roles FOREIGN KEY (role_id) REFERENCES roles(id)
     );
@@ -72,6 +76,7 @@ BEGIN
     CREATE INDEX IX_users_status ON users(status);
     CREATE INDEX IX_users_refresh_token ON users(refresh_token);
     CREATE INDEX IX_users_otp_code ON users(otp_code);
+    CREATE INDEX IX_users_workplace ON users(workplace_type, workplace_id);
 END
 GO
 
@@ -124,33 +129,6 @@ BEGIN
     CREATE INDEX IX_audit_logs_action ON user_audit_logs(action);
     CREATE INDEX IX_audit_logs_entity_type ON user_audit_logs(entity_type);
     CREATE INDEX IX_audit_logs_performed_at ON user_audit_logs(performed_at);
-END
-GO
-
--- =====================================================
--- Table: user_locations
--- Purpose: Assign users to specific warehouse/store locations
--- =====================================================
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'user_locations')
-BEGIN
-    CREATE TABLE user_locations (
-        id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        user_id UNIQUEIDENTIFIER NOT NULL,
-        location_type NVARCHAR(50) NOT NULL, -- WAREHOUSE | STORE
-        location_id UNIQUEIDENTIFIER NOT NULL, -- InventoryDB.warehouses.id
-        role_at_location NVARCHAR(50) NOT NULL, -- MANAGER | STAFF | VIEWER
-        is_primary BIT NOT NULL DEFAULT 0, -- Primary location for this user
-        assigned_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        assigned_by UNIQUEIDENTIFIER, -- Admin who assigned
-        is_active BIT NOT NULL DEFAULT 1,
-        
-        CONSTRAINT FK_user_locations_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        CONSTRAINT UQ_user_location UNIQUE (user_id, location_type, location_id)
-    );
-    
-    CREATE INDEX IX_user_locations_user_id ON user_locations(user_id);
-    CREATE INDEX IX_user_locations_location ON user_locations(location_type, location_id);
-    CREATE INDEX IX_user_locations_is_active ON user_locations(is_active);
 END
 GO
 
@@ -251,70 +229,35 @@ BEGIN
     -- You should call POST /api/utility/update-passwords after database creation
     DECLARE @TempPasswordHash NVARCHAR(MAX) = 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==';
     
-    INSERT INTO users (id, email, password_hash, full_name, phone, role_id, status, email_verified) VALUES
-    -- Admin Users (role_id = 1)
-    ('11111111-1111-1111-1111-111111111111', 'admin@company.com', @TempPasswordHash, N'System Administrator', '0901000001', 1, 'ACTIVE', 1),
-    ('11111111-1111-1111-1111-111111111112', 'admin2@company.com', @TempPasswordHash, N'Nguyễn Văn Admin', '0901000002', 1, 'ACTIVE', 1),
+    INSERT INTO users (id, email, password_hash, full_name, phone, role_id, status, email_verified, workplace_type, workplace_id) VALUES
+    -- Admin Users (role_id = 1) - No workplace
+    ('11111111-1111-1111-1111-111111111111', 'admin@company.com', @TempPasswordHash, N'System Administrator', '0901000001', 1, 'ACTIVE', 1, NULL, NULL),
+    ('11111111-1111-1111-1111-111111111112', 'admin2@company.com', @TempPasswordHash, N'Nguyễn Văn Admin', '0901000002', 1, 'ACTIVE', 1, NULL, NULL),
     
-    -- Manager Users (role_id = 2)
-    ('22222222-2222-2222-2222-222222222221', 'manager1@company.com', @TempPasswordHash, N'Trần Thị Manager', '0902000001', 2, 'ACTIVE', 1),
-    ('22222222-2222-2222-2222-222222222222', 'manager2@company.com', @TempPasswordHash, N'Lê Văn Quản Lý', '0902000002', 2, 'ACTIVE', 1),
+    -- Manager Users (role_id = 2) - Assigned to warehouses/stores
+    ('22222222-2222-2222-2222-222222222221', 'manager1@company.com', @TempPasswordHash, N'Trần Thị Manager', '0902000001', 2, 'ACTIVE', 1, 'WAREHOUSE', 'W0000001-0001-0001-0001-000000000001'),
+    ('22222222-2222-2222-2222-222222222222', 'manager2@company.com', @TempPasswordHash, N'Lê Văn Quản Lý', '0902000002', 2, 'ACTIVE', 1, 'STORE', 'S0000001-0001-0001-0001-000000000001'),
     
-    -- Store Staff Users (role_id = 3)
-    ('33333333-3333-3333-3333-333333333331', 'cashier1@company.com', @TempPasswordHash, N'Phạm Thị Thu Ngân', '0903000001', 3, 'ACTIVE', 1),
-    ('33333333-3333-3333-3333-333333333332', 'cashier2@company.com', @TempPasswordHash, N'Hoàng Văn Cashier', '0903000002', 3, 'ACTIVE', 1),
-    ('33333333-3333-3333-3333-333333333333', 'cashier3@company.com', @TempPasswordHash, N'Vũ Thị Hoa', '0903000003', 3, 'ACTIVE', 1),
+    -- Store Staff Users (role_id = 3) - Assigned to stores
+    ('33333333-3333-3333-3333-333333333331', 'cashier1@company.com', @TempPasswordHash, N'Phạm Thị Thu Ngân', '0903000001', 3, 'ACTIVE', 1, 'STORE', 'S0000001-0001-0001-0001-000000000001'),
+    ('33333333-3333-3333-3333-333333333332', 'cashier2@company.com', @TempPasswordHash, N'Hoàng Văn Cashier', '0903000002', 3, 'ACTIVE', 1, 'STORE', 'S0000001-0001-0001-0001-000000000001'),
+    ('33333333-3333-3333-3333-333333333333', 'cashier3@company.com', @TempPasswordHash, N'Vũ Thị Hoa', '0903000003', 3, 'ACTIVE', 1, 'STORE', 'S0000001-0001-0001-0001-000000000002'),
     
-    -- Warehouse Staff Users (role_id = 4)
-    ('44444444-4444-4444-4444-444444444441', 'warehouse1@company.com', @TempPasswordHash, N'Đỗ Văn Kho', '0904000001', 4, 'ACTIVE', 1),
-    ('44444444-4444-4444-4444-444444444442', 'warehouse2@company.com', @TempPasswordHash, N'Bùi Thị Kho Bãi', '0904000002', 4, 'ACTIVE', 1),
+    -- Warehouse Staff Users (role_id = 4) - Assigned to warehouses
+    ('44444444-4444-4444-4444-444444444441', 'warehouse1@company.com', @TempPasswordHash, N'Đỗ Văn Kho', '0904000001', 4, 'ACTIVE', 1, 'WAREHOUSE', 'W0000001-0001-0001-0001-000000000001'),
+    ('44444444-4444-4444-4444-444444444442', 'warehouse2@company.com', @TempPasswordHash, N'Bùi Thị Kho Bãi', '0904000002', 4, 'ACTIVE', 1, 'WAREHOUSE', 'W0000001-0001-0001-0001-000000000002'),
     
-    -- Customer Users (role_id = 5)
-    ('55555555-5555-5555-5555-555555555551', 'customer1@gmail.com', @TempPasswordHash, N'Nguyễn Văn Khách', '0905000001', 5, 'ACTIVE', 1),
-    ('55555555-5555-5555-5555-555555555552', 'customer2@gmail.com', @TempPasswordHash, N'Trần Thị Hương', '0905000002', 5, 'ACTIVE', 1),
-    ('55555555-5555-5555-5555-555555555553', 'customer3@gmail.com', @TempPasswordHash, N'Lê Văn Minh', '0905000003', 5, 'ACTIVE', 1),
-    ('55555555-5555-5555-5555-555555555554', 'customer4@gmail.com', @TempPasswordHash, N'Phạm Thị Lan', '0905000004', 5, 'ACTIVE', 1),
+    -- Customer Users (role_id = 5) - No workplace
+    ('55555555-5555-5555-5555-555555555551', 'customer1@gmail.com', @TempPasswordHash, N'Nguyễn Văn Khách', '0905000001', 5, 'ACTIVE', 1, NULL, NULL),
+    ('55555555-5555-5555-5555-555555555552', 'customer2@gmail.com', @TempPasswordHash, N'Trần Thị Hương', '0905000002', 5, 'ACTIVE', 1, NULL, NULL),
+    ('55555555-5555-5555-5555-555555555553', 'customer3@gmail.com', @TempPasswordHash, N'Lê Văn Minh', '0905000003', 5, 'ACTIVE', 1, NULL, NULL),
+    ('55555555-5555-5555-5555-555555555554', 'customer4@gmail.com', @TempPasswordHash, N'Phạm Thị Lan', '0905000004', 5, 'ACTIVE', 1, NULL, NULL),
     
     -- Inactive User (for testing)
-    ('66666666-6666-6666-6666-666666666661', 'inactive@company.com', @TempPasswordHash, N'Nguyễn Văn Inactive', '0906000001', 3, 'INACTIVE', 0),
+    ('66666666-6666-6666-6666-666666666661', 'inactive@company.com', @TempPasswordHash, N'Nguyễn Văn Inactive', '0906000001', 3, 'INACTIVE', 0, 'STORE', 'S0000001-0001-0001-0001-000000000001'),
     
     -- Suspended User (for testing)
-    ('77777777-7777-7777-7777-777777777771', 'suspended@company.com', @TempPasswordHash, N'Trần Văn Suspended', '0907000001', 5, 'SUSPENDED', 1);
-END
-GO
-
--- =====================================================
--- Insert sample user locations
--- =====================================================
-IF NOT EXISTS (SELECT * FROM user_locations)
-BEGIN
-    -- Manager 1 → Kho Tổng HCM
-    INSERT INTO user_locations (id, user_id, location_type, location_id, role_at_location, is_primary, assigned_by) VALUES
-    (NEWID(), '22222222-2222-2222-2222-222222222221', 'WAREHOUSE', 'W0000001-0001-0001-0001-000000000001', 'MANAGER', 1, '11111111-1111-1111-1111-111111111111');
-    
-    -- Manager 2 → Cửa Hàng Thủ Đức
-    INSERT INTO user_locations (id, user_id, location_type, location_id, role_at_location, is_primary, assigned_by) VALUES
-    (NEWID(), '22222222-2222-2222-2222-222222222222', 'STORE', 'S0000001-0001-0001-0001-000000000001', 'MANAGER', 1, '11111111-1111-1111-1111-111111111111');
-    
-    -- Cashier 1 → Cửa Hàng Thủ Đức
-    INSERT INTO user_locations (id, user_id, location_type, location_id, role_at_location, is_primary, assigned_by) VALUES
-    (NEWID(), '33333333-3333-3333-3333-333333333331', 'STORE', 'S0000001-0001-0001-0001-000000000001', 'STAFF', 1, '11111111-1111-1111-1111-111111111111');
-    
-    -- Cashier 2 → Cửa Hàng Thủ Đức
-    INSERT INTO user_locations (id, user_id, location_type, location_id, role_at_location, is_primary, assigned_by) VALUES
-    (NEWID(), '33333333-3333-3333-3333-333333333332', 'STORE', 'S0000001-0001-0001-0001-000000000001', 'STAFF', 1, '11111111-1111-1111-1111-111111111111');
-    
-    -- Cashier 3 → Cửa Hàng Quận 1
-    INSERT INTO user_locations (id, user_id, location_type, location_id, role_at_location, is_primary, assigned_by) VALUES
-    (NEWID(), '33333333-3333-3333-3333-333333333333', 'STORE', 'S0000001-0001-0001-0001-000000000002', 'STAFF', 1, '11111111-1111-1111-1111-111111111111');
-    
-    -- Warehouse Staff 1 → Kho Tổng HCM
-    INSERT INTO user_locations (id, user_id, location_type, location_id, role_at_location, is_primary, assigned_by) VALUES
-    (NEWID(), '44444444-4444-4444-4444-444444444441', 'WAREHOUSE', 'W0000001-0001-0001-0001-000000000001', 'STAFF', 1, '11111111-1111-1111-1111-111111111111');
-    
-    -- Warehouse Staff 2 → Kho Miền Bắc
-    INSERT INTO user_locations (id, user_id, location_type, location_id, role_at_location, is_primary, assigned_by) VALUES
-    (NEWID(), '44444444-4444-4444-4444-444444444442', 'WAREHOUSE', 'W0000001-0001-0001-0001-000000000002', 'STAFF', 1, '11111111-1111-1111-1111-111111111111');
+    ('77777777-7777-7777-7777-777777777771', 'suspended@company.com', @TempPasswordHash, N'Trần Văn Suspended', '0907000001', 5, 'SUSPENDED', 1, NULL, NULL);
 END
 GO
 
@@ -430,7 +373,7 @@ PRINT '';
 PRINT 'All default password: Password123!';
 PRINT '';
 PRINT 'New Features Added:';
-PRINT '  ✅ User-Location Assignment (7 records)';
+PRINT '  ✅ Workplace Assignment (Simple single location per user)';
 PRINT '  ✅ Notifications System (3 sample alerts)';
 PRINT '  ✅ System Settings (16 configuration keys)';
 PRINT '===============================================';

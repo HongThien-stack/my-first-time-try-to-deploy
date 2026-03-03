@@ -2,7 +2,7 @@
 
 ## 📋 **OVERVIEW**
 
-Hệ thống Internal SCM bao gồm **6 microservices** với **6 databases** riêng biệt, tổng cộng **45 tables**.
+Hệ thống Internal SCM bao gồm **6 microservices** với **6 databases** riêng biệt, tổng cộng **44 tables**.
 
 ---
 
@@ -266,13 +266,13 @@ vouchers.code (NVARCHAR) referenced by:
 
 | Database | Tables | Sample Records | Purpose |
 |----------|--------|----------------|---------|
-| **IdentityDB** | 7 | 16 users, 7 location assignments, 3 notifications, 16 settings | User Management + Permissions + Notifications |
+| **IdentityDB** | 6 | 16 users, 3 notifications, 16 settings | User Management + Notifications |
 | **ProductDB** | 2 | 8 products | Product Catalog |
 | **InventoryDB** | 16 | 30+ records | Warehouse Management |
 | **POSDB** | 3 | 5 sales | Point of Sale |
 | **PaymentDB** | 5 | 4 transactions | Payment Gateway |
 | **PromotionLoyaltyDB** | 12 | 20+ records | Promotions & Loyalty |
-| **TOTAL** | **45** | **110+ records** | Complete System |
+| **TOTAL** | **44** | **100+ records** | Complete System |
 
 ---
 
@@ -391,15 +391,14 @@ When querying across services, ensure:
 
 ## **📈 SAMPLE QUERIES**
 
-### **Get User with Role and Location**
+### **Get User with Role and Workplace**
 ```sql
 USE IdentityDB;
 SELECT 
     u.id, u.email, u.full_name, r.name AS role_name,
-    ul.location_type, ul.location_id, ul.role_at_location, ul.is_primary
+    u.workplace_type, u.workplace_id
 FROM users u
 JOIN roles r ON u.role_id = r.id
-LEFT JOIN user_locations ul ON u.id = ul.user_id AND ul.is_active = 1
 WHERE u.email = 'manager1@company.com';
 ```
 

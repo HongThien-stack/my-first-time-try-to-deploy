@@ -181,31 +181,31 @@ Internal Supply Chain Management System với E-wallet Payments
 
 ### **2. Quản Lý Người Dùng**
 **Người dùng:** Admin  
-**Mục đích:** CRUD users, phân quyền, gán location
+**Mục đích:** CRUD users, phân quyền, gán workplace
 
 **Màn hình danh sách:**
 ```
-┌───────────────────────────────────────────────────────────┐
-│  👥 QUẢN LÝ NGƯỜI DÙNG                                    │
-├───────────────────────────────────────────────────────────┤
-│                                                            │
-│  Filters:                                                  │
-│  [Role: All ▼] [Location: All ▼] [Status: All ▼]         │
-│  [Search: ___]  [+ Add User]              [Export]        │
-│                                                            │
-│  Table:                                                    │
+┌─────────────────────────────────────────────────┐
+│  👥 QUẢN LÝ NGƯỜI DÙNG                          │
+├─────────────────────────────────────────────────┤
+│                                                  │
+│  Filters:                                        │
+│  [Role: All ▼] [Workplace: All ▼] [Status: All ▼] │
+│  [Search: ___]  [+ Add User]           [Export]  │
+│                                                  │
+│  Table:                                          │
 │  ┌──┬──────────┬────────────┬────────┬─────────┬──────┐  │
-│  │ID│Email     │Full Name   │Role    │Location │Status│  │
+│  │ID│Email     │Full Name   │Role    │Workplace│Status│  │
 │  ├──┼──────────┼────────────┼────────┼─────────┼──────┤  │
-│  │1 │admin@... │Admin User  │Admin   │All      │Active│  │
+│  │1 │admin@... │Admin User  │Admin   │-        │Active│  │
 │  │2 │manager...│Tran Manager│Manager │Kho HCM  │Active│  │
 │  │3 │cashier...│Pham Cashier│Staff   │CH Thủ Đ │Active│  │
 │  │  │          │            │        │         │[Edit]│  │
 │  └──┴──────────┴────────────┴────────┴─────────┴──────┘  │
-│                                                            │
-│  Pagination: [<] 1 2 3 ... 10 [>]                         │
-│                                                            │
-└───────────────────────────────────────────────────────────┘
+│                                                  │
+│  Pagination: [<] 1 2 3 ... 10 [>]               │
+│                                                  │
+└─────────────────────────────────────────────────┘
 ```
 
 **Form thêm/sửa user:**
@@ -221,29 +221,22 @@ Internal Supply Chain Management System với E-wallet Payments
 │  Password: [_____________________] *            │
 │  Confirm Password: [_____________________] *    │
 │                                                  │
-│  Role: [Admin ▼] *                              │
+│  Role: [Manager ▼] *                             │
 │  Status: [Active ▼] *                           │
 │                                                  │
-│  ──── LOCATION ASSIGNMENT ────                  │
-│  Assigned Locations: (for Manager/Staff)        │
-│  ┌────────────────────────┬──────────┬────────┐ │
-│  │ Location               │ Role     │Primary │ │
-│  ├────────────────────────┼──────────┼────────┤ │
-│  │ Kho Tổng HCM          │ MANAGER  │ ☑     │ │
-│  │ Cửa Hàng Thủ Đức      │ STAFF    │ ☐     │ │
-│  └────────────────────────┴──────────┴────────┘ │
-│  [+ Add Location]                               │
+│  Workplace: (for Manager/Staff only)            │
+│    Type: [Warehouse ▼]                          │
+│    Location: [Kho Tổng HCM ▼]                  │
 │                                                  │
 │  [Cancel] [Save]                                │
 │                                                  │
 └─────────────────────────────────────────────────┘
 ```
 
-**Chức năng mới:**
-- ✅ **Location Assignment**: Manager/Staff được gán vào warehouse/store cụ thể
-- ✅ **Role at Location**: MANAGER (duyệt), STAFF (thao tác), VIEWER (chỉ xem)
-- ✅ **Primary Location**: Mỗi user có 1 location chính
-- ✅ **Multi-Location**: User có thể được gán vào nhiều location
+**Chức năng:**
+- ✅ **Simple Workplace Assignment**: Mỗi user chỉ thuộc về 1 warehouse/store
+- ✅ **Admin/Customer**: Không có workplace (NULL)
+- ✅ **Direct Assignment**: Không cần bảng phức tạp
 
 ---
 
@@ -1406,13 +1399,13 @@ Internal Supply Chain Management System với E-wallet Payments
 ### **Priority Screens:** 12 màn hình critical trong 6 tuần đầu
 
 ### **New Features Added:**
-- ✅ **User-Location Assignment**: Staff/Manager được gán vào warehouse/store cụ thể với role phân quyền
+- ✅ **Workplace Assignment (Simple)**: Staff/Manager được gán vào 1 warehouse/store cố định
 - ✅ **Notifications System**: Hệ thống thông báo real-time (low stock, expiring, approval)
 - ✅ **System Settings**: Cấu hình database-driven (không hard-code), hot reload
 
 ### **Database:**
-- **6 Databases:** IdentityDB (7 tables), ProductDB (2), InventoryDB (16), POSDB (3), PaymentDB (5), PromotionLoyaltyDB (12)
-- **Total Tables:** 45 tables
-- **Sample Data:** 110+ records with fixed UUIDs
+- **6 Databases:** IdentityDB (6 tables), ProductDB (2), InventoryDB (16), POSDB (3), PaymentDB (5), PromotionLoyaltyDB (12)
+- **Total Tables:** 44 tables
+- **Sample Data:** 100+ records with fixed UUIDs
 
 **Hệ thống đầy đủ tính năng quản lý chuỗi cung ứng nội bộ với thanh toán hiện đại!**
