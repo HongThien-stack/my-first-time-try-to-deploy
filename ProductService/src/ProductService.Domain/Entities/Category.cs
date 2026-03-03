@@ -5,6 +5,7 @@ public class Category
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Status { get; set; } = "ACTIVE"; // ACTIVE | INACTIVE
+    public bool IsDeleted { get; set; } = false; // Soft delete flag
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     

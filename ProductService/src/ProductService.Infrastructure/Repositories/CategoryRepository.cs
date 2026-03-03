@@ -16,7 +16,9 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task<List<Category>> GetAllCategories()
     {
-        return await _context.Categories.ToListAsync();
+        return await _context.Categories
+            .Where(c => !c.IsDeleted)
+            .ToListAsync();
     }
 
     public void AddCategory(Category category)
@@ -29,7 +31,7 @@ public class CategoryRepository : ICategoryRepository
     {
         return await _context.Categories
             .Include(c => c.Products)
-            .FirstOrDefaultAsync(c => c.Id == id);
+            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
     }
 
     public async Task<Category> UpdateAsync(Category category)
@@ -41,17 +43,22 @@ public class CategoryRepository : ICategoryRepository
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        var category = await _context.Categories.FindAsync(id);
+        var category = await _context.Categories
+            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
         if (category == null)
             return false;
 
-        _context.Categories.Remove(category);
+        // Soft delete: chỉ cập nhật IsDeleted = true
+        category.IsDeleted = true;
+        category.UpdatedAt = DateTime.UtcNow;
+        
+        _context.Categories.Update(category);
         await _context.SaveChangesAsync();
         return true;
     }
 
     public async Task<bool> HasProductsAsync(Guid id)
     {
-        return await _context.Products.AnyAsync(p => p.CategoryId == id);
+        return await _context.Products.AnyAsync(p => p.CategoryId == id && !p.IsDeleted);
     }
 }
