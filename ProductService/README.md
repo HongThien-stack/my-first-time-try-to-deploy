@@ -53,7 +53,7 @@ Swagger UI: `http://localhost:5000/swagger`
 - ⏳ Search and filter products (to be implemented)
 
 
-## Database
+## Database schema
 
 The service uses two main tables:
 - `categories`: Product categories (26 categories for Bách Hóa Xanh)
