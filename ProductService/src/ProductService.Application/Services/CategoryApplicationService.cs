@@ -38,6 +38,7 @@ public class CategoryApplicationService : ICategoryService
             Id = category.Id,
             Name = category.Name,
             Status = category.Status,
+            IsDeleted = category.IsDeleted,
             ProductCount = category.Products.Count,
             CreatedAt = category.CreatedAt,
             UpdatedAt = category.UpdatedAt
@@ -53,6 +54,7 @@ public class CategoryApplicationService : ICategoryService
 
         category.Name = request.Name;
         category.Status = request.Status;
+        category.IsDeleted = request.IsDeleted;
         category.UpdatedAt = DateTime.UtcNow;
 
         var updated = await _categoryRepository.UpdateAsync(category);
@@ -62,26 +64,11 @@ public class CategoryApplicationService : ICategoryService
             Id = updated.Id,
             Name = updated.Name,
             Status = updated.Status,
+            IsDeleted = updated.IsDeleted,
             ProductCount = updated.Products.Count,
             CreatedAt = updated.CreatedAt,
             UpdatedAt = updated.UpdatedAt
         };
     }
 
-    public async Task<bool> DeleteCategoryAsync(Guid id)
-    {
-        var category = await _categoryRepository.GetByIdAsync(id);
-
-        if (category is null)
-            return false;
-
-        // Check if category has products
-        var hasProducts = await _categoryRepository.HasProductsAsync(id);
-        if (hasProducts)
-        {
-            throw new InvalidOperationException("Không thể xóa danh mục đang có sản phẩm");
-        }
-
-        return await _categoryRepository.DeleteAsync(id);
-    }
 }
