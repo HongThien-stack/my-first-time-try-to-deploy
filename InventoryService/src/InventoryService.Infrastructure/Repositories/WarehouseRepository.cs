@@ -38,7 +38,6 @@ public class WarehouseRepository : IWarehouseRepository
 
     public async Task UpdateAsync(Warehouse warehouse)
     {
-        warehouse.UpdatedAt = DateTime.UtcNow;
         _context.Warehouses.Update(warehouse);
         await _context.SaveChangesAsync();
     }
@@ -49,7 +48,6 @@ public class WarehouseRepository : IWarehouseRepository
         if (warehouse != null)
         {
             warehouse.IsDeleted = true;
-            warehouse.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
     }

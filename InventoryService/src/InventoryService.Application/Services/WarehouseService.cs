@@ -30,9 +30,10 @@ public class WarehouseService : IWarehouseService
                 Id = w.Id,
                 Name = w.Name,
                 Location = w.Location,
+                Capacity = w.Capacity,
+                Status = w.Status,
                 IsDeleted = w.IsDeleted,
-                CreatedAt = w.CreatedAt,
-                UpdatedAt = w.UpdatedAt
+                CreatedAt = w.CreatedAt
             });
     }
 
@@ -52,9 +53,10 @@ public class WarehouseService : IWarehouseService
             Id = warehouse.Id,
             Name = warehouse.Name,
             Location = warehouse.Location,
+            Capacity = warehouse.Capacity,
+            Status = warehouse.Status,
             IsDeleted = warehouse.IsDeleted,
-            CreatedAt = warehouse.CreatedAt,
-            UpdatedAt = warehouse.UpdatedAt
+            CreatedAt = warehouse.CreatedAt
         };
     }
 }

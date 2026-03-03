@@ -4,11 +4,13 @@ public class StockMovementItem
 {
     public Guid Id { get; set; }
     public Guid MovementId { get; set; }
-    public Guid BatchId { get; set; }
+    public Guid ProductId { get; set; } // ProductDB.products.id
+    public Guid? BatchId { get; set; } // product_batches.id
+    public Guid? SlotId { get; set; } // warehouse_slots.id
     public int Quantity { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public decimal? UnitPrice { get; set; } // For valuation
 
     // Navigation properties
-    public StockMovement? StockMovement { get; set; }
+    public StockMovement StockMovement { get; set; } = null!;
     public ProductBatch? ProductBatch { get; set; }
 }

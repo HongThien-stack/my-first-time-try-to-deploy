@@ -3,18 +3,20 @@ namespace InventoryService.Domain.Entities;
 public class ProductBatch
 {
     public Guid Id { get; set; }
-    public Guid ProductId { get; set; } // Reference to ProductDB.products.id
+    public Guid ProductId { get; set; } // ProductDB.products.id
     public Guid WarehouseId { get; set; }
-    public string BatchCode { get; set; } = string.Empty;
-    public DateTime? ManufactureDate { get; set; }
-    public DateTime? ExpirationDate { get; set; }
+    public Guid? SlotId { get; set; } // warehouse_slots.id
+    public string BatchNumber { get; set; } = string.Empty;
     public int Quantity { get; set; }
-    public bool IsDeleted { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-    public Guid? CreatedBy { get; set; }
-    public Guid? UpdatedBy { get; set; }
+    public DateTime? ManufacturingDate { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public string? Supplier { get; set; }
+    public DateTime ReceivedAt { get; set; }
+    public string Status { get; set; } = "AVAILABLE"; // AVAILABLE | SOLD | EXPIRED | DAMAGED
 
-    // Navigation property
-    public Warehouse? Warehouse { get; set; }
+    // Navigation properties
+    public Warehouse Warehouse { get; set; } = null!;
+    public WarehouseSlot? WarehouseSlot { get; set; }
+    public ICollection<TransferItem> TransferItems { get; set; } = new List<TransferItem>();
+    public ICollection<StockMovementItem> StockMovementItems { get; set; } = new List<StockMovementItem>();
 }

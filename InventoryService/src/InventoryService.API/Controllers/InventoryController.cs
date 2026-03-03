@@ -91,27 +91,28 @@ public class InventoryController : ControllerBase
     }
 
     /// <summary>
-    /// Get inventories by store ID
+    /// Get inventories by location (warehouse or store)
     /// </summary>
-    /// <param name="storeId">Store ID</param>
-    /// <returns>List of inventories for the store</returns>
-    [HttpGet("store/{storeId}")]
+    /// <param name="locationType">Location type (WAREHOUSE or STORE)</param>
+    /// <param name="locationId">Location ID</param>
+    /// <returns>List of inventories for the location</returns>
+    [HttpGet("location/{locationType}/{locationId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetByStore(Guid storeId)
+    public async Task<IActionResult> GetByLocation(string locationType, Guid locationId)
     {
         try
         {
-            var inventories = await _inventoryService.GetInventoriesByStoreAsync(storeId);
+            var inventories = await _inventoryService.GetInventoriesByLocationAsync(locationType, locationId);
             return Ok(new
             {
                 success = true,
-                message = $"Inventories for store {storeId} retrieved successfully",
+                message = $"Inventories for {locationType} {locationId} retrieved successfully",
                 data = inventories
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting inventories for store {StoreId}", storeId);
+            _logger.LogError(ex, "Error getting inventories for {LocationType} {LocationId}", locationType, locationId);
             return StatusCode(500, new
             {
                 success = false,

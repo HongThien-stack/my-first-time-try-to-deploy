@@ -25,10 +25,17 @@ builder.Services.AddDbContext<InventoryDbContext>(options =>
 // Register Repositories
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
+builder.Services.AddScoped<ITransferRepository, TransferRepository>();
+builder.Services.AddScoped<IRestockRequestRepository, RestockRequestRepository>();
+builder.Services.AddScoped<IStockMovementRepository, StockMovementRepository>();
+builder.Services.AddScoped<IInventoryCheckRepository, InventoryCheckRepository>();
+builder.Services.AddScoped<IDamageReportRepository, DamageReportRepository>();
 
 // Register Services
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 builder.Services.AddScoped<IInventoryService, InventoryManagementService>();
+builder.Services.AddScoped<ITransferService, TransferService>();
+builder.Services.AddScoped<IRestockRequestService, RestockRequestService>();
 
 // CORS Configuration
 builder.Services.AddCors(options =>

@@ -17,7 +17,8 @@ public class InventoryRepository : IInventoryRepository
     public async Task<IEnumerable<Inventory>> GetAllAsync()
     {
         return await _context.Inventories
-            .OrderBy(i => i.CreatedAt)
+            .OrderBy(i => i.LocationType)
+            .ThenBy(i => i.LocationId)
             .ToListAsync();
     }
 
@@ -27,10 +28,10 @@ public class InventoryRepository : IInventoryRepository
             .FirstOrDefaultAsync(i => i.Id == id);
     }
 
-    public async Task<IEnumerable<Inventory>> GetByStoreIdAsync(Guid storeId)
+    public async Task<IEnumerable<Inventory>> GetByLocationAsync(string locationType, Guid locationId)
     {
         return await _context.Inventories
-            .Where(i => i.StoreId == storeId)
+            .Where(i => i.LocationType == locationType && i.LocationId == locationId)
             .OrderBy(i => i.ProductId)
             .ToListAsync();
     }
@@ -39,19 +40,36 @@ public class InventoryRepository : IInventoryRepository
     {
         return await _context.Inventories
             .Where(i => i.ProductId == productId)
-            .OrderBy(i => i.StoreId)
+            .OrderBy(i => i.LocationType)
+            .ThenBy(i => i.LocationId)
             .ToListAsync();
     }
 
-    public async Task<Inventory?> GetByStoreAndProductAsync(Guid storeId, Guid productId)
+    public async Task<Inventory?> GetByLocationAndProductAsync(string locationType, Guid locationId, Guid productId)
     {
         return await _context.Inventories
-            .FirstOrDefaultAsync(i => i.StoreId == storeId && i.ProductId == productId);
+            .FirstOrDefaultAsync(i => i.LocationType == locationType && i.LocationId == locationId && i.ProductId == productId);
+    }
+
+    public async Task<IEnumerable<Inventory>> GetLowStockItemsAsync(string? locationType = null)
+    {
+        var query = _context.Inventories.AsQueryable();
+        
+        if (!string.IsNullOrEmpty(locationType))
+        {
+            query = query.Where(i => i.LocationType == locationType);
+        }
+        
+        return await query
+            .Where(i => i.Quantity <= i.MinStockLevel)
+            .OrderBy(i => i.LocationType)
+            .ThenBy(i => i.ProductId)
+            .ToListAsync();
     }
 
     public async Task<Inventory> AddAsync(Inventory inventory)
     {
-        inventory.CreatedAt = DateTime.UtcNow;
+        inventory.UpdatedAt = DateTime.UtcNow;
         _context.Inventories.Add(inventory);
         await _context.SaveChangesAsync();
         return inventory;
