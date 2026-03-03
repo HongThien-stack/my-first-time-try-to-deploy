@@ -14,6 +14,8 @@ Hệ thống Internal SCM bao gồm **6 microservices** với tổng cộng **12
 - **P3 (LOW):** Optional/Future - Week 18+
 
 ---
+DELETE là soft delete hết không hard delete 
+
 
 # **1. IDENTITYSERVICE** (Port 5000-5001)
 
@@ -165,7 +167,7 @@ Lấy danh sách users (phân trang, filter)
 ```
 Query params:
 - page=1
-- pageSize=20
+- pageSize=10
 - roleId=2
 - status=ACTIVE
 - search=nguyen
@@ -220,7 +222,7 @@ Query params:
 - notification_type=LOW_STOCK
 - priority=HIGH
 - page=1
-- pageSize=20
+- pageSize=10
 ```
 
 ### **GET /api/notifications/:id** [P0]
@@ -343,7 +345,7 @@ Lấy danh sách sản phẩm (phân trang, filter, search)
 ```
 Query params:
 - page=1
-- pageSize=20
+- pageSize=10
 - categoryId=uuid
 - search=sua
 - isAvailable=true
@@ -566,7 +568,7 @@ Query params:
 Lấy chi tiết batch
 
 ### **GET /api/batches/expiring-soon** [P0]
-Lấy batches sắp hết hạn (< 30 ngày)
+Lấy batches sắp hết hạn (< 30 ngày) de uu tien show san pham set ma giam gia cho san pham thuộc lô này
 
 ---
 
@@ -1418,7 +1420,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "data": [...],
   "pagination": {
     "page": 1,
-    "pageSize": 20,
+    "pageSize": 10,
     "totalItems": 250,
     "totalPages": 13
   }
