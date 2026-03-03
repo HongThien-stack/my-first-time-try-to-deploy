@@ -100,6 +100,7 @@ builder.Services.AddCors(options =>
 
 // Register Application Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasherService>();
 builder.Services.AddScoped<IOtpService, IdentityService.Infrastructure.Security.OtpGenerator>();
