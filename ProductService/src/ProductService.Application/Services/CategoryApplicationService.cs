@@ -1,5 +1,6 @@
-﻿using ProductService.Application.DTOs;
+using ProductService.Application.DTOs;
 using ProductService.Application.Interfaces;
+using ProductService.Domain.Entities;
 using ProductService.Domain.Repositories;
 
 namespace ProductService.Application.Services;
@@ -13,6 +14,16 @@ public class CategoryApplicationService : ICategoryService
     public CategoryApplicationService(ICategoryRepository categoryRepository)
     {
         _categoryRepository = categoryRepository;
+    }
+
+    public async Task<List<Category>> GetAllCategories()
+    {
+        return await _categoryRepository.GetAllCategories();
+    }
+
+    public void AddCategory(Category category)
+    {
+        _categoryRepository.AddCategory(category);
     }
 
     public async Task<CategoryDto?> GetCategoryByIdAsync(Guid id)
@@ -56,6 +67,7 @@ public class CategoryApplicationService : ICategoryService
             UpdatedAt = updated.UpdatedAt
         };
     }
+
     public async Task<bool> DeleteCategoryAsync(Guid id)
     {
         var category = await _categoryRepository.GetByIdAsync(id);
@@ -72,5 +84,4 @@ public class CategoryApplicationService : ICategoryService
 
         return await _categoryRepository.DeleteAsync(id);
     }
-
 }
