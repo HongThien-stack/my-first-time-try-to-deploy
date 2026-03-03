@@ -41,24 +41,4 @@ public class CategoryRepository : ICategoryRepository
         return category;
     }
 
-    public async Task<bool> DeleteAsync(Guid id)
-    {
-        var category = await _context.Categories
-            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
-        if (category == null)
-            return false;
-
-        // Soft delete: chỉ cập nhật IsDeleted = true
-        category.IsDeleted = true;
-        category.UpdatedAt = DateTime.UtcNow;
-        
-        _context.Categories.Update(category);
-        await _context.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> HasProductsAsync(Guid id)
-    {
-        return await _context.Products.AnyAsync(p => p.CategoryId == id && !p.IsDeleted);
-    }
 }

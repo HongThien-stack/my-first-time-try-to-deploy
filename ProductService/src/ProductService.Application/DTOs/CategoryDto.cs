@@ -11,6 +11,7 @@ namespace ProductService.Application.DTOs
         public Guid Id { get; set; } // 
         public string Name { get; set; } = string.Empty;
         public string Status { get; set; } = "ACTIVE"; // ACTIVE | INACTIVE
+        public bool IsDeleted { get; set; } 
         public int ProductCount { get; set; } // Số lượng sản phẩm trong danh mục
         public DateTime CreatedAt { get; set; } // Ngày tạo
         public DateTime? UpdatedAt { get; set; } // Ngày cập nhật
