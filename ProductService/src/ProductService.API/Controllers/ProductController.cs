@@ -23,7 +23,7 @@ public class ProductController : ControllerBase
     /// <summary>
     /// GET /api/products - Lấy danh sách tất cả sản phẩm
     /// </summary>
-    [HttpGet]
+    [HttpGet("Get-All-Products")]
     public async Task<IActionResult> GetAll()
     {
         try
@@ -56,7 +56,7 @@ public class ProductController : ControllerBase
     /// </summary>
     /// <param name="request">Product creation request with images</param>
     /// <returns>Created product information</returns>
-    [HttpPost]
+    [HttpPost("Add-Product")]
     [Authorize(Roles = "Admin,Manager,Warehouse Staff")]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> CreateProduct([FromForm] CreateProductRequestDto request)
@@ -148,7 +148,7 @@ public class ProductController : ControllerBase
     /// </summary>
     /// <param name="id">Product ID (GUID)</param>
     /// <returns>Product details or 404 if not found</returns>
-    [HttpGet("{id}")]
+    [HttpGet("Get-Product-by-ID")]
     public async Task<IActionResult> GetById(Guid id)
     {
         try
@@ -188,7 +188,7 @@ public class ProductController : ControllerBase
     /// <summary>
     /// PUT /api/products/{id} - Cập nhật sản phẩm
     /// </summary>
-    [HttpPut("{id:guid}")]
+    [HttpPut("Update-Product")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProductRequestDto? request)
     {
         try
@@ -248,7 +248,7 @@ public class ProductController : ControllerBase
     /// <summary>
     /// DELETE /api/products/{id} - Xóa mềm sản phẩm (soft delete: set is_available = false)
     /// </summary>
-    [HttpDelete("{id:guid}")]
+    [HttpDelete("Delete-Product")]
     public async Task<IActionResult> Delete(Guid id)
     {
         try
