@@ -92,7 +92,7 @@ public class AuthService : IAuthService
         if (user == null)
         {
             // Log failed login attempt - user not found
-            await LogLoginAttemptAsync(Guid.Empty, "FAILED", "User not found", ipAddress, null);
+            await LogLoginAttemptAsync(null, "FAILED", "User not found", ipAddress, null);
             throw new UnauthorizedAccessException("Invalid email or password");
         }
         // Verify password
@@ -126,7 +126,15 @@ public class AuthService : IAuthService
             FullName = user.FullName,
             RoleId = user.RoleId,
             IsEmailVerified = user.EmailVerified,
-            Message = user.EmailVerified ? null : "Email not verified. Please check your inbox and verify your email."
+            Message = user.EmailVerified ? null : "Email not verified. Please check your inbox and verify your email.",
+            Workplace = user.WorkplaceId.HasValue && !string.IsNullOrEmpty(user.WorkplaceType)
+                ? new WorkplaceDto
+                {
+                    Type = user.WorkplaceType,
+                    Id = user.WorkplaceId.Value
+                    // Name, Code, Address can be populated by querying InventoryDB if needed
+                }
+                : null
         };
     }
 
@@ -183,7 +191,15 @@ public class AuthService : IAuthService
             FullName = user.FullName,
             RoleId = user.RoleId,
             IsEmailVerified = user.EmailVerified,
-            Message = user.EmailVerified ? null : "Email not verified. Please check your inbox and verify your email."
+            Message = user.EmailVerified ? null : "Email not verified. Please check your inbox and verify your email.",
+            Workplace = user.WorkplaceId.HasValue && !string.IsNullOrEmpty(user.WorkplaceType)
+                ? new WorkplaceDto
+                {
+                    Type = user.WorkplaceType,
+                    Id = user.WorkplaceId.Value
+                    // Name, Code, Address can be populated by querying InventoryDB if needed
+                }
+                : null
         };
     }
 
@@ -212,6 +228,27 @@ public class AuthService : IAuthService
 
             user.PasswordHash = _passwordHasher.HashPassword(request.Password);
         }
+        
+        // Update workplace if provided
+        // Allow clearing workplace by sending empty values
+        if (request.WorkplaceType != null) // null means not updating, empty string means clearing
+        {
+            if (string.IsNullOrEmpty(request.WorkplaceType))
+            {
+                user.WorkplaceType = null;
+                user.WorkplaceId = null;
+            }
+            else
+            {
+                if (!request.WorkplaceId.HasValue)
+                {
+                    throw new ArgumentException("WorkplaceId is required when WorkplaceType is specified");
+                }
+                user.WorkplaceType = request.WorkplaceType;
+                user.WorkplaceId = request.WorkplaceId;
+            }
+        }
+        
         await _userRepository.UpdateAsync(user);
         return MapToUserDto(user);
     }
@@ -247,6 +284,16 @@ public class AuthService : IAuthService
             throw new InvalidOperationException($"Vai trò '{request.RoleName}' không tồn tại");
         }
 
+        // Validate workplace assignment
+        if (!string.IsNullOrEmpty(request.WorkplaceType) && !request.WorkplaceId.HasValue)
+        {
+            throw new ArgumentException("WorkplaceId is required when WorkplaceType is specified");
+        }
+        if (request.WorkplaceId.HasValue && string.IsNullOrEmpty(request.WorkplaceType))
+        {
+            throw new ArgumentException("WorkplaceType is required when WorkplaceId is specified");
+        }
+
         // Hash password
         var passwordHash = _passwordHasher.HashPassword(request.Password);
 
@@ -261,7 +308,9 @@ public class AuthService : IAuthService
             RoleId = role.Id,
             Status = "ACTIVE",
             EmailVerified = false,
-            OtpAttempts = 0
+            OtpAttempts = 0,
+            WorkplaceType = request.WorkplaceType,
+            WorkplaceId = request.WorkplaceId
             // OTP, RefreshToken giữ null
         };
 
@@ -366,7 +415,15 @@ public class AuthService : IAuthService
                 Id = user.Role?.Id ?? 0,
                 Name = user.Role?.Name ?? "Unknown",
                 Description = user.Role?.Description
-            }
+            },
+            Workplace = user.WorkplaceId.HasValue && !string.IsNullOrEmpty(user.WorkplaceType)
+                ? new WorkplaceDto
+                {
+                    Type = user.WorkplaceType,
+                    Id = user.WorkplaceId.Value
+                    // Name, Code, Address can be populated by querying InventoryDB if needed
+                }
+                : null
         };
     }
 
@@ -490,7 +547,7 @@ public class AuthService : IAuthService
         }
     }
 
-    private async Task LogLoginAttemptAsync(Guid userId, string status, string? failureReason, string? ipAddress, string? userAgent)
+    private async Task LogLoginAttemptAsync(Guid? userId, string status, string? failureReason, string? ipAddress, string? userAgent)
     {
         try
         {

@@ -1,5 +1,6 @@
 using IdentityService.Application.DTOs;
 using IdentityService.Application.Interfaces;
+using IdentityService.Domain.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,11 +11,13 @@ namespace IdentityService.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(IAuthService authService, IUserRepository userRepository, ILogger<AuthController> logger)
     {
         _authService = authService;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -277,27 +280,56 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Test endpoint to verify authentication
+    /// Test endpoint to verify authentication and get current user info including workplace
     /// </summary>
     [HttpGet("me")]
     [Authorize]
-    public IActionResult GetCurrentUser()
+    public async Task<IActionResult> GetCurrentUser()
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
-        var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-
-        return Ok(new
+        try
         {
-            success = true,
-            data = new
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
+            // Fetch user from database to get workplace info
+            WorkplaceDto? workplace = null;
+            if (Guid.TryParse(userId, out var userGuid))
             {
-                userId,
-                email,
-                role,
-                claims = User.Claims.Select(c => new { c.Type, c.Value })
+                var user = await _userRepository.GetByIdAsync(userGuid);
+                if (user != null && user.WorkplaceId.HasValue && !string.IsNullOrEmpty(user.WorkplaceType))
+                {
+                    workplace = new WorkplaceDto
+                    {
+                        Type = user.WorkplaceType,
+                        Id = user.WorkplaceId.Value
+                        // Name, Code, Address can be populated by querying InventoryDB if needed
+                    };
+                }
             }
-        });
+
+            return Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    userId,
+                    email,
+                    role,
+                    workplace,
+                    claims = User.Claims.Select(c => new { c.Type, c.Value })
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting current user info");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while retrieving user information"
+            });
+        }
     }
 
     /// <summary>

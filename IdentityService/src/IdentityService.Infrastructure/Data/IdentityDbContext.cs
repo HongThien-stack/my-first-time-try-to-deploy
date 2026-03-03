@@ -51,6 +51,10 @@ public class IdentityDbContext : DbContext
             entity.Property(e => e.OtpExpiresAt).HasColumnName("otp_expires_at");
             entity.Property(e => e.OtpAttempts).HasColumnName("otp_attempts");
             entity.Property(e => e.EmailVerified).HasColumnName("email_verified");
+            
+            // Workplace columns (Option 2: Simple single location per user)
+            entity.Property(e => e.WorkplaceType).HasColumnName("workplace_type").HasMaxLength(50);
+            entity.Property(e => e.WorkplaceId).HasColumnName("workplace_id");
 
             entity.HasIndex(e => e.Email).HasDatabaseName("IX_users_email").IsUnique();
             entity.HasIndex(e => e.Phone).HasDatabaseName("IX_users_phone");
@@ -58,6 +62,7 @@ public class IdentityDbContext : DbContext
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_users_status");
             entity.HasIndex(e => e.RefreshToken).HasDatabaseName("IX_users_refresh_token");
             entity.HasIndex(e => e.OtpCode).HasDatabaseName("IX_users_otp_code");
+            entity.HasIndex(e => new { e.WorkplaceType, e.WorkplaceId }).HasDatabaseName("IX_users_workplace");
 
             // Configure relationship with Role
             entity.HasOne(e => e.Role)
@@ -73,7 +78,7 @@ public class IdentityDbContext : DbContext
             entity.ToTable("user_login_logs");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedOnAdd();
-            entity.Property(e => e.UserId).HasColumnName("user_id").IsRequired();
+            entity.Property(e => e.UserId).HasColumnName("user_id").IsRequired(false); // Allow NULL for failed attempts
             entity.Property(e => e.LoginAt).HasColumnName("login_at").IsRequired();
             entity.Property(e => e.IpAddress).HasColumnName("ip_address").HasMaxLength(50);
             entity.Property(e => e.UserAgent).HasColumnName("user_agent").HasMaxLength(500);

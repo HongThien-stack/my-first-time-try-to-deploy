@@ -88,7 +88,15 @@ public class UsersController : ControllerBase
                 Phone = user.Phone,
                 Status = user.Status,
                 EmailVerified = user.EmailVerified,
-                Role = new RoleDto { Id = user.RoleId, Name = user.Role?.Name ?? "Unknown" }
+                Role = new RoleDto { Id = user.RoleId, Name = user.Role?.Name ?? "Unknown" },
+                Workplace = user.WorkplaceId.HasValue && !string.IsNullOrEmpty(user.WorkplaceType)
+                    ? new WorkplaceDto
+                    {
+                        Type = user.WorkplaceType,
+                        Id = user.WorkplaceId.Value
+                        // Name, Code, Address can be populated by querying InventoryDB if needed
+                    }
+                    : null
             };
 
             _logger.LogInformation("Retrieved user details for ID {UserId}", id);

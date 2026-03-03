@@ -23,6 +23,10 @@ public class User
     // Email verification
     public bool EmailVerified { get; set; }
 
+    // Workplace Assignment (Simple single location per user)
+    public string? WorkplaceType { get; set; } // WAREHOUSE | STORE | NULL (for Admin/Customer)
+    public Guid? WorkplaceId { get; set; } // InventoryDB.warehouses.id
+
     // Navigation properties
     public virtual Role Role { get; set; } = null!;
     public virtual ICollection<UserLoginLog> LoginLogs { get; set; } = new List<UserLoginLog>();

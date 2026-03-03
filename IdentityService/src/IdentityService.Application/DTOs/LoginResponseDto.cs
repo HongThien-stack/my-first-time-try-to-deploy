@@ -8,4 +8,9 @@ public class LoginResponseDto
     public int RoleId { get; set; }
     public bool IsEmailVerified { get; set; }
     public string? Message { get; set; }
+    
+    /// <summary>
+    /// Workplace information (included in login response for Manager/Staff)
+    /// </summary>
+    public WorkplaceDto? Workplace { get; set; }
 }

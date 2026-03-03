@@ -88,7 +88,7 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'user_login_logs')
 BEGIN
     CREATE TABLE user_login_logs (
         id BIGINT IDENTITY(1,1) PRIMARY KEY,
-        user_id UNIQUEIDENTIFIER NOT NULL,
+        user_id UNIQUEIDENTIFIER NULL, -- NULL allowed for failed login attempts when user not found
         login_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         ip_address NVARCHAR(50) NULL,
         user_agent NVARCHAR(500) NULL,
@@ -235,17 +235,17 @@ BEGIN
     ('11111111-1111-1111-1111-111111111112', 'admin2@company.com', @TempPasswordHash, N'Nguyễn Văn Admin', '0901000002', 1, 'ACTIVE', 1, NULL, NULL),
     
     -- Manager Users (role_id = 2) - Assigned to warehouses/stores
-    ('22222222-2222-2222-2222-222222222221', 'manager1@company.com', @TempPasswordHash, N'Trần Thị Manager', '0902000001', 2, 'ACTIVE', 1, 'WAREHOUSE', 'W0000001-0001-0001-0001-000000000001'),
-    ('22222222-2222-2222-2222-222222222222', 'manager2@company.com', @TempPasswordHash, N'Lê Văn Quản Lý', '0902000002', 2, 'ACTIVE', 1, 'STORE', 'S0000001-0001-0001-0001-000000000001'),
+    ('22222222-2222-2222-2222-222222222221', 'manager1@company.com', @TempPasswordHash, N'Trần Thị Manager', '0902000001', 2, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001'),
+    ('22222222-2222-2222-2222-222222222222', 'manager2@company.com', @TempPasswordHash, N'Lê Văn Quản Lý', '0902000002', 2, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
     
     -- Store Staff Users (role_id = 3) - Assigned to stores
-    ('33333333-3333-3333-3333-333333333331', 'cashier1@company.com', @TempPasswordHash, N'Phạm Thị Thu Ngân', '0903000001', 3, 'ACTIVE', 1, 'STORE', 'S0000001-0001-0001-0001-000000000001'),
-    ('33333333-3333-3333-3333-333333333332', 'cashier2@company.com', @TempPasswordHash, N'Hoàng Văn Cashier', '0903000002', 3, 'ACTIVE', 1, 'STORE', 'S0000001-0001-0001-0001-000000000001'),
-    ('33333333-3333-3333-3333-333333333333', 'cashier3@company.com', @TempPasswordHash, N'Vũ Thị Hoa', '0903000003', 3, 'ACTIVE', 1, 'STORE', 'S0000001-0001-0001-0001-000000000002'),
+    ('33333333-3333-3333-3333-333333333331', 'cashier1@company.com', @TempPasswordHash, N'Phạm Thị Thu Ngân', '0903000001', 3, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
+    ('33333333-3333-3333-3333-333333333332', 'cashier2@company.com', @TempPasswordHash, N'Hoàng Văn Cashier', '0903000002', 3, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
+    ('33333333-3333-3333-3333-333333333333', 'cashier3@company.com', @TempPasswordHash, N'Vũ Thị Hoa', '0903000003', 3, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000002'),
     
     -- Warehouse Staff Users (role_id = 4) - Assigned to warehouses
-    ('44444444-4444-4444-4444-444444444441', 'warehouse1@company.com', @TempPasswordHash, N'Đỗ Văn Kho', '0904000001', 4, 'ACTIVE', 1, 'WAREHOUSE', 'W0000001-0001-0001-0001-000000000001'),
-    ('44444444-4444-4444-4444-444444444442', 'warehouse2@company.com', @TempPasswordHash, N'Bùi Thị Kho Bãi', '0904000002', 4, 'ACTIVE', 1, 'WAREHOUSE', 'W0000001-0001-0001-0001-000000000002'),
+    ('44444444-4444-4444-4444-444444444441', 'warehouse1@company.com', @TempPasswordHash, N'Đỗ Văn Kho', '0904000001', 4, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001'),
+    ('44444444-4444-4444-4444-444444444442', 'warehouse2@company.com', @TempPasswordHash, N'Bùi Thị Kho Bãi', '0904000002', 4, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002'),
     
     -- Customer Users (role_id = 5) - No workplace
     ('55555555-5555-5555-5555-555555555551', 'customer1@gmail.com', @TempPasswordHash, N'Nguyễn Văn Khách', '0905000001', 5, 'ACTIVE', 1, NULL, NULL),
@@ -254,7 +254,7 @@ BEGIN
     ('55555555-5555-5555-5555-555555555554', 'customer4@gmail.com', @TempPasswordHash, N'Phạm Thị Lan', '0905000004', 5, 'ACTIVE', 1, NULL, NULL),
     
     -- Inactive User (for testing)
-    ('66666666-6666-6666-6666-666666666661', 'inactive@company.com', @TempPasswordHash, N'Nguyễn Văn Inactive', '0906000001', 3, 'INACTIVE', 0, 'STORE', 'S0000001-0001-0001-0001-000000000001'),
+    ('66666666-6666-6666-6666-666666666661', 'inactive@company.com', @TempPasswordHash, N'Nguyễn Văn Inactive', '0906000001', 3, 'INACTIVE', 0, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
     
     -- Suspended User (for testing)
     ('77777777-7777-7777-7777-777777777771', 'suspended@company.com', @TempPasswordHash, N'Trần Văn Suspended', '0907000001', 5, 'SUSPENDED', 1, NULL, NULL);
@@ -281,7 +281,7 @@ BEGIN
      N'Yêu cầu nhập hàng mới: RST-2024-002',
      N'Cửa Hàng Thủ Đức yêu cầu nhập 150 units Sữa Vinamilk. Độ ưu tiên: HIGH',
      'RESTOCK_REQUEST',
-     'RST0001-0001-0001-0001-000000000002',
+     NULL,
      'URGENT');
     
     -- Expiring soon alert for Warehouse Staff 1
@@ -290,7 +290,7 @@ BEGIN
      N'Hàng sắp hết hạn: Batch VNM-2024-001',
      N'500 units Sữa Vinamilk (Batch VNM-2024-001) sẽ hết hạn trong 30 ngày.',
      'PRODUCT_BATCH',
-     'BATCH001-0001-0001-0001-000000000001',
+     NULL,
      'NORMAL');
 END
 GO
@@ -346,23 +346,23 @@ PRINT '  - admin2@company.com (ID: 11111111-1111-1111-1111-111111111112)';
 PRINT '';
 PRINT 'Manager Accounts:';
 PRINT '  - manager1@company.com (ID: 22222222-2222-2222-2222-222222222221)';
-PRINT '    → Kho Tổng HCM (MANAGER)';
+PRINT '    → Kho Tổng HCM (WAREHOUSE: A0000001-0001-0001-0001-000000000001)';
 PRINT '  - manager2@company.com (ID: 22222222-2222-2222-2222-222222222222)';
-PRINT '    → Cửa Hàng Thủ Đức (MANAGER)';
+PRINT '    → Cửa Hàng Thủ Đức (STORE: B0000001-0001-0001-0001-000000000001)';
 PRINT '';
 PRINT 'Store Staff Accounts:';
 PRINT '  - cashier1@company.com (ID: 33333333-3333-3333-3333-333333333331)';
-PRINT '    → Cửa Hàng Thủ Đức (STAFF)';
+PRINT '    → Cửa Hàng Thủ Đức (STORE: B0000001-0001-0001-0001-000000000001)';
 PRINT '  - cashier2@company.com (ID: 33333333-3333-3333-3333-333333333332)';
-PRINT '    → Cửa Hàng Thủ Đức (STAFF)';
+PRINT '    → Cửa Hàng Thủ Đức (STORE: B0000001-0001-0001-0001-000000000001)';
 PRINT '  - cashier3@company.com (ID: 33333333-3333-3333-3333-333333333333)';
-PRINT '    → Cửa Hàng Quận 1 (STAFF)';
+PRINT '    → Cửa Hàng Quận 1 (STORE: B0000001-0001-0001-0001-000000000002)';
 PRINT '';
 PRINT 'Warehouse Staff Accounts:';
 PRINT '  - warehouse1@company.com (ID: 44444444-4444-4444-4444-444444444441)';
-PRINT '    → Kho Tổng HCM (STAFF)';
+PRINT '    → Kho Tổng HCM (WAREHOUSE: A0000001-0001-0001-0001-000000000001)';
 PRINT '  - warehouse2@company.com (ID: 44444444-4444-4444-4444-444444444442)';
-PRINT '    → Kho Miền Bắc (STAFF)';
+PRINT '    → Kho Miền Bắc (WAREHOUSE: A0000001-0001-0001-0001-000000000002)';
 PRINT '';
 PRINT 'Customer Accounts:';
 PRINT '  - customer1@gmail.com (ID: 55555555-5555-5555-5555-555555555551)';

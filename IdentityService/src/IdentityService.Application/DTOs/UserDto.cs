@@ -9,4 +9,9 @@ public class UserDto
     public string Status { get; set; } = string.Empty;
     public RoleDto Role { get; set; } = null!;
     public bool EmailVerified { get; set; }
+    
+    /// <summary>
+    /// Workplace information (only for Manager/Staff with assigned workplace)
+    /// </summary>
+    public WorkplaceDto? Workplace { get; set; }
 }
