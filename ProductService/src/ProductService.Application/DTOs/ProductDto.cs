@@ -25,6 +25,7 @@ public class ProductDto
     public bool IsOnSale { get; set; }
     
     public string? ImageUrl { get; set; }
+    public string? Images { get; set; }
     public string? Slug { get; set; }
     
     public DateTime CreatedAt { get; set; }
