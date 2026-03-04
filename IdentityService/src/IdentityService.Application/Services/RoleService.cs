@@ -25,7 +25,9 @@ public class RoleService : IRoleService
         {
             Id = role.Id,
             Name = role.Name,
-            Description = role.Description
+            Description = role.Description,
+            IsSystem = role.IsSystem,
+            CreatedAt = role.CreatedAt
         };
     }
 
@@ -37,7 +39,9 @@ public class RoleService : IRoleService
         {
             Id = r.Id,
             Name = r.Name,
-            Description = r.Description
+            Description = r.Description,
+            IsSystem = r.IsSystem,
+            CreatedAt = r.CreatedAt
         });
     }
 
@@ -64,7 +68,9 @@ public class RoleService : IRoleService
         {
             Id = createdRole.Id,
             Name = createdRole.Name,
-            Description = createdRole.Description
+            Description = createdRole.Description,
+            IsSystem = createdRole.IsSystem,
+            CreatedAt = createdRole.CreatedAt
         };
     }
 
@@ -101,7 +107,9 @@ public class RoleService : IRoleService
         {
             Id = updatedRole.Id,
             Name = updatedRole.Name,
-            Description = updatedRole.Description
+            Description = updatedRole.Description,
+            IsSystem = updatedRole.IsSystem,
+            CreatedAt = updatedRole.CreatedAt
         };
     }
 }
