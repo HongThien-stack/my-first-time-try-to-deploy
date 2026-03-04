@@ -2,6 +2,7 @@ using InventoryService.Application.Interfaces;
 using InventoryService.Domain.Entities;
 using InventoryService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
 
 namespace InventoryService.Infrastructure.Repositories;
 
@@ -28,27 +29,34 @@ public class WarehouseRepository : IWarehouseRepository
             .FirstOrDefaultAsync(w => w.Id == id && !w.IsDeleted);
     }
 
-    public async Task<Warehouse> AddAsync(Warehouse warehouse)
+    public async Task AddWarehouseAsync(Warehouse warehouse)
     {
-        warehouse.CreatedAt = DateTime.UtcNow;
-        _context.Warehouses.Add(warehouse);
+        await _context.Warehouses.AddAsync(warehouse);
         await _context.SaveChangesAsync();
-        return warehouse;
     }
 
-    public async Task UpdateAsync(Warehouse warehouse)
+    public async Task UpdateWarehouseAsync(Warehouse warehouse)
     {
         _context.Warehouses.Update(warehouse);
         await _context.SaveChangesAsync();
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task DeleteWarehouseAsync(Guid id)
     {
-        var warehouse = await _context.Warehouses.FindAsync(id);
+        var warehouse = await _context.Warehouses
+            .FirstOrDefaultAsync(w => w.Id == id);
+
         if (warehouse != null)
         {
             warehouse.IsDeleted = true;
             await _context.SaveChangesAsync();
         }
     }
+
+    public async Task<List<WarehouseSlot>> GetWarehouseSlotById(Guid warehouseId)
+    {
+        return await _context.WarehouseSlots
+            .Where(ws => ws.WarehouseId == warehouseId)
+            .ToListAsync();
+    }   
 }
