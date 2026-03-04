@@ -141,9 +141,10 @@ BEGIN
     INSERT INTO roles (id, name, description, is_system, created_at) VALUES
     (1, 'Admin', 'System Administrator - Full Access', 1, GETUTCDATE()),
     (2, 'Manager', 'Store Manager - Manage store operations', 1, GETUTCDATE()),
-    (3, 'Store Staff', 'Store Staff - Process sales transactions', 1, GETUTCDATE()),
-    (4, 'Warehouse Staff', 'Warehouse Staff - Manage inventory', 1, GETUTCDATE()),
-    (5, 'Customer', 'Customer - Online shopping', 1, GETUTCDATE());
+    (3, 'Warehouse Manager', 'Warehouse Manager - Manage warehouse operations', 1, GETUTCDATE()),
+    (4, 'Store Staff', 'Store Staff - Process sales transactions', 1, GETUTCDATE()),
+    (5, 'Warehouse Staff', 'Warehouse Staff - Manage inventory', 1, GETUTCDATE()),
+    (6, 'Customer', 'Customer - Online shopping', 1, GETUTCDATE());
     
     SET IDENTITY_INSERT roles OFF;
 END
@@ -170,26 +171,29 @@ BEGIN
     (NEWID(), 'manager1@company.com', @TempPasswordHash, N'Trần Thị Manager', 2, 'ACTIVE'),
     (NEWID(), 'manager2@company.com', @TempPasswordHash, N'Lê Văn Quản Lý', 2, 'ACTIVE'),
     
-    -- Store Staff Users (role_id = 3)
-    (NEWID(), 'cashier1@company.com', @TempPasswordHash, N'Phạm Thị Thu Ngân', 3, 'ACTIVE'),
-    (NEWID(), 'cashier2@company.com', @TempPasswordHash, N'Hoàng Văn Cashier', 3, 'ACTIVE'),
-    (NEWID(), 'cashier3@company.com', @TempPasswordHash, N'Vũ Thị Hoa', 3, 'ACTIVE'),
+    -- Warehouse Manager (role_id = 3)
+    (NEWID(), 'warehouse.manager@company.com', @TempPasswordHash, N'Nguyễn Văn WarehouseMgr', 3, 'ACTIVE'),
+
+    -- Store Staff Users (role_id = 4)
+    (NEWID(), 'cashier1@company.com', @TempPasswordHash, N'Phạm Thị Thu Ngân', 4, 'ACTIVE'),
+    (NEWID(), 'cashier2@company.com', @TempPasswordHash, N'Hoàng Văn Cashier', 4, 'ACTIVE'),
+    (NEWID(), 'cashier3@company.com', @TempPasswordHash, N'Vũ Thị Hoa', 4, 'ACTIVE'),
     
-    -- Warehouse Staff Users (role_id = 4)
-    (NEWID(), 'warehouse1@company.com', @TempPasswordHash, N'Đỗ Văn Kho', 4, 'ACTIVE'),
-    (NEWID(), 'warehouse2@company.com', @TempPasswordHash, N'Bùi Thị Kho Bãi', 4, 'ACTIVE'),
+    -- Warehouse Staff Users (role_id = 5)
+    (NEWID(), 'warehouse1@company.com', @TempPasswordHash, N'Đỗ Văn Kho', 5, 'ACTIVE'),
+    (NEWID(), 'warehouse2@company.com', @TempPasswordHash, N'Bùi Thị Kho Bãi', 5, 'ACTIVE'),
     
-    -- Customer Users (role_id = 5)
-    (NEWID(), 'customer1@gmail.com', @TempPasswordHash, N'Nguyễn Văn Khách', 5, 'ACTIVE'),
-    (NEWID(), 'customer2@gmail.com', @TempPasswordHash, N'Trần Thị Hương', 5, 'ACTIVE'),
-    (NEWID(), 'customer3@gmail.com', @TempPasswordHash, N'Lê Văn Minh', 5, 'ACTIVE'),
-    (NEWID(), 'customer4@gmail.com', @TempPasswordHash, N'Phạm Thị Lan', 5, 'ACTIVE'),
+    -- Customer Users (role_id = 6)
+    (NEWID(), 'customer1@gmail.com', @TempPasswordHash, N'Nguyễn Văn Khách', 6, 'ACTIVE'),
+    (NEWID(), 'customer2@gmail.com', @TempPasswordHash, N'Trần Thị Hương', 6, 'ACTIVE'),
+    (NEWID(), 'customer3@gmail.com', @TempPasswordHash, N'Lê Văn Minh', 6, 'ACTIVE'),
+    (NEWID(), 'customer4@gmail.com', @TempPasswordHash, N'Phạm Thị Lan', 6, 'ACTIVE'),
     
     -- Inactive User (for testing)
-    (NEWID(), 'inactive@company.com', @TempPasswordHash, N'Nguyễn Văn Inactive', 3, 'INACTIVE'),
+    (NEWID(), 'inactive@company.com', @TempPasswordHash, N'Nguyễn Văn Inactive', 4, 'INACTIVE'),
     
     -- Suspended User (for testing)
-    (NEWID(), 'suspended@company.com', @TempPasswordHash, N'Trần Văn Suspended', 5, 'SUSPENDED');
+    (NEWID(), 'suspended@company.com', @TempPasswordHash, N'Trần Văn Suspended', 6, 'SUSPENDED');
 END
 GO
 
