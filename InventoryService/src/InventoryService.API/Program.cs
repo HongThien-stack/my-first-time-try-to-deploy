@@ -30,6 +30,8 @@ builder.Services.AddScoped<IRestockRequestRepository, RestockRequestRepository>(
 builder.Services.AddScoped<IStockMovementRepository, StockMovementRepository>();
 builder.Services.AddScoped<IInventoryCheckRepository, InventoryCheckRepository>();
 builder.Services.AddScoped<IDamageReportRepository, DamageReportRepository>();
+builder.Services.AddScoped<IInventoryHistoryRepository, InventoryHistoryRepository>();
+builder.Services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
 
 // Register Services
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
