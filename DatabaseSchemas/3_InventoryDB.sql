@@ -63,6 +63,15 @@ END
 GO
 
 -- =====================================================
+-- Migration: Add is_deleted column to warehouse_slots if missing
+-- =====================================================
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('warehouse_slots') AND name = 'is_deleted')
+BEGIN
+    ALTER TABLE warehouse_slots ADD is_deleted BIT NOT NULL DEFAULT 0;
+END
+GO
+
+-- =====================================================
 -- Table: inventories
 -- =====================================================
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'inventories')
