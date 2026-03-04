@@ -84,6 +84,7 @@ builder.Services.AddScoped<IDamageReportRepository, DamageReportRepository>();
 builder.Services.AddScoped<IInventoryHistoryRepository, InventoryHistoryRepository>();
 builder.Services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
 builder.Services.AddScoped<IProductBatchRepository, ProductBatchRepository>();
+builder.Services.AddScoped<IProductBatchQueryRepository, ProductBatchQueryRepository>();
 
 // Register Services
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
@@ -92,6 +93,7 @@ builder.Services.AddScoped<ITransferService, TransferService>();
 builder.Services.AddScoped<IRestockRequestService, RestockRequestService>();
 builder.Services.AddScoped<IStockMovementService, StockMovementService>();
 builder.Services.AddScoped<IProductBatchService, ProductBatchService>();
+builder.Services.AddScoped<IBatchQueryService, BatchQueryService>();
 
 // CORS Configuration
 builder.Services.AddCors(options =>
