@@ -48,6 +48,7 @@ public class ProductApplicationService : IProductService
             IsNew = p.IsNew,
             IsOnSale = p.IsOnSale,
             ImageUrl = p.ImageUrl,
+            Images = p.Images,
             Slug = p.Slug,
             CreatedAt = p.CreatedAt
         });
@@ -323,6 +324,7 @@ public class ProductApplicationService : IProductService
             IsNew = product.IsNew,
             IsOnSale = product.IsOnSale,
             ImageUrl = product.ImageUrl,
+            Images = product.Images,
             Slug = product.Slug,
             CreatedAt = product.CreatedAt
         };
@@ -440,6 +442,7 @@ public class ProductApplicationService : IProductService
             IsNew = updated.IsNew,
             IsOnSale = updated.IsOnSale,
             ImageUrl = updated.ImageUrl,
+            Images = updated.Images,
             Slug = updated.Slug,
             CreatedAt = updated.CreatedAt
         };
