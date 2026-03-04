@@ -146,7 +146,7 @@ BEGIN
         payment_method, payment_status, status,
         points_earned, sale_date, created_at
     ) VALUES (
-        'SALE0001-0001-0001-0001-000000000001',
+        'AA100001-0001-0001-0001-000000000001',
         'SALE-2024-001',
         'B0000001-0001-0001-0001-000000000001', -- Cửa Hàng Thủ Đức
         '33333333-3333-3333-3333-333333333331', -- cashier1@company.com
@@ -159,7 +159,7 @@ BEGIN
     
     -- VNPay sale with discount
     (
-        'SALE0001-0001-0001-0001-000000000002',
+        'AA100002-0001-0001-0001-000000000001',
         'SALE-2024-002',
         'B0000001-0001-0001-0001-000000000001', -- Cửa Hàng Thủ Đức
         '33333333-3333-3333-3333-333333333331', -- cashier1@company.com
@@ -172,7 +172,7 @@ BEGIN
     
     -- Momo sale
     (
-        'SALE0001-0001-0001-0001-000000000003',
+        'AA100003-0001-0001-0001-000000000001',
         'SALE-2024-003',
         'B0000001-0001-0001-0001-000000000001', -- Cửa Hàng Thủ Đức
         '33333333-3333-3333-3333-333333333332', -- cashier2@company.com
@@ -185,7 +185,7 @@ BEGIN
     
     -- Cash sale without customer account
     (
-        'SALE0001-0001-0001-0001-000000000004',
+        'AA100004-0001-0001-0001-000000000001',
         'SALE-2024-004',
         'B0000001-0001-0001-0001-000000000002', -- Cửa Hàng Quận 1
         '33333333-3333-3333-3333-333333333333', -- cashier3@company.com
@@ -198,7 +198,7 @@ BEGIN
     
     -- Pending payment
     (
-        'SALE0001-0001-0001-0001-000000000005',
+        'AA100005-0001-0001-0001-000000000001',
         'SALE-2024-005',
         'B0000001-0001-0001-0001-000000000001', -- Cửa Hàng Thủ Đức
         '33333333-3333-3333-3333-333333333331', -- cashier1@company.com
@@ -218,26 +218,26 @@ IF NOT EXISTS (SELECT * FROM sale_items)
 BEGIN
     -- SALE-2024-001 items (Sữa Vinamilk × 2)
     INSERT INTO sale_items (id, sale_id, product_id, product_name, sku, barcode, quantity, unit_price, discount_amount) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000005', N'Sữa Tươi Vinamilk 100%', 'SUA-001', '8934560003234', 2, 38000, 0);
+    (NEWID(), 'AA100001-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000005', N'Sữa Tươi Vinamilk 100%', 'SUA-001', '8934560003234', 2, 38000, 0);
     
     -- SALE-2024-002 items (Gạo ST25 × 2, Sữa TH × 1)
     INSERT INTO sale_items (id, sale_id, product_id, product_name, sku, barcode, quantity, unit_price, discount_amount) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000002', 'F0000001-0001-0001-0001-000000000007', N'Gạo ST25', 'GAO-001', '8934560004234', 2, 180000, 36000),
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000002', 'F0000001-0001-0001-0001-000000000006', N'Sữa TH True Milk', 'SUA-002', '8934560003241', 1, 42000, 4200);
+    (NEWID(), 'AA100002-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000007', N'Gạo ST25', 'GAO-001', '8934560004234', 2, 180000, 36000),
+    (NEWID(), 'AA100002-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000006', N'Sữa TH True Milk', 'SUA-002', '8934560003241', 1, 42000, 4200);
     
     -- SALE-2024-003 items (Cam Sành × 5 kg, Rau Muống × 2 kg)
     INSERT INTO sale_items (id, sale_id, product_id, product_name, sku, barcode, quantity, unit_price, discount_amount) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000003', 'F0000001-0001-0001-0001-000000000003', N'Cam Sành', 'TC-001', '8934560002234', 5, 35000, 0),
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000003', 'F0000001-0001-0001-0001-000000000001', N'Rau Muống', 'RAU-001', '8934560001234', 2, 20000, 0);
+    (NEWID(), 'AA100003-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000003', N'Cam Sành', 'TC-001', '8934560002234', 5, 35000, 0),
+    (NEWID(), 'AA100003-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000001', N'Rau Muống', 'RAU-001', '8934560001234', 2, 20000, 0);
     
     -- SALE-2024-004 items (Táo Envy × 1 kg, Sữa Vinamilk × 1)
     INSERT INTO sale_items (id, sale_id, product_id, product_name, sku, barcode, quantity, unit_price, discount_amount) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000004', 'F0000001-0001-0001-0001-000000000004', N'Táo Envy', 'TC-002', '8934560002241', 1, 150000, 0),
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000004', 'F0000001-0001-0001-0001-000000000005', N'Sữa Tươi Vinamilk 100%', 'SUA-001', '8934560003234', 1, 35000, 0);
+    (NEWID(), 'AA100004-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000004', N'Táo Envy', 'TC-002', '8934560002241', 1, 150000, 0),
+    (NEWID(), 'AA100004-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000005', N'Sữa Tươi Vinamilk 100%', 'SUA-001', '8934560003234', 1, 35000, 0);
     
     -- SALE-2024-005 items (Gạo Jasmine × 2)
     INSERT INTO sale_items (id, sale_id, product_id, product_name, sku, barcode, quantity, unit_price, discount_amount) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000005', 'F0000001-0001-0001-0001-000000000008', N'Gạo Jasmine', 'GAO-002', '8934560004241', 2, 140000, 0);
+    (NEWID(), 'AA100005-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000008', N'Gạo Jasmine', 'GAO-002', '8934560004241', 2, 140000, 0);
 END
 GO
 
@@ -248,23 +248,23 @@ IF NOT EXISTS (SELECT * FROM payments)
 BEGIN
     -- Cash payment for SALE-2024-001
     INSERT INTO payments (id, sale_id, payment_method, amount, status, cash_received, cash_change, payment_date) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000001', 'CASH', 76000, 'COMPLETED', 100000, 24000, '2024-03-01 10:30:00');
+    (NEWID(), 'AA100001-0001-0001-0001-000000000001', 'CASH', 76000, 'COMPLETED', 100000, 24000, '2024-03-01 10:30:00');
     
     -- VNPay payment for SALE-2024-002
     INSERT INTO payments (id, sale_id, payment_method, amount, status, transaction_reference, payment_date) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000002', 'VNPAY', 378000, 'COMPLETED', 'VNPAY-2024-0001-TXN123', '2024-03-01 14:16:00');
+    (NEWID(), 'AA100002-0001-0001-0001-000000000001', 'VNPAY', 378000, 'COMPLETED', 'VNPAY-2024-0001-TXN123', '2024-03-01 14:16:00');
     
     -- Momo payment for SALE-2024-003
     INSERT INTO payments (id, sale_id, payment_method, amount, status, transaction_reference, payment_date) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000003', 'MOMO', 195000, 'COMPLETED', 'MOMO-2024-0001-TXN456', '2024-03-02 09:46:00');
+    (NEWID(), 'AA100003-0001-0001-0001-000000000001', 'MOMO', 195000, 'COMPLETED', 'MOMO-2024-0001-TXN456', '2024-03-02 09:46:00');
     
     -- Cash payment for SALE-2024-004
     INSERT INTO payments (id, sale_id, payment_method, amount, status, cash_received, cash_change, payment_date) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000004', 'CASH', 135000, 'COMPLETED', 150000, 15000, '2024-03-02 11:20:00');
+    (NEWID(), 'AA100004-0001-0001-0001-000000000001', 'CASH', 135000, 'COMPLETED', 150000, 15000, '2024-03-02 11:20:00');
     
     -- Pending VNPay payment for SALE-2024-005
     INSERT INTO payments (id, sale_id, payment_method, amount, status, payment_date) VALUES
-    (NEWID(), 'SALE0001-0001-0001-0001-000000000005', 'VNPAY', 280000, 'PENDING', '2024-03-03 16:00:00');
+    (NEWID(), 'AA100005-0001-0001-0001-000000000001', 'VNPAY', 280000, 'PENDING', '2024-03-03 16:00:00');
 END
 GO
 
