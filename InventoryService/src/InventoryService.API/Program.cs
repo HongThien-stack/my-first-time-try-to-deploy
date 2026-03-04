@@ -65,7 +65,9 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+        NameClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
     };
 });
 
@@ -94,6 +96,8 @@ builder.Services.AddScoped<IRestockRequestService, RestockRequestService>();
 builder.Services.AddScoped<IStockMovementService, StockMovementService>();
 builder.Services.AddScoped<IProductBatchService, ProductBatchService>();
 builder.Services.AddScoped<IBatchQueryService, BatchQueryService>();
+builder.Services.AddScoped<IDamageReportService, DamageReportService>();
+builder.Services.AddScoped<IInventoryCheckService, InventoryCheckService>();
 
 // CORS Configuration
 builder.Services.AddCors(options =>
