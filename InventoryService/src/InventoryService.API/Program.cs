@@ -2,7 +2,10 @@ using InventoryService.Application.Interfaces;
 using InventoryService.Application.Services;
 using InventoryService.Infrastructure.Data;
 using InventoryService.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +19,56 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "API for managing warehouses, stock, and inventory tracking"
     });
+
+// Swagger Bearer token support
+c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+{
+    Name = "Authorization",
+    Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+    Scheme = "Bearer",
+    BearerFormat = "JWT",
+    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+    Description = "Enter your JWT token from IdentityService login"
+});
+c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+// JWT Authentication Configuration
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var secretKey = jwtSettings["SecretKey"]!;
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+        NameClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
+    };
 });
 
 // Database Configuration
@@ -31,6 +84,10 @@ builder.Services.AddScoped<IRestockRequestRepository, RestockRequestRepository>(
 builder.Services.AddScoped<IStockMovementRepository, StockMovementRepository>();
 builder.Services.AddScoped<IInventoryCheckRepository, InventoryCheckRepository>();
 builder.Services.AddScoped<IDamageReportRepository, DamageReportRepository>();
+builder.Services.AddScoped<IInventoryHistoryRepository, InventoryHistoryRepository>();
+builder.Services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
+builder.Services.AddScoped<IProductBatchRepository, ProductBatchRepository>();
+builder.Services.AddScoped<IProductBatchQueryRepository, ProductBatchQueryRepository>();
 
 // Register Services
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
@@ -38,6 +95,11 @@ builder.Services.AddScoped<IWarehouseSlotService, WarehouseSlotService>();
 builder.Services.AddScoped<IInventoryService, InventoryManagementService>();
 builder.Services.AddScoped<ITransferService, TransferService>();
 builder.Services.AddScoped<IRestockRequestService, RestockRequestService>();
+builder.Services.AddScoped<IStockMovementService, StockMovementService>();
+builder.Services.AddScoped<IProductBatchService, ProductBatchService>();
+builder.Services.AddScoped<IBatchQueryService, BatchQueryService>();
+builder.Services.AddScoped<IDamageReportService, DamageReportService>();
+builder.Services.AddScoped<IInventoryCheckService, InventoryCheckService>();
 
 // CORS Configuration
 builder.Services.AddCors(options =>
@@ -67,6 +129,7 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

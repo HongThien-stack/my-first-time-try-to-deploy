@@ -762,10 +762,10 @@ Submit inventory check (cập nhật tồn kho)
 
 ## **Inventory History & Logs APIs**
 
-### **GET /api/inventory-history** [P2]
+### ✅ **GET /api/inventory-history** [P2]
 Lấy lịch sử snapshot tồn kho
 
-### **GET /api/inventory-logs** [P2]
+### ✅ **GET /api/inventory-logs** [P2]
 Lấy audit logs của inventory changes
 
 ---

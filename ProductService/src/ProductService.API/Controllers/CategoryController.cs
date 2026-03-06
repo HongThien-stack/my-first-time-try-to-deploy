@@ -32,8 +32,10 @@ public class CategoryController : ControllerBase
         {
             categoryResponses.Add(new CategoryResponse
             {
-                Id = category.Id,
-                Name = category.Name
+                Name = category.Name,
+                Status = category.Status,
+                CreatedAt = category.CreatedAt,
+                UpdatedAt = category.UpdatedAt
             });
         }
         return Ok(categoryResponses);
@@ -48,7 +50,7 @@ public class CategoryController : ControllerBase
             return BadRequest("Name is required.");
         }
         Guid id = Guid.NewGuid();
-        string status = "Active";
+        string status = "ACTIVE";
         DateTime createdAt = DateTime.UtcNow;
         DateTime? updatedAt = null;
         Category category = new Category

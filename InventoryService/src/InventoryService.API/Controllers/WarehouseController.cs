@@ -1,5 +1,6 @@
 using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
+using InventoryService.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InventoryService.API.Controllers;
@@ -89,6 +90,108 @@ public class WarehouseController : ControllerBase
             {
                 success = false,
                 message = "An error occurred while retrieving warehouse",
+                error = ex.Message
+            });
+        }
+    }
+
+    [HttpPost("warehouses")]
+    public async Task<ActionResult> AddWarehouse([FromBody] WarehouseDto warehouseDto)
+    {
+        try
+        {
+            Warehouse warehouse = new Warehouse
+            {
+                Id = Guid.NewGuid(),
+                Name = warehouseDto.Name,
+                Location = warehouseDto.Location,
+                Capacity = warehouseDto.Capacity,
+                Status = warehouseDto.Status,
+                IsDeleted = warehouseDto.IsDeleted,
+                CreatedAt = warehouseDto.CreatedAt,
+                CreatedBy = warehouseDto.CreatedBy
+            };
+
+            await _warehouseService.AddWarehouseAsync(warehouse);
+
+            return Ok("Warehouse added successfully");
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, "An internal server error occured");
+        }
+    }
+
+    [HttpPatch("warehouses/{id}")]
+    public async Task<IActionResult> UpdateWarehouse(Guid id, [FromBody] WarehouseUpdateRequest request)
+    {
+        if (request == null)
+            return BadRequest("Invalid request body");
+
+        var warehouse = await _warehouseService.GetWarehouseAsync(id);
+
+        if (warehouse == null)
+            return NotFound("Warehouse not found");
+
+        if (request.Name != null)
+            warehouse.Name = request.Name;
+
+        if (request.Location != null)
+            warehouse.Location = request.Location;
+
+        if (request.Capacity.HasValue)
+            warehouse.Capacity = request.Capacity.Value;
+
+        if (request.Status != null)
+            warehouse.Status = request.Status;
+
+        try
+        {
+            await _warehouseService.UpdateWarehouseAsync(warehouse);
+            return NoContent();
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, "An internal server error occurred");
+        }
+    }
+
+    [HttpDelete("warehouses/{id}")]
+    public async Task<IActionResult> DeleteWarehouse([FromRoute] Guid id)
+    {
+        await _warehouseService.DeleteWarehouseAsync(id);
+        return Ok("Warehouse deleted successfully");
+    }
+
+    [HttpGet("warehouses/{warehouseId}/slots")]
+    public async Task<ActionResult<List<WarehouseSlot>>> GetWarehouseSlots(Guid warehouseId)
+    {
+        try
+        {
+            var slots = await _warehouseService.GetWarehouseSlotById(warehouseId);
+            if (slots == null)
+            {
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Warehouse not found or no slots available"
+                });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = "Warehouse slots retrieved successfully",
+                data = slots
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting warehouse slots for warehouse {WarehouseId}", warehouseId);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while retrieving warehouse slots",
                 error = ex.Message
             });
         }

@@ -1,5 +1,6 @@
 using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
+using InventoryService.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace InventoryService.Application.Services;
@@ -58,5 +59,35 @@ public class WarehouseService : IWarehouseService
             IsDeleted = warehouse.IsDeleted,
             CreatedAt = warehouse.CreatedAt
         };
+    }
+
+    public async Task<Warehouse?> GetWarehouseAsync(Guid id)
+    {
+        var warehouse = await _warehouseRepository.GetByIdAsync(id);
+        
+        if (warehouse == null || warehouse.IsDeleted)
+        {
+            return null;
+        }
+        return warehouse;
+    }
+
+    public async Task AddWarehouseAsync(Warehouse warehouse)
+    {
+        await _warehouseRepository.AddWarehouseAsync(warehouse);
+    }
+
+    public async Task UpdateWarehouseAsync(Warehouse warehouse)
+    {
+        await _warehouseRepository.UpdateWarehouseAsync(warehouse);
+    }
+
+    public async Task DeleteWarehouseAsync(Guid id) {
+        await _warehouseRepository.DeleteWarehouseAsync(id);
+    }
+
+    public async Task<List<WarehouseSlot>> GetWarehouseSlotById(Guid warehouseId)
+    {
+        return await _warehouseRepository.GetWarehouseSlotById(warehouseId);
     }
 }

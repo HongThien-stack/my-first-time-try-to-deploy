@@ -209,9 +209,10 @@ BEGIN
     INSERT INTO roles (id, name, description, is_system, created_at) VALUES
     (1, 'Admin', 'System Administrator - Full Access', 1, GETUTCDATE()),
     (2, 'Manager', 'Store Manager - Manage store operations', 1, GETUTCDATE()),
-    (3, 'Store Staff', 'Store Staff - Process sales transactions', 1, GETUTCDATE()),
-    (4, 'Warehouse Staff', 'Warehouse Staff - Manage inventory', 1, GETUTCDATE()),
-    (5, 'Customer', 'Customer - Online shopping', 1, GETUTCDATE());
+    (3, 'Warehouse Manager', 'Warehouse Manager - Manage warehouse operations', 1, GETUTCDATE()),
+    (4, 'Store Staff', 'Store Staff - Process sales transactions', 1, GETUTCDATE()),
+    (5, 'Warehouse Staff', 'Warehouse Staff - Manage inventory', 1, GETUTCDATE()),
+    (6, 'Customer', 'Customer - Online shopping', 1, GETUTCDATE());
     
     SET IDENTITY_INSERT roles OFF;
 END

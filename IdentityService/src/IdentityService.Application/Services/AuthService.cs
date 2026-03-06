@@ -371,7 +371,7 @@ public class AuthService : IAuthService
         var user = await _userRepository.GetByEmailAsync(request.Email);
 
         if (user == null ||
-            user.OtpCode != request.Token ||
+            user.OtpCode != request.OTP ||
             user.OtpPurpose != "PASSWORD_RESET")
         {
             throw new UnauthorizedAccessException("Invalid or expired reset OTP");

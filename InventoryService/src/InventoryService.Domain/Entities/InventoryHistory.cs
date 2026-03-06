@@ -7,7 +7,7 @@ public class InventoryHistory
     public Guid ProductId { get; set; }
     public string LocationType { get; set; } = string.Empty;
     public Guid LocationId { get; set; }
-    public DateTime SnapshotDate { get; set; }
+    public DateOnly SnapshotDate { get; set; } // DATE column in database
     public int Quantity { get; set; }
     public int ReservedQuantity { get; set; }
     public int AvailableQuantity { get; set; }

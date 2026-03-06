@@ -25,7 +25,7 @@ public class RoleController : ControllerBase
     /// </summary>
     /// <param name="id">Role ID</param>
     /// <returns>Role details</returns>
-    [HttpGet("{id}")]
+    [HttpGet("Get-Role-By-Id")]
     public async Task<IActionResult> GetRoleById(int id)
     {
         try
@@ -66,7 +66,7 @@ public class RoleController : ControllerBase
     /// Get all roles (Admin only)
     /// </summary>
     /// <returns>List of all roles</returns>
-    [HttpGet]
+    [HttpGet("Get-All-Roles")]
     public async Task<IActionResult> GetAllRoles()
     {
         try
@@ -98,7 +98,7 @@ public class RoleController : ControllerBase
     /// </summary>
     /// <param name="request">Role details</param>
     /// <returns>Created role</returns>
-    [HttpPost]
+    [HttpPost("Create-Role")]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
     {
         try
@@ -153,7 +153,7 @@ public class RoleController : ControllerBase
     /// <param name="id">Role ID</param>
     /// <param name="request">Updated role details</param>
     /// <returns>Updated role</returns>
-    [HttpPut("{id}")]
+    [HttpPut("Update-Role")]
     public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateRoleRequest request)
     {
         try
