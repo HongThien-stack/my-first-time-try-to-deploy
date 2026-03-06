@@ -207,12 +207,12 @@ BEGIN
     SET IDENTITY_INSERT roles ON;
     
     INSERT INTO roles (id, name, description, is_system, created_at) VALUES
-    (1, 'Admin', 'System Administrator - Full Access', 1, GETUTCDATE()),
-    (2, 'Manager', 'Store Manager - Manage store operations', 1, GETUTCDATE()),
+    (1, 'Admin',             'System Administrator - Full Access',             1, GETUTCDATE()),
+    (2, 'Store Manager',     'Store Manager - Manage store operations',        1, GETUTCDATE()),
     (3, 'Warehouse Manager', 'Warehouse Manager - Manage warehouse operations', 1, GETUTCDATE()),
-    (4, 'Store Staff', 'Store Staff - Process sales transactions', 1, GETUTCDATE()),
-    (5, 'Warehouse Staff', 'Warehouse Staff - Manage inventory', 1, GETUTCDATE()),
-    (6, 'Customer', 'Customer - Online shopping', 1, GETUTCDATE());
+    (4, 'Store Staff',       'Store Staff - Process sales transactions',       1, GETUTCDATE()),
+    (5, 'Warehouse Staff',   'Warehouse Staff - Manage inventory',             1, GETUTCDATE()),
+    (6, 'Customer',          'Customer - Online shopping',                    1, GETUTCDATE());
     
     SET IDENTITY_INSERT roles OFF;
 END
@@ -231,34 +231,54 @@ BEGIN
     DECLARE @TempPasswordHash NVARCHAR(MAX) = 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==';
     
     INSERT INTO users (id, email, password_hash, full_name, phone, role_id, status, email_verified, workplace_type, workplace_id) VALUES
-    -- Admin Users (role_id = 1) - No workplace
-    ('11111111-1111-1111-1111-111111111111', 'admin@company.com', @TempPasswordHash, N'System Administrator', '0901000001', 1, 'ACTIVE', 1, NULL, NULL),
-    ('11111111-1111-1111-1111-111111111112', 'admin2@company.com', @TempPasswordHash, N'Nguyễn Văn Admin', '0901000002', 1, 'ACTIVE', 1, NULL, NULL),
-    
-    -- Manager Users (role_id = 2) - Assigned to warehouses/stores
-    ('22222222-2222-2222-2222-222222222221', 'manager1@company.com', @TempPasswordHash, N'Trần Thị Manager', '0902000001', 2, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001'),
-    ('22222222-2222-2222-2222-222222222222', 'manager2@company.com', @TempPasswordHash, N'Lê Văn Quản Lý', '0902000002', 2, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
-    
-    -- Store Staff Users (role_id = 3) - Assigned to stores
-    ('33333333-3333-3333-3333-333333333331', 'cashier1@company.com', @TempPasswordHash, N'Phạm Thị Thu Ngân', '0903000001', 3, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
-    ('33333333-3333-3333-3333-333333333332', 'cashier2@company.com', @TempPasswordHash, N'Hoàng Văn Cashier', '0903000002', 3, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
-    ('33333333-3333-3333-3333-333333333333', 'cashier3@company.com', @TempPasswordHash, N'Vũ Thị Hoa', '0903000003', 3, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000002'),
-    
-    -- Warehouse Staff Users (role_id = 4) - Assigned to warehouses
-    ('44444444-4444-4444-4444-444444444441', 'warehouse1@company.com', @TempPasswordHash, N'Đỗ Văn Kho', '0904000001', 4, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001'),
-    ('44444444-4444-4444-4444-444444444442', 'warehouse2@company.com', @TempPasswordHash, N'Bùi Thị Kho Bãi', '0904000002', 4, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002'),
-    
-    -- Customer Users (role_id = 5) - No workplace
-    ('55555555-5555-5555-5555-555555555551', 'customer1@gmail.com', @TempPasswordHash, N'Nguyễn Văn Khách', '0905000001', 5, 'ACTIVE', 1, NULL, NULL),
-    ('55555555-5555-5555-5555-555555555552', 'customer2@gmail.com', @TempPasswordHash, N'Trần Thị Hương', '0905000002', 5, 'ACTIVE', 1, NULL, NULL),
-    ('55555555-5555-5555-5555-555555555553', 'customer3@gmail.com', @TempPasswordHash, N'Lê Văn Minh', '0905000003', 5, 'ACTIVE', 1, NULL, NULL),
-    ('55555555-5555-5555-5555-555555555554', 'customer4@gmail.com', @TempPasswordHash, N'Phạm Thị Lan', '0905000004', 5, 'ACTIVE', 1, NULL, NULL),
-    
-    -- Inactive User (for testing)
-    ('66666666-6666-6666-6666-666666666661', 'inactive@company.com', @TempPasswordHash, N'Nguyễn Văn Inactive', '0906000001', 3, 'INACTIVE', 0, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
-    
-    -- Suspended User (for testing)
-    ('77777777-7777-7777-7777-777777777771', 'suspended@company.com', @TempPasswordHash, N'Trần Văn Suspended', '0907000001', 5, 'SUSPENDED', 1, NULL, NULL);
+    -- -----------------------------------------------
+    -- Admin (role_id = 1)
+    -- -----------------------------------------------
+    ('11111111-1111-1111-1111-111111111111', 'admin@company.com',  @TempPasswordHash, N'System Administrator',  '0901000001', 1, 'ACTIVE', 1, NULL, NULL),
+    ('11111111-1111-1111-1111-111111111112', 'admin2@company.com', @TempPasswordHash, N'Nguyễn Văn Admin',      '0901000002', 1, 'ACTIVE', 1, NULL, NULL),
+
+    -- -----------------------------------------------
+    -- Store Manager (role_id = 2) - Assigned to stores
+    -- -----------------------------------------------
+    ('22222222-2222-2222-2222-222222222221', 'storemanager1@company.com', @TempPasswordHash, N'Trần Thị Quản Lý CH1', '0902000001', 2, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
+    ('22222222-2222-2222-2222-222222222222', 'storemanager2@company.com', @TempPasswordHash, N'Lê Văn Quản Lý CH2',   '0902000002', 2, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000002'),
+
+    -- -----------------------------------------------
+    -- Warehouse Manager (role_id = 3) - Assigned to warehouses
+    -- -----------------------------------------------
+    ('33333333-3333-3333-3333-333333333301', 'whmanager1@company.com', @TempPasswordHash, N'Phạm Văn Quản Lý Kho 1', '0902000003', 3, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001'),
+    ('33333333-3333-3333-3333-333333333302', 'whmanager2@company.com', @TempPasswordHash, N'Ngô Thị Quản Lý Kho 2',  '0902000004', 3, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002'),
+
+    -- -----------------------------------------------
+    -- Store Staff (role_id = 4) - Assigned to stores
+    -- -----------------------------------------------
+    ('33333333-3333-3333-3333-333333333331', 'cashier1@company.com',  @TempPasswordHash, N'Phạm Thị Thu Ngân', '0903000001', 4, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
+    ('33333333-3333-3333-3333-333333333332', 'cashier2@company.com',  @TempPasswordHash, N'Hoàng Văn Cashier',  '0903000002', 4, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
+    ('33333333-3333-3333-3333-333333333333', 'cashier3@company.com',  @TempPasswordHash, N'Vũ Thị Hoa',         '0903000003', 4, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000002'),
+    ('33333333-3333-3333-3333-333333333334', 'cashier4@company.com',  @TempPasswordHash, N'Đinh Văn Bán Hàng',  '0903000004', 4, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000002'),
+
+    -- -----------------------------------------------
+    -- Warehouse Staff (role_id = 5) - Assigned to warehouses
+    -- -----------------------------------------------
+    ('44444444-4444-4444-4444-444444444441', 'warehouse1@company.com', @TempPasswordHash, N'Đỗ Văn Kho 1',    '0904000001', 5, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001'),
+    ('44444444-4444-4444-4444-444444444442', 'warehouse2@company.com', @TempPasswordHash, N'Bùi Thị Kho 1',   '0904000002', 5, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001'),
+    ('44444444-4444-4444-4444-444444444443', 'warehouse3@company.com', @TempPasswordHash, N'Cao Văn Kho 2',   '0904000003', 5, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002'),
+
+    -- -----------------------------------------------
+    -- Customer (role_id = 6) - No workplace
+    -- -----------------------------------------------
+    ('55555555-5555-5555-5555-555555555551', 'customer1@gmail.com', @TempPasswordHash, N'Nguyễn Văn Khách',  '0905000001', 6, 'ACTIVE', 1, NULL, NULL),
+    ('55555555-5555-5555-5555-555555555552', 'customer2@gmail.com', @TempPasswordHash, N'Trần Thị Hương',    '0905000002', 6, 'ACTIVE', 1, NULL, NULL),
+    ('55555555-5555-5555-5555-555555555553', 'customer3@gmail.com', @TempPasswordHash, N'Lê Văn Minh',       '0905000003', 6, 'ACTIVE', 1, NULL, NULL),
+    ('55555555-5555-5555-5555-555555555554', 'customer4@gmail.com', @TempPasswordHash, N'Phạm Thị Lan',      '0905000004', 6, 'ACTIVE', 1, NULL, NULL),
+    ('55555555-5555-5555-5555-555555555555', 'customer5@gmail.com', @TempPasswordHash, N'Hoàng Văn Mạnh',    '0905000005', 6, 'ACTIVE', 1, NULL, NULL),
+    ('55555555-5555-5555-5555-555555555556', 'customer6@gmail.com', @TempPasswordHash, N'Vũ Thị Bích',       '0905000006', 6, 'ACTIVE', 1, NULL, NULL),
+
+    -- -----------------------------------------------
+    -- Test accounts
+    -- -----------------------------------------------
+    ('66666666-6666-6666-6666-666666666661', 'inactive@company.com',  @TempPasswordHash, N'Nguyễn Văn Inactive', '0906000001', 4, 'INACTIVE',  0, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
+    ('77777777-7777-7777-7777-777777777771', 'suspended@company.com', @TempPasswordHash, N'Trần Văn Suspended',  '0907000001', 6, 'SUSPENDED', 1, NULL, NULL);
 END
 GO
 
@@ -339,43 +359,47 @@ PRINT '⚠️  IMPORTANT: After creating database, run this API endpoint:';
 PRINT '   POST http://localhost:5000/api/utility/update-passwords';
 PRINT '   This will update all password hashes to the correct format';
 PRINT '';
-PRINT 'Default Users Created (16 users with fixed UUIDs):';
+PRINT 'Roles (6 system roles):';
+PRINT '  1 - Admin';
+PRINT '  2 - Store Manager';
+PRINT '  3 - Warehouse Manager';
+PRINT '  4 - Store Staff';
+PRINT '  5 - Warehouse Staff';
+PRINT '  6 - Customer';
+PRINT '';
+PRINT 'Default Users Created (22 users with fixed UUIDs):';
 PRINT '----------------------------------------';
-PRINT 'Admin Accounts:';
-PRINT '  - admin@company.com (ID: 11111111-1111-1111-1111-111111111111)';
-PRINT '  - admin2@company.com (ID: 11111111-1111-1111-1111-111111111112)';
+PRINT 'Admin (role 1):';
+PRINT '  - admin@company.com  (11111111-1111-1111-1111-111111111111)';
+PRINT '  - admin2@company.com (11111111-1111-1111-1111-111111111112)';
 PRINT '';
-PRINT 'Manager Accounts:';
-PRINT '  - manager1@company.com (ID: 22222222-2222-2222-2222-222222222221)';
-PRINT '    → Kho Tổng HCM (WAREHOUSE: A0000001-0001-0001-0001-000000000001)';
-PRINT '  - manager2@company.com (ID: 22222222-2222-2222-2222-222222222222)';
-PRINT '    → Cửa Hàng Thủ Đức (STORE: B0000001-0001-0001-0001-000000000001)';
+PRINT 'Store Manager (role 2):';
+PRINT '  - storemanager1@company.com (22222222-2222-2222-2222-222222222221) → CH Thủ Đức';
+PRINT '  - storemanager2@company.com (22222222-2222-2222-2222-222222222222) → CH Quận 1';
 PRINT '';
-PRINT 'Store Staff Accounts:';
-PRINT '  - cashier1@company.com (ID: 33333333-3333-3333-3333-333333333331)';
-PRINT '    → Cửa Hàng Thủ Đức (STORE: B0000001-0001-0001-0001-000000000001)';
-PRINT '  - cashier2@company.com (ID: 33333333-3333-3333-3333-333333333332)';
-PRINT '    → Cửa Hàng Thủ Đức (STORE: B0000001-0001-0001-0001-000000000001)';
-PRINT '  - cashier3@company.com (ID: 33333333-3333-3333-3333-333333333333)';
-PRINT '    → Cửa Hàng Quận 1 (STORE: B0000001-0001-0001-0001-000000000002)';
+PRINT 'Warehouse Manager (role 3):';
+PRINT '  - whmanager1@company.com (33333333-3333-3333-3333-333333333301) → Kho Tổng HCM';
+PRINT '  - whmanager2@company.com (33333333-3333-3333-3333-333333333302) → Kho Miền Bắc';
 PRINT '';
-PRINT 'Warehouse Staff Accounts:';
-PRINT '  - warehouse1@company.com (ID: 44444444-4444-4444-4444-444444444441)';
-PRINT '    → Kho Tổng HCM (WAREHOUSE: A0000001-0001-0001-0001-000000000001)';
-PRINT '  - warehouse2@company.com (ID: 44444444-4444-4444-4444-444444444442)';
-PRINT '    → Kho Miền Bắc (WAREHOUSE: A0000001-0001-0001-0001-000000000002)';
+PRINT 'Store Staff (role 4):';
+PRINT '  - cashier1@company.com (33333333-3333-3333-3333-333333333331) → CH Thủ Đức';
+PRINT '  - cashier2@company.com (33333333-3333-3333-3333-333333333332) → CH Thủ Đức';
+PRINT '  - cashier3@company.com (33333333-3333-3333-3333-333333333333) → CH Quận 1';
+PRINT '  - cashier4@company.com (33333333-3333-3333-3333-333333333334) → CH Quận 1';
 PRINT '';
-PRINT 'Customer Accounts:';
-PRINT '  - customer1@gmail.com (ID: 55555555-5555-5555-5555-555555555551)';
-PRINT '  - customer2@gmail.com (ID: 55555555-5555-5555-5555-555555555552)';
-PRINT '  - customer3@gmail.com (ID: 55555555-5555-5555-5555-555555555553)';
-PRINT '  - customer4@gmail.com (ID: 55555555-5555-5555-5555-555555555554)';
+PRINT 'Warehouse Staff (role 5):';
+PRINT '  - warehouse1@company.com (44444444-4444-4444-4444-444444444441) → Kho Tổng HCM';
+PRINT '  - warehouse2@company.com (44444444-4444-4444-4444-444444444442) → Kho Tổng HCM';
+PRINT '  - warehouse3@company.com (44444444-4444-4444-4444-444444444443) → Kho Miền Bắc';
+PRINT '';
+PRINT 'Customer (role 6):';
+PRINT '  - customer1@gmail.com (55555555-5555-5555-5555-555555555551)';
+PRINT '  - customer2@gmail.com (55555555-5555-5555-5555-555555555552)';
+PRINT '  - customer3@gmail.com (55555555-5555-5555-5555-555555555553)';
+PRINT '  - customer4@gmail.com (55555555-5555-5555-5555-555555555554)';
+PRINT '  - customer5@gmail.com (55555555-5555-5555-5555-555555555555)';
+PRINT '  - customer6@gmail.com (55555555-5555-5555-5555-555555555556)';
 PRINT '';
 PRINT 'All default password: Password123!';
-PRINT '';
-PRINT 'New Features Added:';
-PRINT '  ✅ Workplace Assignment (Simple single location per user)';
-PRINT '  ✅ Notifications System (3 sample alerts)';
-PRINT '  ✅ System Settings (16 configuration keys)';
 PRINT '===============================================';
 GO
