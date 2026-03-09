@@ -17,8 +17,8 @@ public class InventoryRepository : IInventoryRepository
     public async Task<IEnumerable<Inventory>> GetAllAsync()
     {
         return await _context.Inventories
-            .OrderBy(i => i.LocationType)
-            .ThenBy(i => i.LocationId)
+            .OrderBy(i => i.StoreId)
+            .ThenBy(i => i.ProductId)
             .ToListAsync();
     }
 
@@ -30,8 +30,9 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<IEnumerable<Inventory>> GetByLocationAsync(string locationType, Guid locationId)
     {
+        // Simplified: only supports store locations (matching actual database)
         return await _context.Inventories
-            .Where(i => i.LocationType == locationType && i.LocationId == locationId)
+            .Where(i => i.StoreId == locationId)
             .OrderBy(i => i.ProductId)
             .ToListAsync();
     }
@@ -40,29 +41,23 @@ public class InventoryRepository : IInventoryRepository
     {
         return await _context.Inventories
             .Where(i => i.ProductId == productId)
-            .OrderBy(i => i.LocationType)
-            .ThenBy(i => i.LocationId)
+            .OrderBy(i => i.StoreId)
             .ToListAsync();
     }
 
     public async Task<Inventory?> GetByLocationAndProductAsync(string locationType, Guid locationId, Guid productId)
     {
+        // Simplified: only supports store locations
         return await _context.Inventories
-            .FirstOrDefaultAsync(i => i.LocationType == locationType && i.LocationId == locationId && i.ProductId == productId);
+            .FirstOrDefaultAsync(i => i.StoreId == locationId && i.ProductId == productId);
     }
 
     public async Task<IEnumerable<Inventory>> GetLowStockItemsAsync(string? locationType = null)
     {
-        var query = _context.Inventories.AsQueryable();
-        
-        if (!string.IsNullOrEmpty(locationType))
-        {
-            query = query.Where(i => i.LocationType == locationType);
-        }
-        
-        return await query
-            .Where(i => i.Quantity <= i.MinStockLevel)
-            .OrderBy(i => i.LocationType)
+        // Simplified: returns all low stock items regardless of location type
+        return await _context.Inventories
+            .Where(i => i.Quantity <= i.AlertThreshold)
+            .OrderBy(i => i.StoreId)
             .ThenBy(i => i.ProductId)
             .ToListAsync();
     }

@@ -90,4 +90,12 @@ public class InventoryLogRepository : IInventoryLogRepository
         return (items, totalCount);
     }
 
+    public async Task<InventoryLog> AddAsync(InventoryLog log)
+    {
+        log.PerformedAt = DateTime.UtcNow;
+        _context.InventoryLogs.Add(log);
+        await _context.SaveChangesAsync();
+        return log;
+    }
+
 }

@@ -64,7 +64,40 @@ public class InventoryCheckRepository : IInventoryCheckRepository
 
     public async Task UpdateAsync(InventoryCheck check)
     {
-        _context.InventoryChecks.Update(check);
+        // Detach any existing tracked entity with the same key
+        var local = _context.Set<InventoryCheck>()
+            .Local
+            .FirstOrDefault(e => e.Id == check.Id);
+        if (local != null)
+        {
+            _context.Entry(local).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+        }
+
+        // Attach and mark specific properties as modified
+        _context.Attach(check);
+        _context.Entry(check).Property(c => c.Status).IsModified = true;
+        _context.Entry(check).Property(c => c.TotalDiscrepancies).IsModified = true;
+        _context.Entry(check).Property(c => c.Notes).IsModified = true;
+
+        // Only add items that don't already exist in the database (new items have no matching ID)
+        if (check.InventoryCheckItems != null && check.InventoryCheckItems.Count > 0)
+        {
+            // Get existing item IDs from database
+            var existingItemIds = await _context.InventoryCheckItems
+                .Where(i => i.CheckId == check.Id)
+                .Select(i => i.Id)
+                .ToListAsync();
+
+            // Only add truly new items
+            foreach (var item in check.InventoryCheckItems)
+            {
+                if (!existingItemIds.Contains(item.Id))
+                {
+                    _context.InventoryCheckItems.Add(item);
+                }
+            }
+        }
+
         await _context.SaveChangesAsync();
     }
 

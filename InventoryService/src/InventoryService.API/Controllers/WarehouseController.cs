@@ -105,11 +105,11 @@ public class WarehouseController : ControllerBase
                 Id = Guid.NewGuid(),
                 Name = warehouseDto.Name,
                 Location = warehouseDto.Location,
-                Capacity = warehouseDto.Capacity,
-                Status = warehouseDto.Status,
                 IsDeleted = warehouseDto.IsDeleted,
                 CreatedAt = warehouseDto.CreatedAt,
-                CreatedBy = warehouseDto.CreatedBy
+                UpdatedAt = warehouseDto.UpdatedAt,
+                CreatedBy = warehouseDto.CreatedBy,
+                UpdatedBy = warehouseDto.UpdatedBy
             };
 
             await _warehouseService.AddWarehouseAsync(warehouse);
@@ -138,12 +138,6 @@ public class WarehouseController : ControllerBase
 
         if (request.Location != null)
             warehouse.Location = request.Location;
-
-        if (request.Capacity.HasValue)
-            warehouse.Capacity = request.Capacity.Value;
-
-        if (request.Status != null)
-            warehouse.Status = request.Status;
 
         try
         {
