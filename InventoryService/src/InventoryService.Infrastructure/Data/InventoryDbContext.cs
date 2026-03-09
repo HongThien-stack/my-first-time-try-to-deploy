@@ -65,6 +65,7 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.RowNumber).HasColumnName("row_number");
             entity.Property(e => e.ColumnNumber).HasColumnName("column_number");
             entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("EMPTY");
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETUTCDATE()");
 
             entity.HasOne(e => e.Warehouse)

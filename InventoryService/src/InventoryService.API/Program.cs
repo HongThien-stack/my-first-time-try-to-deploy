@@ -77,6 +77,7 @@ builder.Services.AddDbContext<InventoryDbContext>(options =>
 
 // Register Repositories
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
+builder.Services.AddScoped<IWarehouseSlotRepository, WarehouseSlotRepository>();
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<ITransferRepository, TransferRepository>();
 builder.Services.AddScoped<IRestockRequestRepository, RestockRequestRepository>();
@@ -90,6 +91,7 @@ builder.Services.AddScoped<IProductBatchQueryRepository, ProductBatchQueryReposi
 
 // Register Services
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+builder.Services.AddScoped<IWarehouseSlotService, WarehouseSlotService>();
 builder.Services.AddScoped<IInventoryService, InventoryManagementService>();
 builder.Services.AddScoped<ITransferService, TransferService>();
 builder.Services.AddScoped<IRestockRequestService, RestockRequestService>();
