@@ -54,7 +54,7 @@ public class StockMovementService : IStockMovementService
             LocationType = m.LocationType,
             MovementDate = m.MovementDate,
             Supplier = m.Supplier,
-            PoNumber = m.PoNumber,
+            PurchaseOrderId = m.PurchaseOrderId,
             ReceivedBy = m.ReceivedBy,
             Status = m.Status,
             Notes = m.Notes,
