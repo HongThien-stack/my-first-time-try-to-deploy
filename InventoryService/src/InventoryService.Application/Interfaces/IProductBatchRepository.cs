@@ -5,4 +5,5 @@ namespace InventoryService.Application.Interfaces;
 public interface IProductBatchRepository
 {
     Task<IEnumerable<ProductBatch>> GetAllAsync();
+    Task<ProductBatch> AddAsync(ProductBatch batch);
 }
