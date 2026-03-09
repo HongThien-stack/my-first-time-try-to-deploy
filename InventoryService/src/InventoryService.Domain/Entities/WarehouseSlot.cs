@@ -9,6 +9,7 @@ public class WarehouseSlot
     public int? RowNumber { get; set; }
     public int? ColumnNumber { get; set; }
     public string Status { get; set; } = "EMPTY"; // EMPTY | OCCUPIED | RESERVED | MAINTENANCE
+    public bool IsDeleted { get; set; } = false;
     public DateTime CreatedAt { get; set; }
 
     // Navigation property

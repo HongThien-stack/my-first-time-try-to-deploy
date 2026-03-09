@@ -10,13 +10,16 @@ namespace InventoryService.API.Controllers;
 public class WarehouseController : ControllerBase
 {
     private readonly IWarehouseService _warehouseService;
+    private readonly IWarehouseSlotService _slotService;
     private readonly ILogger<WarehouseController> _logger;
 
     public WarehouseController(
         IWarehouseService warehouseService,
+        IWarehouseSlotService slotService,
         ILogger<WarehouseController> logger)
     {
         _warehouseService = warehouseService;
+        _slotService = slotService;
         _logger = logger;
     }
 
@@ -191,6 +194,47 @@ public class WarehouseController : ControllerBase
                 message = "An error occurred while retrieving warehouse slots",
                 error = ex.Message
             });
+        }
+    }
+
+    /// <summary>
+    /// Create a new slot in a warehouse
+    /// </summary>
+    /// <param name="warehouseId">Warehouse ID</param>
+    /// <param name="request">Slot data</param>
+    /// <returns>Created slot</returns>
+    [HttpPost("{warehouseId}/slots")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreateSlot(Guid warehouseId, [FromBody] CreateSlotRequestDto request)
+    {
+        try
+        {
+            var slot = await _slotService.CreateSlotAsync(warehouseId, request);
+
+            _logger.LogInformation("Slot {SlotCode} created in warehouse {WarehouseId}", request.SlotCode, warehouseId);
+
+            return CreatedAtAction(
+                nameof(SlotController.GetById),
+                "Slot",
+                new { id = slot.Id },
+                new { success = true, message = "Slot created successfully", data = slot });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Create slot failed for warehouse {WarehouseId}: {Message}", warehouseId, ex.Message);
+            var status = ex.Message.Contains("not found") ? 404 : 400;
+            return StatusCode(status, new { success = false, message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating slot in warehouse {WarehouseId}", warehouseId);
+            return StatusCode(500, new { success = false, message = "An error occurred while creating slot" });
         }
     }
 }

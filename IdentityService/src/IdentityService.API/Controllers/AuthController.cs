@@ -205,8 +205,7 @@ public class AuthController : ControllerBase
             return Ok(new
             {
                 success = response.Success,
-                message = response.Message,
-                data = new { resetToken = response.ResetToken }
+                message = response.Message
             });
         }
         catch (InvalidOperationException ex)

@@ -9,7 +9,7 @@ public class StockMovement
     public string LocationType { get; set; } = string.Empty; // WAREHOUSE | STORE
     public DateTime MovementDate { get; set; }
     public string? Supplier { get; set; } // For INBOUND
-    public string? PoNumber { get; set; } // Purchase Order number
+    public Guid? PurchaseOrderId { get; set; } // Purchase Order number
     public Guid? ReceivedBy { get; set; } // IdentityDB.users.id
     public string Status { get; set; } = "COMPLETED"; // PENDING | COMPLETED | CANCELLED
     public string? Notes { get; set; }

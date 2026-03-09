@@ -325,12 +325,13 @@ public class AuthService : IAuthService
     {
         var user = await _userRepository.GetByEmailAsync(request.Email);
 
+        // Always return success to avoid user enumeration
         if (user == null)
         {
             return new ForgotPasswordResponseDto
             {
                 Success = true,
-                Message = "If the email exists, a password reset token has been sent."
+                Message = "If the email exists, a password reset OTP has been sent."
             };
         }
 
@@ -339,33 +340,41 @@ public class AuthService : IAuthService
             throw new InvalidOperationException($"Account is {user.Status.ToLower()}");
         }
 
-        var resetToken = GenerateRandomToken();
+        var otp = _otpService.GenerateOtp();
 
-        user.OtpCode = resetToken;
+        user.OtpCode = otp;
         user.OtpPurpose = "PASSWORD_RESET";
         user.OtpExpiresAt = DateTime.UtcNow.AddMinutes(15);
         user.OtpAttempts = 0;
 
         await _userRepository.UpdateAsync(user);
 
+        try
+        {
+            await _emailService.SendPasswordResetOtpEmailAsync(user.Email, user.FullName ?? user.Email, otp);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to send password reset OTP email to {Email}", user.Email);
+            // Don't rethrow — OTP is stored, user can request again
+        }
+
         return new ForgotPasswordResponseDto
         {
             Success = true,
-            Message = "Password reset token has been sent to your email.",
-            ResetToken = resetToken
+            Message = "A password reset OTP has been sent to your email."
         };
     }
 
     public async Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request)
     {
-        var users = await _userRepository.GetAllAsync();
-        var user = users.FirstOrDefault(u =>
-            u.OtpCode == request.Token &&
-            u.OtpPurpose == "PASSWORD_RESET");
+        var user = await _userRepository.GetByEmailAsync(request.Email);
 
-        if (user == null)
+        if (user == null ||
+            user.OtpCode != request.OTP ||
+            user.OtpPurpose != "PASSWORD_RESET")
         {
-            throw new UnauthorizedAccessException("Invalid or expired reset token");
+            throw new UnauthorizedAccessException("Invalid or expired reset OTP");
         }
 
         if (user.OtpExpiresAt == null || user.OtpExpiresAt < DateTime.UtcNow)
@@ -375,7 +384,7 @@ public class AuthService : IAuthService
             user.OtpExpiresAt = null;
             await _userRepository.UpdateAsync(user);
 
-            throw new UnauthorizedAccessException("Reset token has expired");
+            throw new UnauthorizedAccessException("Reset OTP has expired. Please request a new one.");
         }
 
         if (request.NewPassword != request.ConfirmPassword)

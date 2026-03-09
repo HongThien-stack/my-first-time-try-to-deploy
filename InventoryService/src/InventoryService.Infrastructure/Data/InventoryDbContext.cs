@@ -65,6 +65,7 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.RowNumber).HasColumnName("row_number");
             entity.Property(e => e.ColumnNumber).HasColumnName("column_number");
             entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("EMPTY");
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETUTCDATE()");
 
             entity.HasOne(e => e.Warehouse)
@@ -150,8 +151,8 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.LocationId).HasColumnName("location_id");
             entity.Property(e => e.LocationType).HasColumnName("location_type").IsRequired().HasMaxLength(50);
             entity.Property(e => e.MovementDate).HasColumnName("movement_date").HasDefaultValueSql("GETUTCDATE()");
-            entity.Property(e => e.Supplier).HasColumnName("supplier").HasMaxLength(255);
-            entity.Property(e => e.PoNumber).HasColumnName("po_number").HasMaxLength(100);
+            entity.Property(e => e.Supplier).HasColumnName("supplier_name").HasMaxLength(255);
+            entity.Property(e => e.PurchaseOrderId).HasColumnName("purchase_order_id").HasMaxLength(100);
             entity.Property(e => e.ReceivedBy).HasColumnName("received_by");
             entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("COMPLETED");
             entity.Property(e => e.Notes).HasColumnName("notes");
