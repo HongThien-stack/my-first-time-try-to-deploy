@@ -72,15 +72,15 @@ public class AuthService : IAuthService
         };
         await _userRepository.CreateAsync(user);
 
-        // Generate and send OTP for email verification
-        await SendEmailOtpAsync(user);
+        // OTP will be sent when user requests it from profile page
+        // Use /api/auth/resend-email-otp endpoint to send OTP
 
         return new RegisterResponseDto
         {
             UserId = user.Id,
             Email = user.Email,
             FullName = user.FullName ?? string.Empty,
-            Message = "Account created. Please verify your email in profile page."
+            Message = "Account created successfully. Please login and verify your email from your profile page."
         };
     }
 
