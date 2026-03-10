@@ -222,11 +222,18 @@ public class AuthService : IAuthService
         }
         if (!string.IsNullOrEmpty(request.Email))
         {
-            if (string.IsNullOrWhiteSpace(request.Password))
+            // Check if email is different and not already taken
+            if (request.Email != user.Email)
             {
-                throw new InvalidOperationException("Password cannot be empty");
+                if (await _userRepository.ExistsByEmailAsync(request.Email))
+                {
+                    throw new InvalidOperationException("Email already exists");
+                }
+                user.Email = request.Email;
             }
-
+        }
+        if (!string.IsNullOrEmpty(request.Password))
+        {
             user.PasswordHash = _passwordHasher.HashPassword(request.Password);
         }
         
