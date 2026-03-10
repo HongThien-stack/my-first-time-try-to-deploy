@@ -41,10 +41,14 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").IsRequired().HasMaxLength(255);
             entity.Property(e => e.Location).HasColumnName("location").HasMaxLength(500);
+            entity.Property(e => e.Capacity).HasColumnName("capacity");
+            entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("ACTIVE");
             entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETUTCDATE()");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
+
             entity.HasIndex(e => e.Name).HasDatabaseName("IX_warehouses_name");
+            entity.HasIndex(e => e.Status).HasDatabaseName("IX_warehouses_status");
         });
 
         // =====================================================
@@ -83,18 +87,19 @@ public class InventoryDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.ProductId).HasColumnName("product_id");
-            entity.Property(e => e.LocationType).HasColumnName("location_type").HasMaxLength(50);
+            entity.Property(e => e.LocationType).HasColumnName("location_type").IsRequired().HasMaxLength(50);
             entity.Property(e => e.LocationId).HasColumnName("location_id");
             entity.Property(e => e.Quantity).HasColumnName("quantity").HasDefaultValue(0);
             entity.Property(e => e.ReservedQuantity).HasColumnName("reserved_quantity").HasDefaultValue(0);
-            entity.Property(e => e.AvailableQuantity).HasColumnName("available_quantity").HasComputedColumnSql("[quantity] - [reserved_quantity]", stored: true);
             entity.Property(e => e.MinStockLevel).HasColumnName("min_stock_level").HasDefaultValue(10);
             entity.Property(e => e.MaxStockLevel).HasColumnName("max_stock_level").HasDefaultValue(1000);
             entity.Property(e => e.LastStockCheck).HasColumnName("last_stock_check");
-            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            entity.Ignore(e => e.AvailableQuantity); // Computed column
 
             entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_inventories_product_id");
             entity.HasIndex(e => new { e.LocationType, e.LocationId }).HasDatabaseName("IX_inventories_location");
+            entity.HasIndex(e => new { e.ProductId, e.LocationType, e.LocationId }).IsUnique().HasDatabaseName("UQ_inventory_product_location");
         });
 
         // =====================================================
@@ -212,6 +217,8 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.ReceivedBy).HasColumnName("received_by");
             entity.Property(e => e.Notes).HasColumnName("notes");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
             entity.HasIndex(e => e.TransferNumber).IsUnique().HasDatabaseName("IX_transfers_transfer_number");
             entity.HasIndex(e => new { e.FromLocationType, e.FromLocationId }).HasDatabaseName("IX_transfers_from_location");
             entity.HasIndex(e => new { e.ToLocationType, e.ToLocationId }).HasDatabaseName("IX_transfers_to_location");
@@ -270,6 +277,8 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.TransferId).HasColumnName("transfer_id");
             entity.Property(e => e.Notes).HasColumnName("notes");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
             entity.HasOne(e => e.Transfer)
                 .WithMany(t => t.RestockRequests)
                 .HasForeignKey(e => e.TransferId)
