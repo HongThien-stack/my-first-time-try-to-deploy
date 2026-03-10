@@ -8,13 +8,16 @@ namespace InventoryService.Application.Services;
 public class RestockRequestService : IRestockRequestService
 {
     private readonly IRestockRequestRepository _requestRepository;
+    private readonly IProductServiceClient _productServiceClient;
     private readonly ILogger<RestockRequestService> _logger;
 
     public RestockRequestService(
         IRestockRequestRepository requestRepository,
+        IProductServiceClient productServiceClient,
         ILogger<RestockRequestService> logger)
     {
         _requestRepository = requestRepository;
+        _productServiceClient = productServiceClient;
         _logger = logger;
     }
 
@@ -22,14 +25,19 @@ public class RestockRequestService : IRestockRequestService
     {
         _logger.LogInformation("Getting all restock requests");
         var requests = await _requestRepository.GetAllAsync();
-        return requests.Select(MapToDto);
+        var dtos = requests.Select(MapToDto).ToList();
+        await EnrichWithProductInfoAsync(dtos);
+        return dtos;
     }
 
     public async Task<RestockRequestDto?> GetRequestByIdAsync(Guid id)
     {
         _logger.LogInformation("Getting restock request by ID: {RequestId}", id);
         var request = await _requestRepository.GetByIdAsync(id);
-        return request != null ? MapToDto(request) : null;
+        if (request == null) return null;
+        var dto = MapToDto(request);
+        await EnrichWithProductInfoAsync(new[] { dto });
+        return dto;
     }
 
     public async Task<IEnumerable<RestockRequestDto>> GetRequestsByStoreAsync(Guid storeId)
@@ -46,7 +54,7 @@ public class RestockRequestService : IRestockRequestService
         return requests.Select(MapToDto);
     }
 
-    public async Task<RestockRequestDto> CreateRequestAsync(CreateRestockRequestDto dto)
+    public async Task<RestockRequestDto> CreateRequestAsync(CreateRestockRequestDto dto, Guid requestedBy)
     {
         _logger.LogInformation("Creating new restock request for store: {StoreId}", dto.StoreId);
 
@@ -57,7 +65,8 @@ public class RestockRequestService : IRestockRequestService
             Id = Guid.NewGuid(),
             RequestNumber = requestNumber,
             StoreId = dto.StoreId,
-            RequestedBy = dto.RequestedBy,
+            WarehouseId = dto.WarehouseId,
+            RequestedBy = requestedBy,
             RequestedDate = DateTime.UtcNow,
             Priority = dto.Priority,
             Status = "PENDING",
@@ -123,6 +132,23 @@ public class RestockRequestService : IRestockRequestService
         _logger.LogInformation("Deleting restock request: {RequestId}", id);
         await _requestRepository.DeleteAsync(id);
         return true;
+    }
+
+    private async Task EnrichWithProductInfoAsync(IEnumerable<RestockRequestDto> dtos)
+    {
+        var productIds = dtos
+            .SelectMany(d => d.Items.Select(i => i.ProductId))
+            .Distinct();
+
+        var productMap = await _productServiceClient.GetProductsByIdsAsync(productIds);
+
+        foreach (var dto in dtos)
+            foreach (var item in dto.Items)
+                if (productMap.TryGetValue(item.ProductId, out var info))
+                {
+                    item.ProductName = info.Name;
+                    item.Unit = info.Unit;
+                }
     }
 
     private RestockRequestDto MapToDto(RestockRequest request)

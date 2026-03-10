@@ -11,6 +11,8 @@ public class ProductBatch
     public DateTime? ManufacturingDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public string? Supplier { get; set; }
+    public Guid? SupplierId { get; set; }       // ProductDB.suppliers.id (logic reference)
+    public Guid? PurchaseOrderId { get; set; }  // purchase_orders.id
     public DateTime ReceivedAt { get; set; }
     public string Status { get; set; } = "AVAILABLE"; // AVAILABLE | SOLD | EXPIRED | DAMAGED
 

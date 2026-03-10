@@ -2,6 +2,7 @@ using InventoryService.Application.Interfaces;
 using InventoryService.Application.Services;
 using InventoryService.Infrastructure.Data;
 using InventoryService.Infrastructure.Repositories;
+using InventoryService.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -100,6 +101,13 @@ builder.Services.AddScoped<IProductBatchService, ProductBatchService>();
 builder.Services.AddScoped<IBatchQueryService, BatchQueryService>();
 builder.Services.AddScoped<IDamageReportService, DamageReportService>();
 builder.Services.AddScoped<IInventoryCheckService, InventoryCheckService>();
+
+// HTTP client for inter-service calls
+builder.Services.AddHttpClient<IProductServiceClient, ProductServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ServiceUrls:ProductService"]!);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 
 // CORS Configuration
 builder.Services.AddCors(options =>
