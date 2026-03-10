@@ -5,7 +5,7 @@ public class RestockRequest
     public Guid Id { get; set; }
     public string RequestNumber { get; set; } = string.Empty; // RST-2024-001
     public Guid StoreId { get; set; } // Store requesting restock
-    public Guid? WarehouseId { get; set; } // Warehouse to fulfill
+    public Guid WarehouseId { get; set; } // Warehouse to fulfill
     public Guid RequestedBy { get; set; } // IdentityDB.users.id (Store staff)
     public DateTime RequestedDate { get; set; }
     public string Priority { get; set; } = "NORMAL"; // NORMAL | HIGH | URGENT

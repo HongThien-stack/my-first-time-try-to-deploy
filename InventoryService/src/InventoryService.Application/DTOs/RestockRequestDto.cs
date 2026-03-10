@@ -21,6 +21,8 @@ public class RestockRequestItemDto
 {
     public Guid Id { get; set; }
     public Guid ProductId { get; set; }
+    public string? ProductName { get; set; }
+    public string? Unit { get; set; }
     public int RequestedQuantity { get; set; }
     public int CurrentQuantity { get; set; }
     public int? ApprovedQuantity { get; set; }
@@ -30,7 +32,7 @@ public class RestockRequestItemDto
 public class CreateRestockRequestDto
 {
     public Guid StoreId { get; set; }
-    public Guid RequestedBy { get; set; }
+    public Guid WarehouseId { get; set; }
     public string Priority { get; set; } = "NORMAL";
     public string? Notes { get; set; }
     public List<CreateRestockRequestItemDto> Items { get; set; } = new();
