@@ -20,4 +20,11 @@ public class ProductBatchRepository : IProductBatchRepository
             .OrderByDescending(b => b.ReceivedAt)
             .ToListAsync();
     }
+
+    public async Task<ProductBatch> AddAsync(ProductBatch batch)
+    {
+        _context.ProductBatches.Add(batch);
+        await _context.SaveChangesAsync();
+        return batch;
+    }
 }

@@ -10,6 +10,7 @@ public class StockMovement
     public DateTime MovementDate { get; set; }
     public string? Supplier { get; set; } // For INBOUND
     public Guid? PurchaseOrderId { get; set; } // Purchase Order number
+    public Guid? TransferId { get; set; }
     public Guid? ReceivedBy { get; set; } // IdentityDB.users.id
     public string Status { get; set; } = "COMPLETED"; // PENDING | COMPLETED | CANCELLED
     public string? Notes { get; set; }

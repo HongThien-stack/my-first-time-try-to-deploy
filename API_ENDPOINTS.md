@@ -395,6 +395,103 @@ Lấy tồn kho của sản phẩm (tích hợp với InventoryService)
 
 ---
 
+## **Supplier APIs**
+
+### **GET /api/suppliers** [P0]
+Lấy danh sách suppliers
+```json
+Query params:
+- status=ACTIVE|INACTIVE
+- search=vinamilk
+
+Response: 200 OK
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Vinamilk Co., Ltd.",
+      "code": "SUP-001",
+      "contactPerson": "Nguyen Van A",
+      "phone": "0901234567",
+      "email": "contact@vinamilk.vn",
+      "address": "TP.HCM",
+      "status": "ACTIVE",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+### **GET /api/suppliers/:id** [P0]
+Lấy chi tiết supplier
+```json
+Response:
+{
+  "id": "uuid",
+  "name": "Vinamilk Co., Ltd.",
+  "code": "SUP-001",
+  "taxCode": "0300588569",
+  "contactPerson": "Nguyen Van A",
+  "phone": "0901234567",
+  "email": "contact@vinamilk.vn",
+  "address": "123 Nguyen Van Linh, Q7, TP.HCM",
+  "bankAccount": "1234567890",
+  "bankName": "Vietcombank",
+  "paymentTerms": "NET_30",
+  "status": "ACTIVE",
+  "products": ["Sữa TH", "Sữa Chua", "Phô Mai"],
+  "totalOrders": 150,
+  "totalValue": 5000000000
+}
+```
+
+### **POST /api/suppliers** [P0]
+Tạo supplier mới
+```json
+Request:
+{
+  "name": "Vinamilk Co., Ltd.",
+  "code": "SUP-001",
+  "taxCode": "0300588569",
+  "contactPerson": "Nguyen Van A",
+  "phone": "0901234567",
+  "email": "contact@vinamilk.vn",
+  "address": "123 Nguyen Van Linh, Q7, TP.HCM",
+  "bankAccount": "1234567890",
+  "bankName": "Vietcombank",
+  "paymentTerms": "NET_30",
+  "status": "ACTIVE"
+}
+
+Response: 201 Created
+{
+  "success": true,
+  "message": "Supplier created successfully",
+  "data": { "id": "uuid", "code": "SUP-001" }
+}
+```
+
+### **PUT /api/suppliers/:id** [P0]
+Cập nhật supplier
+
+### **DELETE /api/suppliers/:id** [P1]
+Xóa supplier (soft delete)
+
+### **GET /api/suppliers/:id/products** [P0]
+Lấy danh sách products của supplier
+
+### **GET /api/suppliers/:id/purchase-history** [P1]
+Lấy lịch sử mua hàng từ supplier
+```
+Query params:
+- dateFrom=2024-01-01
+- dateTo=2024-03-31
+- status=COMPLETED|PENDING
+```
+
+---
+
 # **3. INVENTORYSERVICE** (Port 5004-5005)
 
 **Base URL:** `http://localhost:5004/api`
@@ -507,6 +604,70 @@ Response:
 }
 ```
 
+### **GET /api/inventory/low-stock-alerts** [P0]
+Lấy danh sách cảnh báo hàng sắp hết (auto-detect)
+```
+Query params:
+- locationId=uuid (warehouse or store)
+- threshold=20 (percentage, default 20%)
+- severity=LOW|CRITICAL (LOW: <20%, CRITICAL: <10%)
+- includePerishable=true
+
+Response: 200 OK
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "productId": "uuid",
+      "productName": "Sữa TH",
+      "sku": "SUA-001",
+      "locationId": "uuid",
+      "locationName": "Store Q1",
+      "currentQuantity": 15,
+      "maxCapacity": 100,
+      "stockPercentage": 15,
+      "threshold": 20,
+      "severity": "CRITICAL",
+      "isPerishable": true,
+      "daysUntilExpiry": 10,
+      "reorderPoint": 30,
+      "recommendedQuantity": 85,
+      "alertDate": "2024-03-03T08:00:00Z",
+      "status": "PENDING"
+    }
+  ],
+  "summary": {
+    "totalAlerts": 15,
+    "critical": 5,
+    "low": 10
+  }
+}
+```
+
+### **POST /api/inventory/low-stock-alert/:alertId/create-restock** [P0]
+Tự động tạo restock request từ low stock alert
+```json
+Request:
+{
+  "alertId": "uuid",
+  "priority": "HIGH",
+  "requestedBy": "uuid",
+  "notes": "Auto-generated from low stock alert"
+}
+
+Response: 201 Created
+{
+  "success": true,
+  "message": "Restock request created from alert",
+  "data": {
+    "restockRequestId": "uuid",
+    "alertId": "uuid",
+    "status": "PENDING"
+  }
+}
+```
+
 ---
 
 ## **Stock Movement APIs**
@@ -548,6 +709,50 @@ Request:
 }
 ```
 
+### **POST /api/stock-movements/receive-perishable** [P0]
+Nhận hàng dễ hỏng trực tiếp từ supplier vào store (bypass warehouse)
+```json
+Request:
+{
+  "storeId": "uuid",
+  "supplierId": "uuid",
+  "supplierName": "Dalat Hasfarm",
+  "poNumber": "PO-2024-015",
+  "receivedDate": "2024-03-03",
+  "items": [
+    {
+      "productId": "uuid",
+      "productName": "Rau Xà Lách",
+      "quantity": 20,
+      "unit": "kg",
+      "batchNumber": "BATCH-2024-VEG-015",
+      "manufacturingDate": "2024-03-02",
+      "expiryDate": "2024-03-05",
+      "daysUntilExpiry": 2,
+      "expectedQuantity": 20,
+      "receivedQuantity": 20,
+      "status": "ACCEPTED"
+    }
+  ],
+  "deliveryNotes": "Fresh vegetables direct from farm",
+  "receivedBy": "Store Staff 1",
+  "isPerishable": true
+}
+
+Response: 201 Created
+{
+  "success": true,
+  "message": "Perishable goods received directly to store",
+  "data": {
+    "movementId": "uuid",
+    "storeId": "uuid",
+    "supplierId": "uuid",
+    "totalItems": 1,
+    "status": "COMPLETED"
+  }
+}
+```
+
 ### **GET /api/stock-movements/:id/items** [P0]
 Lấy chi tiết items trong movement
 
@@ -569,6 +774,51 @@ Lấy chi tiết batch
 
 ### **GET /api/batches/expiring-soon** [P0]
 Lấy batches sắp hết hạn (< 30 ngày) de uu tien show san pham set ma giam gia cho san pham thuộc lô này
+
+### **GET /api/batches/fefo-priority** [P0]
+Lấy batches theo FEFO (First Expire First Out) cho transfer packing
+```
+Query params:
+- productId=uuid (required)
+- warehouseId=uuid (required)
+- quantity=50 (số lượng cần lấy)
+
+Response:
+{
+  "success": true,
+  "data": {
+    "productId": "uuid",
+    "productName": "Sữa TH",
+    "requestedQuantity": 50,
+    "batches": [
+      {
+        "batchId": "uuid",
+        "batchNumber": "BATCH-2024-001",
+        "slotId": "uuid",
+        "slotCode": "A-01-05",
+        "availableQuantity": 30,
+        "manufacturingDate": "2024-01-15",
+        "expiryDate": "2024-07-15",
+        "daysUntilExpiry": 15,
+        "priority": 1
+      },
+      {
+        "batchId": "uuid",
+        "batchNumber": "BATCH-2024-015",
+        "slotId": "uuid",
+        "slotCode": "A-02-10",
+        "availableQuantity": 50,
+        "manufacturingDate": "2024-02-01",
+        "expiryDate": "2024-08-01",
+        "daysUntilExpiry": 32,
+        "priority": 2
+      }
+    ],
+    "sufficientStock": true,
+    "totalAvailable": 80
+  }
+}
+```
 
 ---
 
@@ -633,6 +883,54 @@ Request:
 
 ### **PUT /api/transfers/:id/cancel** [P1]
 Hủy transfer
+
+### **PUT /api/transfers/:id/approve** [P0]
+Duyệt transfer (warehouse manager approval)
+```json
+Request:
+{
+  "approvedBy": "uuid",
+  "approvalDate": "2024-03-03T10:00:00Z",
+  "notes": "Approved for immediate packing"
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Transfer approved",
+  "data": {
+    "transferId": "uuid",
+    "status": "APPROVED",
+    "approvedBy": "uuid",
+    "approvalDate": "2024-03-03T10:00:00Z"
+  }
+}
+```
+
+### **PUT /api/transfers/:id/reject** [P0]
+Từ chối transfer
+```json
+Request:
+{
+  "rejectedBy": "uuid",
+  "rejectionDate": "2024-03-03T10:00:00Z",
+  "reason": "Insufficient stock|Wrong delivery date|Duplicate request|Other",
+  "notes": "Không đủ hàng trong kho"
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Transfer rejected",
+  "data": {
+    "transferId": "uuid",
+    "status": "REJECTED",
+    "rejectedBy": "uuid",
+    "reason": "Insufficient stock",
+    "notes": "Không đủ hàng trong kho"
+  }
+}
+```
 
 ---
 
@@ -757,6 +1055,98 @@ Request:
 
 ### **PUT /api/inventory-checks/:id/submit** [P1]
 Submit inventory check (cập nhật tồn kho)
+
+### **POST /api/inventory-checks/:id/reconcile** [P0]
+So sánh và reconcile inventory check (system vs actual)
+```json
+Request:
+{
+  "checkId": "uuid",
+  "reconciledBy": "uuid",
+  "items": [
+    {
+      "productId": "uuid",
+      "systemQuantity": 500,
+      "actualQuantity": 498,
+      "difference": -2,
+      "action": "ADJUST|INVESTIGATE|IGNORE",
+      "note": "2 units damaged, reported"
+    }
+  ]
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Inventory check reconciled",
+  "data": {
+    "checkId": "uuid",
+    "totalItems": 10,
+    "matched": 7,
+    "discrepancies": 3,
+    "requiresApproval": true,
+    "summary": {
+      "totalMissing": -5,
+      "totalFound": +3,
+      "netDifference": -2
+    }
+  }
+}
+```
+
+### **PUT /api/inventory-checks/:id/approve** [P0]
+Manager duyệt inventory check
+```json
+Request:
+{
+  "approvedBy": "uuid",
+  "decision": "APPROVE|REJECT",
+  "notes": "Approved adjustments for damaged items",
+  "createDamageReport": true
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Inventory check approved and adjusted",
+  "data": {
+    "checkId": "uuid",
+    "status": "APPROVED",
+    "adjustmentsApplied": 3,
+    "damageReportCreated": true
+  }
+}
+```
+
+### **PUT /api/inventory-checks/:id/adjust** [P0]
+Tự động cập nhật inventory theo actual quantity (sau khi approved)
+```json
+Request:
+{
+  "checkId": "uuid",
+  "adjustedBy": "uuid",
+  "createAuditLog": true
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Inventory adjusted successfully",
+  "data": {
+    "checkId": "uuid",
+    "itemsAdjusted": 3,
+    "auditLogId": "uuid",
+    "adjustments": [
+      {
+        "productId": "uuid",
+        "oldQuantity": 500,
+        "newQuantity": 498,
+        "difference": -2
+      }
+    ]
+  }
+}
+```
 
 ---
 

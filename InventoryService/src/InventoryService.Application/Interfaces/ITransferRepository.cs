@@ -4,13 +4,11 @@ namespace InventoryService.Application.Interfaces;
 
 public interface ITransferRepository
 {
-    Task<IEnumerable<Transfer>> GetAllAsync();
-    Task<Transfer?> GetByIdAsync(Guid id);
-    Task<Transfer?> GetByTransferNumberAsync(string transferNumber);
-    Task<IEnumerable<Transfer>> GetByFromLocationAsync(string locationType, Guid locationId);
-    Task<IEnumerable<Transfer>> GetByToLocationAsync(string locationType, Guid locationId);
-    Task<IEnumerable<Transfer>> GetByStatusAsync(string status);
-    Task<Transfer> AddAsync(Transfer transfer);
-    Task UpdateAsync(Transfer transfer);
-    Task DeleteAsync(Guid id);
+    Task<List<Transfer>> GetAllTransfersAsync();
+    Task<List<TransferItem>> GetAllTransferItemsByIdAsync(Guid transferId);
+    Task<Transfer?> GetTransferByIdAsync(Guid id);
+    Task AddNewTransferAsync(Transfer transfer);
+    Task AddNewTransferItemAsync(TransferItem transferItem);
+    Task<int> CountTransferAsync();
+    Task UpdateTransferAsync(Transfer transfer);
 }

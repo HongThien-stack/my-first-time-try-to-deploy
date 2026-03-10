@@ -47,4 +47,6 @@ public class CreateTransferItemDto
     public Guid ProductId { get; set; }
     public Guid? BatchId { get; set; }
     public int RequestedQuantity { get; set; }
+    public int ReceivedQuantity { get; set; }
+    public string? Notes { get; set; }
 }
