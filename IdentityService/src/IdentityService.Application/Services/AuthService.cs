@@ -124,6 +124,7 @@ public class AuthService : IAuthService
             AccessToken = accessToken,
             Email = user.Email,
             FullName = user.FullName,
+            Phone = user.Phone,
             RoleId = user.RoleId,
             IsEmailVerified = user.EmailVerified,
             Message = user.EmailVerified ? null : "Email not verified. Please check your inbox and verify your email.",
