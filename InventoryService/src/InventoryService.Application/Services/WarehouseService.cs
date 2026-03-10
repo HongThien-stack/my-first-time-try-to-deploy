@@ -34,7 +34,8 @@ public class WarehouseService : IWarehouseService
                 Capacity = w.Capacity,
                 Status = w.Status,
                 IsDeleted = w.IsDeleted,
-                CreatedAt = w.CreatedAt
+                CreatedAt = w.CreatedAt,
+                CreatedBy = w.CreatedBy
             });
     }
 
@@ -57,7 +58,8 @@ public class WarehouseService : IWarehouseService
             Capacity = warehouse.Capacity,
             Status = warehouse.Status,
             IsDeleted = warehouse.IsDeleted,
-            CreatedAt = warehouse.CreatedAt
+            CreatedAt = warehouse.CreatedAt,
+            CreatedBy = warehouse.CreatedBy
         };
     }
 

@@ -19,6 +19,7 @@ public class InventoryRepository : IInventoryRepository
         return await _context.Inventories
             .OrderBy(i => i.LocationType)
             .ThenBy(i => i.LocationId)
+            .ThenBy(i => i.ProductId)
             .ToListAsync();
     }
 
@@ -53,7 +54,8 @@ public class InventoryRepository : IInventoryRepository
 
     public async Task<IEnumerable<Inventory>> GetLowStockItemsAsync(string? locationType = null)
     {
-        var query = _context.Inventories.AsQueryable();
+        var query = _context.Inventories
+            .Where(i => i.AvailableQuantity <= i.MinStockLevel);
         
         if (!string.IsNullOrEmpty(locationType))
         {
@@ -61,8 +63,8 @@ public class InventoryRepository : IInventoryRepository
         }
         
         return await query
-            .Where(i => i.Quantity <= i.MinStockLevel)
             .OrderBy(i => i.LocationType)
+            .ThenBy(i => i.LocationId)
             .ThenBy(i => i.ProductId)
             .ToListAsync();
     }

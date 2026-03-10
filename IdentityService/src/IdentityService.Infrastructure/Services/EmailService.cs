@@ -29,7 +29,7 @@ public class EmailService : IEmailService
 
         var fromEmail = settings["FromEmail"]
             ?? throw new InvalidOperationException("EmailSettings:FromEmail is not configured.");
-        var fromName = settings["FromName"] ?? "Identity Service";
+        var fromName = settings["FromName"] ?? "Bach Hoa Xanh Security";
         var smtpHost = settings["SmtpHost"]
             ?? throw new InvalidOperationException("EmailSettings:SmtpHost is not configured.");
         var smtpPort = int.Parse(settings["SmtpPort"] ?? "587");
@@ -41,7 +41,7 @@ public class EmailService : IEmailService
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(fromName, fromEmail));
         message.To.Add(new MailboxAddress(toName, toEmail));
-        message.Subject = "Your OTP Code – Identity Service";
+        message.Subject = "Your OTP Code – Bach Hoa Xanh Security";
 
         var bodyBuilder = new BodyBuilder
         {

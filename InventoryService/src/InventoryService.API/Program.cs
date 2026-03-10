@@ -87,6 +87,7 @@ builder.Services.AddScoped<IInventoryCheckRepository, InventoryCheckRepository>(
 builder.Services.AddScoped<IDamageReportRepository, DamageReportRepository>();
 builder.Services.AddScoped<IInventoryHistoryRepository, InventoryHistoryRepository>();
 builder.Services.AddScoped<IInventoryLogRepository, InventoryLogRepository>();
+builder.Services.AddScoped<IInventoryLockingRepository, InventoryLockingRepository>(); // For row-level locking
 builder.Services.AddScoped<IProductBatchRepository, ProductBatchRepository>();
 builder.Services.AddScoped<IProductBatchQueryRepository, ProductBatchQueryRepository>();
 

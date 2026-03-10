@@ -139,12 +139,6 @@ public class WarehouseController : ControllerBase
         if (request.Location != null)
             warehouse.Location = request.Location;
 
-        if (request.Capacity.HasValue)
-            warehouse.Capacity = request.Capacity.Value;
-
-        if (request.Status != null)
-            warehouse.Status = request.Status;
-
         try
         {
             await _warehouseService.UpdateWarehouseAsync(warehouse);

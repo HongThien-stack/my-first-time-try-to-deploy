@@ -25,4 +25,8 @@ public interface IInventoryLogRepository
         int page = 1,
         int pageSize = 10);
     
+    /// <summary>
+    /// Add a new inventory log entry
+    /// </summary>
+    Task<InventoryLog> AddAsync(InventoryLog log);
 }
