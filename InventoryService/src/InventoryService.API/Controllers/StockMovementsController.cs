@@ -1,6 +1,8 @@
-﻿using InventoryService.Application.Interfaces;
+﻿using InventoryService.Application.DTOs;
+using InventoryService.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace InventoryService.API.Controllers;
 
@@ -130,5 +132,100 @@ public class StockMovementsController : ControllerBase
                 error = ex.Message
             });
         }
+    }
+
+    /// <summary>
+    /// Nhập hàng từ Supplier vào Warehouse
+    /// </summary>
+    [HttpPost("receive")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ReceiveStock([FromBody] ReceiveStockRequestDto request)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var result = await _stockMovementService.ReceiveStockAsync(request, userId);
+
+            return StatusCode(StatusCodes.Status201Created, new
+            {
+                success = true,
+                message = "Stock received successfully",
+                data = result
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error receiving stock");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while receiving stock",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Nhập hàng tươi sống thẳng vào Store (bỏ qua Warehouse)
+    /// </summary>
+    [HttpPost("receive-perishable")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ReceivePerishable([FromBody] ReceivePerishableRequestDto request)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var result = await _stockMovementService.ReceivePerishableAsync(request, userId);
+
+            return StatusCode(StatusCodes.Status201Created, new
+            {
+                success = true,
+                message = "Perishable stock received successfully",
+                data = result
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error receiving perishable stock");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while receiving perishable stock",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Lấy UserId từ JWT token claim
+    /// </summary>
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            throw new UnauthorizedAccessException("User ID not found in token");
+        }
+        return userId;
     }
 }

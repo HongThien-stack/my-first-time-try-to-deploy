@@ -54,6 +54,12 @@ public class StockMovementRepository : IStockMovementRepository
             .ToListAsync();
     }
 
+    public async Task<int> CountByDateAsync(DateTime date)
+    {
+        return await _context.StockMovements 
+            .CountAsync(sm => sm.MovementDate.Date == date.Date);
+    }
+
     public async Task<StockMovement> AddAsync(StockMovement movement)
     {
         movement.CreatedAt = DateTime.UtcNow;
