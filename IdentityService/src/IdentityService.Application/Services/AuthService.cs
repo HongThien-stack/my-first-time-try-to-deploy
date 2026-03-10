@@ -124,6 +124,7 @@ public class AuthService : IAuthService
             AccessToken = accessToken,
             Email = user.Email,
             FullName = user.FullName,
+            Phone = user.Phone,
             RoleId = user.RoleId,
             IsEmailVerified = user.EmailVerified,
             Message = user.EmailVerified ? null : "Email not verified. Please check your inbox and verify your email.",
@@ -221,11 +222,18 @@ public class AuthService : IAuthService
         }
         if (!string.IsNullOrEmpty(request.Email))
         {
-            if (string.IsNullOrWhiteSpace(request.Password))
+            // Check if email is different and not already taken
+            if (request.Email != user.Email)
             {
-                throw new InvalidOperationException("Password cannot be empty");
+                if (await _userRepository.ExistsByEmailAsync(request.Email))
+                {
+                    throw new InvalidOperationException("Email already exists");
+                }
+                user.Email = request.Email;
             }
-
+        }
+        if (!string.IsNullOrEmpty(request.Password))
+        {
             user.PasswordHash = _passwordHasher.HashPassword(request.Password);
         }
         
