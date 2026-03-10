@@ -232,10 +232,6 @@ public class AuthService : IAuthService
                 user.Email = request.Email;
             }
         }
-        if (!string.IsNullOrEmpty(request.Password))
-        {
-            user.PasswordHash = _passwordHasher.HashPassword(request.Password);
-        }
         
         // Update workplace if provided
         // Allow clearing workplace by sending empty values
