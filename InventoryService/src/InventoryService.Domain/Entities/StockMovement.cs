@@ -8,9 +8,10 @@ public class StockMovement
     public Guid LocationId { get; set; } // warehouse_id or store_id
     public string LocationType { get; set; } = string.Empty; // WAREHOUSE | STORE
     public DateTime MovementDate { get; set; }
-    public string? Supplier { get; set; } // For INBOUND
-    public string? PoNumber { get; set; } // Purchase Order number
-    public Guid? ReceivedBy { get; set; } // IdentityDB.users.id
+    public Guid? PurchaseOrderId { get; set; } // purchase_orders.id (INBOUND)
+    public string? SupplierName { get; set; }    // Snapshot tên NCC
+    public Guid? TransferId { get; set; }         // transfers.id (TRANSFER)
+    public Guid? ReceivedBy { get; set; }         // IdentityDB.users.id
     public string Status { get; set; } = "COMPLETED"; // PENDING | COMPLETED | CANCELLED
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }

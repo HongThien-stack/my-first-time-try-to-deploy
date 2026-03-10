@@ -8,7 +8,7 @@ public interface IRestockRequestService
     Task<RestockRequestDto?> GetRequestByIdAsync(Guid id);
     Task<IEnumerable<RestockRequestDto>> GetRequestsByStoreAsync(Guid storeId);
     Task<IEnumerable<RestockRequestDto>> GetPendingRequestsAsync();
-    Task<RestockRequestDto> CreateRequestAsync(CreateRestockRequestDto dto);
+    Task<RestockRequestDto> CreateRequestAsync(CreateRestockRequestDto dto, Guid requestedBy);
     Task ApproveRequestAsync(Guid id, Guid approvedBy, List<int?> approvedQuantities);
     Task RejectRequestAsync(Guid id, Guid rejectedBy, string reason);
     Task<bool> DeleteRequestAsync(Guid id);
