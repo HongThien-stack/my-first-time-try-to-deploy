@@ -148,5 +148,44 @@ namespace InventoryService.API.Controllers
             }
             return Ok("Transfer created successfully.");
         }
+
+        [HttpPut("transfer/{id}/status")]
+        public async Task<ActionResult> UpdateTransferStatus(
+            [FromRoute] Guid id,
+            [FromBody] UpdateTransferStatusDto dto)
+        {
+            // Tìm transfer theo ID
+            var transfer = await _transferService.GetTransferByIdAsync(id);
+            if (transfer == null)
+            {
+                return NotFound("No transfer is found with this id.");
+            }
+
+            // Cập nhật trạng thái
+            transfer.Status = dto.Status;
+            transfer.UpdatedAt = DateTime.UtcNow;
+
+            // Ghi chú thêm nếu có
+            if (!string.IsNullOrWhiteSpace(dto.Notes))
+                transfer.Notes = string.IsNullOrWhiteSpace(transfer.Notes)
+                    ? dto.Notes
+                    : $"{transfer.Notes}\n{dto.Notes}";
+
+            // Ghi nhận người thực hiện theo từng trạng thái
+            // IN_TRANSIT: Warehouse Staff xuất hàng
+            // DELIVERED : Store Staff xác nhận nhận hàng
+            if (dto.Status == "IN_TRANSIT")
+            {
+                transfer.ShippedBy = transfer.ShippedBy; // giữ nguyên ShippedBy đã set lúc tạo
+            }
+            else if (dto.Status == "DELIVERED")
+            {
+                transfer.ActualDelivery = DateTime.UtcNow;
+            }
+
+            await _transferService.UpdateTransferAsync(transfer);
+
+            return Ok("Transfer status updated successfully.");
+        }
     }
 }

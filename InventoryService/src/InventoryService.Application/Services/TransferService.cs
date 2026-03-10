@@ -42,4 +42,9 @@ public class TransferService : ITransferService
     {
         return await _transferRepository.CountTransferAsync();
     }
+
+    public async Task UpdateTransferAsync(Transfer transfer)
+    {
+        await _transferRepository.UpdateTransferAsync(transfer);
+    }
 }

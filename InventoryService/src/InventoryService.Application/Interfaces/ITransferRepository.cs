@@ -10,4 +10,5 @@ public interface ITransferRepository
     Task AddNewTransferAsync(Transfer transfer);
     Task AddNewTransferItemAsync(TransferItem transferItem);
     Task<int> CountTransferAsync();
+    Task UpdateTransferAsync(Transfer transfer);
 }

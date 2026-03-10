@@ -48,4 +48,11 @@ public class TransferRepository : ITransferRepository
     {
         return await _context.Transfers.CountAsync();
     }
+
+    // Cap nhat thong tin transfer 
+    public async Task UpdateTransferAsync(Transfer transfer)
+    {
+        _context.Transfers.Update(transfer);
+        await _context.SaveChangesAsync();
+    }
 }
