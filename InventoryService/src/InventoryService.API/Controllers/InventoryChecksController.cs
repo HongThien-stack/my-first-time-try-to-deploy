@@ -103,12 +103,12 @@ public class InventoryChecksController : ControllerBase
 
     /// <summary>
     /// POST /api/inventory-checks - Create a new inventory check session (Step 1)
-    /// Roles: Admin, Manager, Warehouse Manager, Store Staff
+    /// Roles: Admin, Manager, Warehouse Manager, Store Staff, Warehouse Staff
     /// </summary>
     /// <param name="dto">Inventory check creation data</param>
     /// <returns>Created inventory check</returns>
     [HttpPost]
-    [Authorize(Roles = "Admin,Manager,Warehouse Manager,Store Staff")]
+    [Authorize(Roles = "Admin,Manager,Warehouse Manager,Store Staff,Warehouse Staff")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -266,12 +266,12 @@ public class InventoryChecksController : ControllerBase
     }
 
     /// <summary>
-    /// GET /api/inventory-checks/{id}/reconcile - Reconcile differences (Step 3)
+    /// POST /api/inventory-checks/{id}/reconcile - Reconcile differences (Step 3)
     /// Roles: Admin, Manager, Warehouse Manager
     /// </summary>
     /// <param name="id">Inventory check ID</param>
     /// <returns>List of discrepancies</returns>
-    [HttpGet("{id:guid}/reconcile")]
+    [HttpPost("{id:guid}/reconcile")]
     [Authorize(Roles = "Admin,Manager,Warehouse Manager")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

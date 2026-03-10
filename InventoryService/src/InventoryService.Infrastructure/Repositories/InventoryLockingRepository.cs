@@ -19,14 +19,14 @@ public class InventoryLockingRepository : IInventoryLockingRepository
         Guid locationId, 
         Guid productId)
     {
-        // Simplified: database only has store_id (no location_type/location_id)
-        // Use raw SQL to apply UPDLOCK and ROWLOCK hints
+        // Use raw SQL to apply UPDLOCK and ROWLOCK hints for pessimistic locking
         var inventory = await _context.Inventories
             .FromSqlRaw(@"
                 SELECT * FROM inventories WITH (UPDLOCK, ROWLOCK)
-                WHERE store_id = {0} 
-                AND product_id = {1}",
-                locationId, productId)
+                WHERE location_type = {0}
+                AND location_id = {1} 
+                AND product_id = {2}",
+                locationType, locationId, productId)
             .FirstOrDefaultAsync();
 
         return inventory;

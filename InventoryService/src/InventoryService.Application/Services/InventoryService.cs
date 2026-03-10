@@ -86,14 +86,16 @@ public class InventoryManagementService : IInventoryService
         return new InventoryDto
         {
             Id = inventory.Id,
-            StoreId = inventory.StoreId,
             ProductId = inventory.ProductId,
+            LocationType = inventory.LocationType,
+            LocationId = inventory.LocationId,
             Quantity = inventory.Quantity,
-            AlertThreshold = inventory.AlertThreshold,
-            CreatedAt = inventory.CreatedAt,
-            UpdatedAt = inventory.UpdatedAt,
-            CreatedBy = inventory.CreatedBy,
-            UpdatedBy = inventory.UpdatedBy
+            ReservedQuantity = inventory.ReservedQuantity,
+            AvailableQuantity = inventory.AvailableQuantity,
+            MinStockLevel = inventory.MinStockLevel,
+            MaxStockLevel = inventory.MaxStockLevel,
+            LastStockCheck = inventory.LastStockCheck,
+            UpdatedAt = inventory.UpdatedAt
         };
     }
 }

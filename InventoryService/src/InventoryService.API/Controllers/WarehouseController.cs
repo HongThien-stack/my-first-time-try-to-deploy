@@ -105,11 +105,11 @@ public class WarehouseController : ControllerBase
                 Id = Guid.NewGuid(),
                 Name = warehouseDto.Name,
                 Location = warehouseDto.Location,
+                Capacity = warehouseDto.Capacity,
+                Status = warehouseDto.Status,
                 IsDeleted = warehouseDto.IsDeleted,
                 CreatedAt = warehouseDto.CreatedAt,
-                UpdatedAt = warehouseDto.UpdatedAt,
-                CreatedBy = warehouseDto.CreatedBy,
-                UpdatedBy = warehouseDto.UpdatedBy
+                CreatedBy = warehouseDto.CreatedBy
             };
 
             await _warehouseService.AddWarehouseAsync(warehouse);
