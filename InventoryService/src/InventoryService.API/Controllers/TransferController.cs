@@ -1,7 +1,5 @@
 ﻿using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
-using InventoryService.Domain.Entities;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InventoryService.API.Controllers
@@ -17,51 +15,10 @@ namespace InventoryService.API.Controllers
         }
 
         [HttpGet("transfers")]
-        public async Task<ActionResult<List<TransferDto>>> GetAllTransfers()
+        public async Task<ActionResult<IEnumerable<TransferDto>>> GetAllTransfers()
         {
             var transfers = await _transferService.GetAllTransfersAsync();
-            if (transfers == null || !transfers.Any())
-            {
-                return NotFound("No transfers found.");
-            }
-            List<TransferDto> combineTransfer = new List<TransferDto>();
-            foreach (var transfer in transfers)
-            {
-                var transferItems = await _transferService.GetAllTransferItemsByIdAsync(transfer.Id);
-                List<TransferItemDto> items = new List<TransferItemDto>();
-                foreach (var item in transferItems)
-                {
-                    items.Add(new TransferItemDto
-                    {
-                        Id = item.Id,
-                        ProductId = item.ProductId,
-                        BatchId = item.BatchId,
-                        RequestedQuantity = item.RequestedQuantity,
-                        ShippedQuantity = item.ShippedQuantity,
-                        ReceivedQuantity = item.ReceivedQuantity,
-                        DamagedQuantity = item.DamagedQuantity,
-                        Notes = item.Notes
-                    });
-                }
-                combineTransfer.Add(new TransferDto
-                {
-                    Id = transfer.Id,
-                    TransferNumber = transfer.TransferNumber,
-                    FromLocationType = transfer.FromLocationType,
-                    FromLocationId = transfer.FromLocationId,
-                    ToLocationType = transfer.ToLocationType,
-                    ToLocationId = transfer.ToLocationId,
-                    TransferDate = transfer.TransferDate,
-                    ExpectedDelivery = transfer.ExpectedDelivery,
-                    ActualDelivery = transfer.ActualDelivery,
-                    Status = transfer.Status,
-                    ShippedBy = transfer.ShippedBy,
-                    ReceivedBy = transfer.ReceivedBy,
-                    Notes = transfer.Notes,
-                    Items = items
-                });
-            }
-            return Ok(combineTransfer);
+            return Ok(transfers);
         }
 
         [HttpGet("transfer/{id}")]
@@ -69,84 +26,15 @@ namespace InventoryService.API.Controllers
         {
             var transfer = await _transferService.GetTransferByIdAsync(id);
             if (transfer == null)
-            {
                 return NotFound("No transfer is found with this id");
-            }
-            var transferItems = await _transferService.GetAllTransferItemsByIdAsync(transfer.Id);
-            List<TransferItemDto> items = new List<TransferItemDto>();
-            foreach (var item in transferItems)
-            {
-                items.Add(new TransferItemDto
-                {
-                    Id = item.Id,
-                    ProductId = item.ProductId,
-                    BatchId = item.BatchId,
-                    RequestedQuantity = item.RequestedQuantity,
-                    ShippedQuantity = item.ShippedQuantity,
-                    ReceivedQuantity = item.ReceivedQuantity,
-                    DamagedQuantity = item.DamagedQuantity,
-                    Notes = item.Notes
-                });
-            }
-            TransferDto transferDto = new TransferDto
-            {
-                Id = transfer.Id,
-                TransferNumber = transfer.TransferNumber,
-                FromLocationType = transfer.FromLocationType,
-                FromLocationId = transfer.FromLocationId,
-                ToLocationType = transfer.ToLocationType,
-                ToLocationId = transfer.ToLocationId,
-                TransferDate = transfer.TransferDate,
-                ExpectedDelivery = transfer.ExpectedDelivery,
-                ActualDelivery = transfer.ActualDelivery,
-                Status = transfer.Status,
-                ShippedBy = transfer.ShippedBy,
-                ReceivedBy = transfer.ReceivedBy,
-                Notes = transfer.Notes,
-                Items = items
-            };
-            return Ok(transferDto);
+            return Ok(transfer);
         }
 
         [HttpPost("transfer")]
-        public async Task<ActionResult> CreateTransfer([FromBody] CreateTransferDto createTransferDto)
+        public async Task<ActionResult<TransferDto>> CreateTransfer([FromBody] CreateTransferDto createTransferDto)
         {
-            Guid transferId = Guid.NewGuid();
-            var count = await _transferService.CountTransferAsync();
-            int orderCount = count + 1;
-            await _transferService.AddNewTransferAsync(new Transfer{
-                Id = transferId,
-                TransferNumber = $"TRF-{DateTime.UtcNow.Year}-{orderCount:D3}",
-                FromLocationType = createTransferDto.FromLocationType,
-                FromLocationId = createTransferDto.FromLocationId,
-                ToLocationType = createTransferDto.ToLocationType,
-                ToLocationId = createTransferDto.ToLocationId,
-                TransferDate = DateTime.Now,
-                ExpectedDelivery = createTransferDto.ExpectedDelivery,
-                ActualDelivery = null,
-                Status = "PENDING",
-                ShippedBy = createTransferDto.ShippedBy,
-                ReceivedBy = null,
-                Notes = createTransferDto.Notes,
-                CreatedAt = DateTime.Now,
-                UpdatedAt = null
-            });
-            foreach (var item in createTransferDto.Items)
-            {
-                await _transferService.AddNewTransferItemAsync(new TransferItem
-                {
-                    Id = Guid.NewGuid(),
-                    TransferId = transferId,
-                    ProductId = item.ProductId,
-                    BatchId = item.BatchId,
-                    RequestedQuantity = item.RequestedQuantity,
-                    ShippedQuantity = item.RequestedQuantity,
-                    ReceivedQuantity = item.ReceivedQuantity,
-                    DamagedQuantity = item.RequestedQuantity - item.ReceivedQuantity,
-                    Notes = item.Notes
-                });
-            }
-            return Ok("Transfer created successfully.");
+            var result = await _transferService.CreateTransferAsync(createTransferDto);
+            return Ok(result);
         }
 
         [HttpPut("transfer/{id}/status")]
@@ -154,38 +42,19 @@ namespace InventoryService.API.Controllers
             [FromRoute] Guid id,
             [FromBody] UpdateTransferStatusDto dto)
         {
-            // Tìm transfer theo ID
             var transfer = await _transferService.GetTransferByIdAsync(id);
             if (transfer == null)
-            {
                 return NotFound("No transfer is found with this id.");
-            }
 
-            // Cập nhật trạng thái
-            transfer.Status = dto.Status;
-            transfer.UpdatedAt = DateTime.UtcNow;
-
-            // Ghi chú thêm nếu có
-            if (!string.IsNullOrWhiteSpace(dto.Notes))
-                transfer.Notes = string.IsNullOrWhiteSpace(transfer.Notes)
-                    ? dto.Notes
-                    : $"{transfer.Notes}\n{dto.Notes}";
-
-            // Ghi nhận người thực hiện theo từng trạng thái
-            // IN_TRANSIT: Warehouse Staff xuất hàng
-            // DELIVERED : Store Staff xác nhận nhận hàng
-            if (dto.Status == "IN_TRANSIT")
-            {
-                transfer.ShippedBy = transfer.ShippedBy; // giữ nguyên ShippedBy đã set lúc tạo
-            }
-            else if (dto.Status == "DELIVERED")
-            {
-                transfer.ActualDelivery = DateTime.UtcNow;
-            }
-
-            await _transferService.UpdateTransferAsync(transfer);
-
+            await _transferService.UpdateTransferStatusAsync(id, dto.Status);
             return Ok("Transfer status updated successfully.");
+        }
+
+        [HttpDelete("transfer/{id}")]
+        public async Task<ActionResult> DeleteTransfer([FromRoute] Guid id)
+        {
+            await _transferService.DeleteTransferAsync(id);
+            return Ok("Transfer deleted successfully.");
         }
     }
 }

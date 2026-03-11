@@ -11,10 +11,11 @@ public class ProductBatch
     public DateTime? ExpiryDate { get; set; }
     public string? Supplier { get; set; }
     public Guid? SupplierId { get; set; }       // ProductDB.suppliers.id (logic reference)
-    public Guid? RestockRequestId { get; set; } // restock_requests.id
     public DateTime ReceivedAt { get; set; }
     public string Status { get; set; } = "AVAILABLE"; // AVAILABLE | SOLD | EXPIRED | DAMAGED
 
     // Navigation properties
     public Warehouse Warehouse { get; set; } = null!;
+    public ICollection<TransferItem> TransferItems { get; set; } = new List<TransferItem>();
+    public ICollection<StockMovementItem> StockMovementItems { get; set; } = new List<StockMovementItem>();
 }

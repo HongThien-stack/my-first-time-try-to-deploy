@@ -13,46 +13,55 @@ public class TransferRepository : ITransferRepository
         _context = context;
     }
 
-    public async Task AddNewTransferAsync(Transfer transfer)
+    public async Task<IEnumerable<Transfer>> GetAllAsync()
+    {
+        return await _context.Transfers
+            .Include(t => t.TransferItems)
+            .ToListAsync();
+    }
+
+    public async Task<Transfer?> GetByIdAsync(Guid id)
+    {
+        return await _context.Transfers
+            .Include(t => t.TransferItems)
+            .FirstOrDefaultAsync(t => t.Id == id);
+    }
+
+    public async Task<Transfer?> GetByTransferNumberAsync(string transferNumber)
+    {
+        return await _context.Transfers
+            .Include(t => t.TransferItems)
+            .FirstOrDefaultAsync(t => t.TransferNumber == transferNumber);
+    }
+
+    public async Task<IEnumerable<Transfer>> GetByStatusAsync(string status)
+    {
+        return await _context.Transfers
+            .Include(t => t.TransferItems)
+            .Where(t => t.Status == status)
+            .ToListAsync();
+    }
+
+    public async Task<Transfer> AddAsync(Transfer transfer)
     {
         await _context.Transfers.AddAsync(transfer);
         await _context.SaveChangesAsync();
+        return transfer;
     }
 
-    public async Task AddNewTransferItemAsync(TransferItem transferItem)
-    {
-        await _context.TransferItems.AddAsync(transferItem);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task<List<Transfer>> GetAllTransfersAsync()
-    {
-        return await _context.Transfers.ToListAsync();
-
-    }
-
-    public async Task<List<TransferItem>> GetAllTransferItemsByIdAsync(Guid transferId)
-    {
-        return await _context.TransferItems
-                    .Where(ti => ti.TransferId == transferId)
-                    .ToListAsync();
-    }
-
-    public async Task<Transfer?> GetTransferByIdAsync(Guid id)
-    {
-        return await _context.Transfers
-                    .FirstOrDefaultAsync(t => t.Id == id);
-    }
-
-    public async Task<int> CountTransferAsync()
-    {
-        return await _context.Transfers.CountAsync();
-    }
-
-    // Cap nhat thong tin transfer 
-    public async Task UpdateTransferAsync(Transfer transfer)
+    public async Task UpdateAsync(Transfer transfer)
     {
         _context.Transfers.Update(transfer);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var transfer = await _context.Transfers.FindAsync(id);
+        if (transfer != null)
+        {
+            _context.Transfers.Remove(transfer);
+            await _context.SaveChangesAsync();
+        }
     }
 }

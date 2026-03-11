@@ -70,6 +70,7 @@ public class TransferService : ITransferService
             {
                 Id = Guid.NewGuid(),
                 ProductId = item.ProductId,
+                BatchId = item.BatchId,
                 RequestedQuantity = item.RequestedQuantity
             }).ToList()
         };
@@ -131,6 +132,7 @@ public class TransferService : ITransferService
             {
                 Id = item.Id,
                 ProductId = item.ProductId,
+                BatchId = item.BatchId,
                 RequestedQuantity = item.RequestedQuantity,
                 ShippedQuantity = item.ShippedQuantity,
                 ReceivedQuantity = item.ReceivedQuantity,

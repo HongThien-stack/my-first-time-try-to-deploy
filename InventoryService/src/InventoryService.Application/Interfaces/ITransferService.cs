@@ -5,12 +5,11 @@ namespace InventoryService.Application.Interfaces;
 
 public interface ITransferService
 {
-    Task<List<Transfer>> GetAllTransfersAsync();
-    Task<List<TransferItem>> GetAllTransferItemsByIdAsync(Guid transferId);
-    Task<Transfer?> GetTransferByIdAsync(Guid id);
-    Task AddNewTransferAsync(Transfer transfer);
-    Task AddNewTransferItemAsync(TransferItem transferItem);
-    Task<int> CountTransferAsync();
-    Task UpdateTransferAsync(Transfer transfer);
-
+    Task<IEnumerable<TransferDto>> GetAllTransfersAsync();
+    Task<TransferDto?> GetTransferByIdAsync(Guid id);
+    Task<TransferDto?> GetTransferByNumberAsync(string transferNumber);
+    Task<IEnumerable<TransferDto>> GetTransfersByStatusAsync(string status);
+    Task<TransferDto> CreateTransferAsync(CreateTransferDto dto);
+    Task UpdateTransferStatusAsync(Guid id, string status, Guid? userId = null);
+    Task<bool> DeleteTransferAsync(Guid id);
 }

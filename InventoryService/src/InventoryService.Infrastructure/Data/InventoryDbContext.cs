@@ -97,7 +97,6 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.ExpiryDate).HasColumnName("expiry_date");
             entity.Property(e => e.Supplier).HasColumnName("supplier").HasMaxLength(255);
             entity.Property(e => e.SupplierId).HasColumnName("supplier_id");
-            entity.Property(e => e.RestockRequestId).HasColumnName("restock_request_id");
             entity.Property(e => e.ReceivedAt).HasColumnName("received_at").HasDefaultValueSql("GETUTCDATE()");
             entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("AVAILABLE");
 
@@ -150,6 +149,7 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.MovementId).HasColumnName("movement_id");
             entity.Property(e => e.ProductId).HasColumnName("product_id");
+            entity.Property(e => e.BatchId).HasColumnName("batch_id");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.UnitPrice).HasColumnName("unit_price").HasColumnType("decimal(18,2)");
 
@@ -157,6 +157,11 @@ public class InventoryDbContext : DbContext
                 .WithMany(sm => sm.StockMovementItems)
                 .HasForeignKey(e => e.MovementId)
                 .HasConstraintName("FK_movement_items_movements");
+
+            entity.HasOne(e => e.ProductBatch)
+                .WithMany(b => b.StockMovementItems)
+                .HasForeignKey(e => e.BatchId)
+                .HasConstraintName("FK_movement_items_batches");
 
             entity.HasIndex(e => e.MovementId).HasDatabaseName("IX_movement_items_movement_id");
             entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_movement_items_product_id");
@@ -202,6 +207,7 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.TransferId).HasColumnName("transfer_id");
             entity.Property(e => e.ProductId).HasColumnName("product_id");
+            entity.Property(e => e.BatchId).HasColumnName("batch_id");
             entity.Property(e => e.RequestedQuantity).HasColumnName("requested_quantity");
             entity.Property(e => e.ShippedQuantity).HasColumnName("shipped_quantity");
             entity.Property(e => e.ReceivedQuantity).HasColumnName("received_quantity");
@@ -212,6 +218,11 @@ public class InventoryDbContext : DbContext
                 .WithMany(t => t.TransferItems)
                 .HasForeignKey(e => e.TransferId)
                 .HasConstraintName("FK_transfer_items_transfers");
+
+            entity.HasOne(e => e.ProductBatch)
+                .WithMany(b => b.TransferItems)
+                .HasForeignKey(e => e.BatchId)
+                .HasConstraintName("FK_transfer_items_batches");
 
             entity.HasIndex(e => e.TransferId).HasDatabaseName("IX_transfer_items_transfer_id");
             entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_transfer_items_product_id");

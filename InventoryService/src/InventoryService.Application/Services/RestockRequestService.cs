@@ -151,6 +151,7 @@ public class RestockRequestService : IRestockRequestService
                     {
                         Id = Guid.NewGuid(),
                         ProductId = item.ProductId,
+                        BatchId = detail?.BatchId,
                         RequestedQuantity = detail?.ApprovedQuantity ?? item.RequestedQuantity,
                         Notes = dto.Notes
                     };
@@ -184,27 +185,13 @@ public class RestockRequestService : IRestockRequestService
                 {
                     Id = Guid.NewGuid(),
                     ProductId = item.ProductId,
+                    BatchId = detail?.BatchId,
                     Quantity = detail?.ApprovedQuantity ?? item.RequestedQuantity,
                     UnitPrice = detail?.UnitPrice
                 };
             }).ToList()
         };
         var createdMovement = await _stockMovementRepository.AddAsync(movement);
-
-        // ── 3. Link restock request ID into each referenced ProductBatch ──────────────────────────────────
-        var batchIds = dto.Items
-            .Where(i => i.BatchId.HasValue)
-            .Select(i => i.BatchId!.Value)
-            .Distinct();
-        foreach (var batchId in batchIds)
-        {
-            var batch = await _productBatchRepository.GetByIdAsync(batchId);
-            if (batch != null)
-            {
-                batch.RestockRequestId = request.Id;
-                await _productBatchRepository.UpdateAsync(batch);
-            }
-        }
 
         // ── 5. Update RestockRequest status ──────────────────────────────────
         request.Status = "APPROVED";
@@ -243,6 +230,7 @@ public class RestockRequestService : IRestockRequestService
                     ProductId = i.ProductId,
                     ProductName = info?.Name,
                     Unit = info?.Unit,
+                    BatchId = i.BatchId,
                     Quantity = i.Quantity,
                     UnitPrice = i.UnitPrice
                 };

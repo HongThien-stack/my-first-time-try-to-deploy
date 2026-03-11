@@ -85,7 +85,6 @@ BEGIN
         expiry_date DATE,
         supplier NVARCHAR(255),
         supplier_id UNIQUEIDENTIFIER, -- ProductDB.suppliers.id (logical ref)
-        restock_request_id UNIQUEIDENTIFIER, -- restock_requests.id
         received_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         status NVARCHAR(50) NOT NULL DEFAULT 'AVAILABLE', -- AVAILABLE | SOLD | EXPIRED | DAMAGED
         CONSTRAINT FK_batches_warehouses FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
@@ -104,8 +103,8 @@ IF EXISTS (SELECT * FROM sys.tables WHERE name = 'product_batches')
 BEGIN
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'supplier_id')
         ALTER TABLE product_batches ADD supplier_id UNIQUEIDENTIFIER;
-    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'restock_request_id')
-        ALTER TABLE product_batches ADD restock_request_id UNIQUEIDENTIFIER;
+    IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'restock_request_id')
+        ALTER TABLE product_batches DROP COLUMN restock_request_id;
     IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'purchase_order_id')
     BEGIN
         -- Rename old purchase_order_id to restock_request_id if it exists and restock_request_id doesn't
@@ -167,13 +166,16 @@ BEGIN
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         movement_id UNIQUEIDENTIFIER NOT NULL,
         product_id UNIQUEIDENTIFIER NOT NULL, -- ProductDB.products.id
+        batch_id UNIQUEIDENTIFIER, -- product_batches.id
         quantity INT NOT NULL,
         unit_price DECIMAL(18,2), -- For valuation
-        CONSTRAINT FK_movement_items_movements FOREIGN KEY (movement_id) REFERENCES stock_movements(id)
+        CONSTRAINT FK_movement_items_movements FOREIGN KEY (movement_id) REFERENCES stock_movements(id),
+        CONSTRAINT FK_movement_items_batches FOREIGN KEY (batch_id) REFERENCES product_batches(id)
     );
     
     CREATE INDEX IX_movement_items_movement_id ON stock_movement_items(movement_id);
     CREATE INDEX IX_movement_items_product_id ON stock_movement_items(product_id);
+    CREATE INDEX IX_movement_items_batch_id ON stock_movement_items(batch_id);
 END
 GO
 
@@ -265,16 +267,19 @@ BEGIN
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         transfer_id UNIQUEIDENTIFIER NOT NULL,
         product_id UNIQUEIDENTIFIER NOT NULL, -- ProductDB.products.id
+        batch_id UNIQUEIDENTIFIER, -- product_batches.id
         requested_quantity INT NOT NULL,
         shipped_quantity INT,
         received_quantity INT,
         damaged_quantity INT DEFAULT 0,
         notes NVARCHAR(500),
-        CONSTRAINT FK_transfer_items_transfers FOREIGN KEY (transfer_id) REFERENCES transfers(id)
+        CONSTRAINT FK_transfer_items_transfers FOREIGN KEY (transfer_id) REFERENCES transfers(id),
+        CONSTRAINT FK_transfer_items_batches FOREIGN KEY (batch_id) REFERENCES product_batches(id)
     );
     
     CREATE INDEX IX_transfer_items_transfer_id ON transfer_items(transfer_id);
     CREATE INDEX IX_transfer_items_product_id ON transfer_items(product_id);
+    CREATE INDEX IX_transfer_items_batch_id ON transfer_items(batch_id);
 END
 GO
 
