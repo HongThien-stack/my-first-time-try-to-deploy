@@ -53,7 +53,6 @@ public class StockMovementService : IStockMovementService
             LocationId = m.LocationId,
             LocationType = m.LocationType,
             MovementDate = m.MovementDate,
-            PurchaseOrderId = m.PurchaseOrderId,
             SupplierName = m.SupplierName,
             TransferId = m.TransferId,
             ReceivedBy = m.ReceivedBy,
@@ -72,8 +71,6 @@ public class StockMovementService : IStockMovementService
             Id = i.Id,
             MovementId = i.MovementId,
             ProductId = i.ProductId,
-            BatchId = i.BatchId,
-            SlotId = i.SlotId,
             Quantity = i.Quantity,
             UnitPrice = i.UnitPrice
         };

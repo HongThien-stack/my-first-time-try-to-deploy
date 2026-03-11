@@ -8,7 +8,7 @@ public class StockMovement
     public Guid LocationId { get; set; } // warehouse_id or store_id
     public string LocationType { get; set; } = string.Empty; // WAREHOUSE | STORE
     public DateTime MovementDate { get; set; }
-    public Guid? PurchaseOrderId { get; set; } // purchase_orders.id (INBOUND)
+    public Guid? RestockRequestId { get; set; }  // restock_requests.id
     public string? SupplierName { get; set; }    // Snapshot tên NCC
     public Guid? TransferId { get; set; }         // transfers.id (TRANSFER)
     public Guid? ReceivedBy { get; set; }         // IdentityDB.users.id

@@ -172,7 +172,8 @@ BEGIN
     (3, 'Store Manager', 'Store Manager - Manage store operations', 1, GETUTCDATE()),
     (5, 'Store Staff', 'Store Staff - Process sales transactions', 1, GETUTCDATE()),
     (4, 'Warehouse Staff', 'Warehouse Staff - Manage inventory', 1, GETUTCDATE()),
-    (6, 'Customer', 'Customer - Online shopping', 1, GETUTCDATE());
+    (6, 'Customer', 'Customer - Online shopping', 1, GETUTCDATE()),
+    (7, 'Warehouse Admin', 'Warehouse Admin - Manages the main warehouse (kho tổng) overseeing multiple sub-warehouses and stores', 1, GETUTCDATE());
     
     SET IDENTITY_INSERT roles OFF;
 END
@@ -191,30 +192,40 @@ BEGIN
     (NEWID(), 'admin@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'System Administrator', 1, 'ACTIVE'),
     (NEWID(), 'admin2@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Nguyễn Văn Admin', 1, 'ACTIVE'),
     
-    -- Manager Users (role_id = 2)
-    (NEWID(), 'manager1@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Trần Thị Manager', 2, 'ACTIVE'),
-    (NEWID(), 'manager2@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Lê Văn Quản Lý', 2, 'ACTIVE'),
-    
-    -- Store Staff Users (role_id = 3)
-    (NEWID(), 'cashier1@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Phạm Thị Thu Ngân', 3, 'ACTIVE'),
-    (NEWID(), 'cashier2@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Hoàng Văn Cashier', 3, 'ACTIVE'),
-    (NEWID(), 'cashier3@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Vũ Thị Hoa', 3, 'ACTIVE'),
-    
-    -- Warehouse Staff Users (role_id = 4)
-    (NEWID(), 'warehouse1@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Đỗ Văn Kho', 4, 'ACTIVE'),
-    (NEWID(), 'warehouse2@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Bùi Thị Kho Bãi', 4, 'ACTIVE'),
-    
-    -- Customer Users (role_id = 5)
-    (NEWID(), 'customer1@gmail.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Nguyễn Văn Khách', 5, 'ACTIVE'),
-    (NEWID(), 'customer2@gmail.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Trần Thị Hương', 5, 'ACTIVE'),
-    (NEWID(), 'customer3@gmail.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Lê Văn Minh', 5, 'ACTIVE'),
-    (NEWID(), 'customer4@gmail.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Phạm Thị Lan', 5, 'ACTIVE'),
-    
-    -- Inactive User (for testing)
-    (NEWID(), 'inactive@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Nguyễn Văn Inactive', 3, 'INACTIVE'),
-    
-    -- Suspended User (for testing)
-    (NEWID(), 'suspended@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Trần Văn Suspended', 5, 'SUSPENDED');
+    -- Warehouse Admin Users (role_id = 7) - Kho Tổng only
+    (NEWID(), 'whadmin1@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Nguyễn Văn Kho Tổng', 7, 'ACTIVE'),
+    (NEWID(), 'whadmin2@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Trần Thị Kho Tổng', 7, 'ACTIVE'),
+
+    -- Warehouse Manager Users (role_id = 3) - Kho Chi Nhánh
+    (NEWID(), 'whmanager1@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Phạm Văn Quản Lý Kho', 3, 'ACTIVE'),
+    (NEWID(), 'whmanager2@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Hoàng Thị Quản Lý Kho', 3, 'ACTIVE'),
+    (NEWID(), 'whmanager3@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Vũ Văn Quản Lý Kho', 3, 'ACTIVE'),
+
+    -- Warehouse Staff Users (role_id = 5) - Kho Chi Nhánh
+    (NEWID(), 'whstaff1@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Đỗ Văn Nhân Viên Kho', 5, 'ACTIVE'),
+    (NEWID(), 'whstaff2@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Bùi Thị Nhân Viên Kho', 5, 'ACTIVE'),
+
+    -- Store Manager Users (role_id = 2) - Cửa Hàng
+    (NEWID(), 'manager1@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Trần Thị Quản Lý Cửa Hàng', 2, 'ACTIVE'),
+    (NEWID(), 'manager2@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Lê Văn Quản Lý Cửa Hàng', 2, 'ACTIVE'),
+
+    -- Store Staff Users (role_id = 4) - Cửa Hàng
+    (NEWID(), 'storestaff1@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Nguyễn Thị Nhân Viên', 4, 'ACTIVE'),
+    (NEWID(), 'storestaff2@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Hoàng Văn Nhân Viên', 4, 'ACTIVE'),
+    (NEWID(), 'storestaff3@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Vũ Thị Nhân Viên', 4, 'ACTIVE'),
+    (NEWID(), 'storestaff4@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Phạm Văn Nhân Viên', 4, 'ACTIVE'),
+
+    -- Customer Users (role_id = 6) - No workplace
+    (NEWID(), 'customer1@gmail.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Nguyễn Văn Khách', 6, 'ACTIVE'),
+    (NEWID(), 'customer2@gmail.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Trần Thị Hương', 6, 'ACTIVE'),
+    (NEWID(), 'customer3@gmail.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Lê Văn Minh', 6, 'ACTIVE'),
+    (NEWID(), 'customer4@gmail.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Phạm Thị Lan', 6, 'ACTIVE'),
+
+    -- Inactive User (for testing - Store Staff)
+    (NEWID(), 'inactive@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Nguyễn Văn Inactive', 4, 'INACTIVE'),
+
+    -- Suspended User (for testing - Customer)
+    (NEWID(), 'suspended@company.com', 'AQAAAAIAAYagAAAAEKFJGZ5R8X8yN3bVN8pqHQxH8vN0hR9KjYzL3QmP7rT5wX2dN9vB8kM6sA4fC1eD0g==', N'Trần Văn Suspended', 6, 'SUSPENDED');
 END
 GO
 
