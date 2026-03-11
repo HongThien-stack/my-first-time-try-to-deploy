@@ -72,15 +72,15 @@ public class AuthService : IAuthService
         };
         await _userRepository.CreateAsync(user);
 
-        // Generate and send OTP for email verification
-        await SendEmailOtpAsync(user);
+        // OTP will be sent when user requests it from profile page
+        // Use /api/auth/resend-email-otp endpoint to send OTP
 
         return new RegisterResponseDto
         {
             UserId = user.Id,
             Email = user.Email,
             FullName = user.FullName ?? string.Empty,
-            Message = "Account created. Please verify your email in profile page."
+            Message = "Account created successfully. Please login and verify your email from your profile page."
         };
     }
 
@@ -124,6 +124,7 @@ public class AuthService : IAuthService
             AccessToken = accessToken,
             Email = user.Email,
             FullName = user.FullName,
+            Phone = user.Phone,
             RoleId = user.RoleId,
             IsEmailVerified = user.EmailVerified,
             Message = user.EmailVerified ? null : "Email not verified. Please check your inbox and verify your email.",
@@ -221,12 +222,15 @@ public class AuthService : IAuthService
         }
         if (!string.IsNullOrEmpty(request.Email))
         {
-            if (string.IsNullOrWhiteSpace(request.Password))
+            // Check if email is different and not already taken
+            if (request.Email != user.Email)
             {
-                throw new InvalidOperationException("Password cannot be empty");
+                if (await _userRepository.ExistsByEmailAsync(request.Email))
+                {
+                    throw new InvalidOperationException("Email already exists");
+                }
+                user.Email = request.Email;
             }
-
-            user.PasswordHash = _passwordHasher.HashPassword(request.Password);
         }
         
         // Update workplace if provided

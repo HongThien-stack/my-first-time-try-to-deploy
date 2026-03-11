@@ -9,6 +9,7 @@ public interface IStockMovementRepository
     Task<StockMovement?> GetByMovementNumberAsync(string movementNumber);
     Task<IEnumerable<StockMovement>> GetByLocationAsync(string locationType, Guid locationId);
     Task<IEnumerable<StockMovement>> GetByMovementTypeAsync(string movementType);
+    Task<int> CountByDateAsync(DateTime date);
     Task<StockMovement> AddAsync(StockMovement movement);
     Task UpdateAsync(StockMovement movement);
     Task DeleteAsync(Guid id);
