@@ -2,7 +2,6 @@ using InventoryService.Application.Interfaces;
 using InventoryService.Domain.Entities;
 using InventoryService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
 
 namespace InventoryService.Infrastructure.Repositories;
 
@@ -52,11 +51,4 @@ public class WarehouseRepository : IWarehouseRepository
             await _context.SaveChangesAsync();
         }
     }
-
-    public async Task<List<WarehouseSlot>> GetWarehouseSlotById(Guid warehouseId)
-    {
-        return await _context.WarehouseSlots
-            .Where(ws => ws.WarehouseId == warehouseId)
-            .ToListAsync();
-    }   
 }

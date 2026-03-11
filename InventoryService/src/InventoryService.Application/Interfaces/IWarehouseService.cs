@@ -11,5 +11,4 @@ public interface IWarehouseService
     Task AddWarehouseAsync(Warehouse warehouse);
     Task UpdateWarehouseAsync(Warehouse warehouse);
     Task DeleteWarehouseAsync(Guid id);
-    Task<List<WarehouseSlot>> GetWarehouseSlotById(Guid warehouseId);
 }

@@ -8,8 +8,9 @@ public class StockMovementDto
     public Guid LocationId { get; set; }
     public string LocationType { get; set; } = string.Empty; // WAREHOUSE | STORE
     public DateTime MovementDate { get; set; }
-    public string? Supplier { get; set; }
-    public string? PoNumber { get; set; }
+    public Guid? RestockRequestId { get; set; }
+    public string? SupplierName { get; set; }
+    public Guid? TransferId { get; set; }
     public Guid? ReceivedBy { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? Notes { get; set; }

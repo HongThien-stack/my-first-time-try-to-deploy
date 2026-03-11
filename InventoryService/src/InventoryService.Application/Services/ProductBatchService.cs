@@ -32,7 +32,6 @@ public class ProductBatchService : IProductBatchService
             Id = b.Id,
             ProductId = b.ProductId,
             WarehouseId = b.WarehouseId,
-            SlotId = b.SlotId,
             BatchNumber = b.BatchNumber,
             Quantity = b.Quantity,
             ManufacturingDate = b.ManufacturingDate,

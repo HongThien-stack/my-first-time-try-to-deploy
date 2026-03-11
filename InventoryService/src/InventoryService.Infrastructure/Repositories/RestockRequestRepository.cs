@@ -36,11 +36,28 @@ public class RestockRequestRepository : IRestockRequestRepository
             .FirstOrDefaultAsync(r => r.RequestNumber == requestNumber);
     }
 
-    public async Task<IEnumerable<RestockRequest>> GetByStoreIdAsync(Guid storeId)
+    public async Task<IEnumerable<RestockRequest>> GetByWarehouseIdAsync(Guid warehouseId)
     {
         return await _context.RestockRequests
             .Include(r => r.RestockRequestItems)
-            .Where(r => r.StoreId == storeId)
+            .Where(r => r.FromWarehouseId == warehouseId || r.ToWarehouseId == warehouseId)
+            .OrderByDescending(r => r.RequestedDate)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<RestockRequest>> GetByParentWarehouseIdAsync(Guid parentWarehouseId)
+    {
+        // Return requests where either the from or to warehouse has parent_id = parentWarehouseId
+        // OR the from/to warehouse IS the parent warehouse itself
+        var childIds = await _context.Warehouses
+            .Where(w => w.ParentId == parentWarehouseId || w.Id == parentWarehouseId)
+            .Select(w => w.Id)
+            .ToListAsync();
+
+        return await _context.RestockRequests
+            .Include(r => r.RestockRequestItems)
+            .Where(r => (r.FromWarehouseId.HasValue && childIds.Contains(r.FromWarehouseId.Value))
+                     || (r.ToWarehouseId.HasValue   && childIds.Contains(r.ToWarehouseId.Value)))
             .OrderByDescending(r => r.RequestedDate)
             .ToListAsync();
     }

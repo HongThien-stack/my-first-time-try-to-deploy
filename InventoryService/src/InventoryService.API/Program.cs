@@ -2,6 +2,7 @@ using InventoryService.Application.Interfaces;
 using InventoryService.Application.Services;
 using InventoryService.Infrastructure.Data;
 using InventoryService.Infrastructure.Repositories;
+using InventoryService.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -77,7 +78,6 @@ builder.Services.AddDbContext<InventoryDbContext>(options =>
 
 // Register Repositories
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
-builder.Services.AddScoped<IWarehouseSlotRepository, WarehouseSlotRepository>();
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<ITransferRepository, TransferRepository>();
 builder.Services.AddScoped<IRestockRequestRepository, RestockRequestRepository>();
@@ -91,7 +91,6 @@ builder.Services.AddScoped<IProductBatchQueryRepository, ProductBatchQueryReposi
 
 // Register Services
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
-builder.Services.AddScoped<IWarehouseSlotService, WarehouseSlotService>();
 builder.Services.AddScoped<IInventoryService, InventoryManagementService>();
 builder.Services.AddScoped<ITransferService, TransferService>();
 builder.Services.AddScoped<IRestockRequestService, RestockRequestService>();
@@ -100,6 +99,13 @@ builder.Services.AddScoped<IProductBatchService, ProductBatchService>();
 builder.Services.AddScoped<IBatchQueryService, BatchQueryService>();
 builder.Services.AddScoped<IDamageReportService, DamageReportService>();
 builder.Services.AddScoped<IInventoryCheckService, InventoryCheckService>();
+
+// HTTP client for inter-service calls
+builder.Services.AddHttpClient<IProductServiceClient, ProductServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ServiceUrls:ProductService"]!);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 
 // CORS Configuration
 builder.Services.AddCors(options =>

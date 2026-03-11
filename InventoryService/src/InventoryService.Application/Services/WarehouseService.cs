@@ -85,9 +85,4 @@ public class WarehouseService : IWarehouseService
     public async Task DeleteWarehouseAsync(Guid id) {
         await _warehouseRepository.DeleteWarehouseAsync(id);
     }
-
-    public async Task<List<WarehouseSlot>> GetWarehouseSlotById(Guid warehouseId)
-    {
-        return await _warehouseRepository.GetWarehouseSlotById(warehouseId);
-    }
 }

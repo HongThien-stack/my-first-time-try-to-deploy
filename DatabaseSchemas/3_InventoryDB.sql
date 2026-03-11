@@ -27,47 +27,17 @@ BEGIN
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         name NVARCHAR(255) NOT NULL,
         location NVARCHAR(500),
-        capacity INT NOT NULL, -- Total slots
+        capacity INT NOT NULL,
         status NVARCHAR(50) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE | INACTIVE
+        parent_id UNIQUEIDENTIFIER NULL, -- Self-reference: sub-warehouse points to parent (kho tổng)
         is_deleted BIT NOT NULL DEFAULT 0,
         created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        created_by UNIQUEIDENTIFIER -- IdentityDB.users.id
+        created_by UNIQUEIDENTIFIER, -- IdentityDB.users.id
+        CONSTRAINT FK_warehouses_parent FOREIGN KEY (parent_id) REFERENCES warehouses(id)
     );
     
     CREATE INDEX IX_warehouses_name ON warehouses(name);
     CREATE INDEX IX_warehouses_status ON warehouses(status);
-END
-GO
-
--- =====================================================
--- Table: warehouse_slots
--- =====================================================
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'warehouse_slots')
-BEGIN
-    CREATE TABLE warehouse_slots (
-        id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        warehouse_id UNIQUEIDENTIFIER NOT NULL,
-        slot_code NVARCHAR(50) NOT NULL, -- A-01-01
-        zone NVARCHAR(10), -- A, B, C
-        row_number INT,
-        column_number INT,
-        status NVARCHAR(50) NOT NULL DEFAULT 'EMPTY', -- EMPTY | OCCUPIED | RESERVED | MAINTENANCE
-        created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        CONSTRAINT FK_warehouse_slots_warehouses FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
-        CONSTRAINT UQ_warehouse_slot UNIQUE (warehouse_id, slot_code)
-    );
-    
-    CREATE INDEX IX_slots_warehouse_id ON warehouse_slots(warehouse_id);
-    CREATE INDEX IX_slots_status ON warehouse_slots(status);
-END
-GO
-
--- =====================================================
--- Migration: Add is_deleted column to warehouse_slots if missing
--- =====================================================
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('warehouse_slots') AND name = 'is_deleted')
-BEGIN
-    ALTER TABLE warehouse_slots ADD is_deleted BIT NOT NULL DEFAULT 0;
 END
 GO
 
@@ -109,18 +79,16 @@ BEGIN
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         product_id UNIQUEIDENTIFIER NOT NULL, -- ProductDB.products.id
         warehouse_id UNIQUEIDENTIFIER NOT NULL,
-        slot_id UNIQUEIDENTIFIER, -- warehouse_slots.id
         batch_number NVARCHAR(100) NOT NULL,
         quantity INT NOT NULL,
         manufacturing_date DATE,
         expiry_date DATE,
         supplier NVARCHAR(255),
-        supplier_id UNIQUEIDENTIFIER NULL, -- ProductDB.suppliers.id (tham chiếu logic, không FK cross-DB)
-        purchase_order_id UNIQUEIDENTIFIER NULL, -- purchase_orders.id
+        supplier_id UNIQUEIDENTIFIER, -- ProductDB.suppliers.id (logical ref)
+        restock_request_id UNIQUEIDENTIFIER, -- restock_requests.id
         received_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         status NVARCHAR(50) NOT NULL DEFAULT 'AVAILABLE', -- AVAILABLE | SOLD | EXPIRED | DAMAGED
         CONSTRAINT FK_batches_warehouses FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
-        CONSTRAINT FK_batches_slots FOREIGN KEY (slot_id) REFERENCES warehouse_slots(id),
         CONSTRAINT UQ_batch_number UNIQUE (batch_number)
     );
     
@@ -128,90 +96,65 @@ BEGIN
     CREATE INDEX IX_batches_warehouse_id ON product_batches(warehouse_id);
     CREATE INDEX IX_batches_expiry_date ON product_batches(expiry_date);
     CREATE INDEX IX_batches_status ON product_batches(status);
-    CREATE INDEX IX_batches_supplier_id ON product_batches(supplier_id);
-    CREATE INDEX IX_batches_purchase_order_id ON product_batches(purchase_order_id);
 END
 GO
 
--- =====================================================
--- Migration: Add supplier_id / purchase_order_id to product_batches if missing
--- =====================================================
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'supplier_id')
+-- Handle existing product_batches table missing columns (migration)
+IF EXISTS (SELECT * FROM sys.tables WHERE name = 'product_batches')
 BEGIN
-    ALTER TABLE product_batches ADD supplier_id UNIQUEIDENTIFIER NULL;
-    CREATE INDEX IX_batches_supplier_id ON product_batches(supplier_id);
-END
-GO
-
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'purchase_order_id')
-BEGIN
-    ALTER TABLE product_batches ADD purchase_order_id UNIQUEIDENTIFIER NULL;
-    CREATE INDEX IX_batches_purchase_order_id ON product_batches(purchase_order_id);
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'supplier_id')
+        ALTER TABLE product_batches ADD supplier_id UNIQUEIDENTIFIER;
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'restock_request_id')
+        ALTER TABLE product_batches ADD restock_request_id UNIQUEIDENTIFIER;
+    IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'purchase_order_id')
+    BEGIN
+        -- Rename old purchase_order_id to restock_request_id if it exists and restock_request_id doesn't
+        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('product_batches') AND name = 'restock_request_id')
+            EXEC sp_rename 'product_batches.purchase_order_id', 'restock_request_id', 'COLUMN';
+    END
 END
 GO
 
 -- =====================================================
 -- Table: stock_movements
--- Ghi nhận mọi biến động tồn kho thực tế
--- INBOUND  : nhập từ nhà cung cấp (liên kết purchase_orders)
--- OUTBOUND : xuất bán / tiêu hao
--- TRANSFER : chuyển kho/cửa hàng (liên kết transfers)
--- ADJUSTMENT: kiểm kê điều chỉnh
 -- =====================================================
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'stock_movements')
 BEGIN
     CREATE TABLE stock_movements (
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        movement_number NVARCHAR(50) NOT NULL UNIQUE,   -- SM-2024-001
-        movement_type NVARCHAR(50) NOT NULL,            -- INBOUND | OUTBOUND | TRANSFER | ADJUSTMENT
-        location_id UNIQUEIDENTIFIER NOT NULL,          -- warehouse_id or store_id
-        location_type NVARCHAR(50) NOT NULL,            -- WAREHOUSE | STORE
+        movement_number NVARCHAR(50) NOT NULL UNIQUE, -- SM-2024-001
+        movement_type NVARCHAR(50) NOT NULL, -- INBOUND | OUTBOUND | TRANSFER | ADJUSTMENT
+        location_id UNIQUEIDENTIFIER NOT NULL, -- warehouse_id or store_id
+        location_type NVARCHAR(50) NOT NULL, -- WAREHOUSE | STORE
         movement_date DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        -- INBOUND: liên kết đơn mua hàng (thêm FK sau khi purchase_orders được tạo)
-        purchase_order_id UNIQUEIDENTIFIER NULL,        -- purchase_orders.id
-        supplier_name NVARCHAR(255) NULL,               -- Snapshot tên NCC để hiển thị nhanh
-        -- TRANSFER: liên kết phiếu chuyển kho
-        transfer_id UNIQUEIDENTIFIER NULL,              -- transfers.id (thêm FK sau khi transfers được tạo)
-        received_by UNIQUEIDENTIFIER,                   -- IdentityDB.users.id
+        restock_request_id UNIQUEIDENTIFIER, -- restock_requests.id
+        supplier_name NVARCHAR(255), -- For INBOUND
+        transfer_id UNIQUEIDENTIFIER, -- transfers.id (logical ref, no FK to avoid ordering issue)
+        received_by UNIQUEIDENTIFIER, -- IdentityDB.users.id
         status NVARCHAR(50) NOT NULL DEFAULT 'COMPLETED', -- PENDING | COMPLETED | CANCELLED
         notes NVARCHAR(MAX),
         created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE()
     );
-
+    
     CREATE INDEX IX_movements_movement_number ON stock_movements(movement_number);
     CREATE INDEX IX_movements_type ON stock_movements(movement_type);
     CREATE INDEX IX_movements_location ON stock_movements(location_type, location_id);
     CREATE INDEX IX_movements_date ON stock_movements(movement_date);
-    CREATE INDEX IX_movements_purchase_order_id ON stock_movements(purchase_order_id);
-    CREATE INDEX IX_movements_transfer_id ON stock_movements(transfer_id);
 END
 GO
 
--- =====================================================
--- Migration: cập nhật stock_movements nếu bảng đã tồn tại
--- =====================================================
-IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movements') AND name = 'po_number')
+-- Handle existing stock_movements table missing columns (migration)
+IF EXISTS (SELECT * FROM sys.tables WHERE name = 'stock_movements')
 BEGIN
-    -- Đổi po_number (string) thành purchase_order_id (UUID)
-    EXEC sp_rename 'stock_movements.po_number', 'po_number_old', 'COLUMN';
-END
-GO
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movements') AND name = 'purchase_order_id')
-BEGIN
-    ALTER TABLE stock_movements ADD purchase_order_id UNIQUEIDENTIFIER NULL;
-    CREATE INDEX IX_movements_purchase_order_id ON stock_movements(purchase_order_id);
-END
-GO
-IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movements') AND name = 'transfer_id')
-BEGIN
-    ALTER TABLE stock_movements ADD transfer_id UNIQUEIDENTIFIER NULL;
-    CREATE INDEX IX_movements_transfer_id ON stock_movements(transfer_id);
-END
-GO
-IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movements') AND name = 'supplier')
-    AND NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movements') AND name = 'supplier_name')
-BEGIN
-    EXEC sp_rename 'stock_movements.supplier', 'supplier_name', 'COLUMN';
+    IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movements') AND name = 'supplier')
+        EXEC sp_rename 'stock_movements.supplier', 'supplier_name', 'COLUMN';
+    -- Drop purchase_order_id if it exists (no longer used)
+    IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movements') AND name = 'purchase_order_id')
+        ALTER TABLE stock_movements DROP COLUMN purchase_order_id;
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movements') AND name = 'transfer_id')
+        ALTER TABLE stock_movements ADD transfer_id UNIQUEIDENTIFIER;
+    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movements') AND name = 'restock_request_id')
+        ALTER TABLE stock_movements ADD restock_request_id UNIQUEIDENTIFIER;
 END
 GO
 
@@ -224,12 +167,9 @@ BEGIN
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         movement_id UNIQUEIDENTIFIER NOT NULL,
         product_id UNIQUEIDENTIFIER NOT NULL, -- ProductDB.products.id
-        batch_id UNIQUEIDENTIFIER, -- product_batches.id
-        slot_id UNIQUEIDENTIFIER, -- warehouse_slots.id
         quantity INT NOT NULL,
         unit_price DECIMAL(18,2), -- For valuation
-        CONSTRAINT FK_movement_items_movements FOREIGN KEY (movement_id) REFERENCES stock_movements(id),
-        CONSTRAINT FK_movement_items_batches FOREIGN KEY (batch_id) REFERENCES product_batches(id)
+        CONSTRAINT FK_movement_items_movements FOREIGN KEY (movement_id) REFERENCES stock_movements(id)
     );
     
     CREATE INDEX IX_movement_items_movement_id ON stock_movement_items(movement_id);
@@ -325,14 +265,12 @@ BEGIN
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         transfer_id UNIQUEIDENTIFIER NOT NULL,
         product_id UNIQUEIDENTIFIER NOT NULL, -- ProductDB.products.id
-        batch_id UNIQUEIDENTIFIER, -- product_batches.id
         requested_quantity INT NOT NULL,
         shipped_quantity INT,
         received_quantity INT,
         damaged_quantity INT DEFAULT 0,
         notes NVARCHAR(500),
-        CONSTRAINT FK_transfer_items_transfers FOREIGN KEY (transfer_id) REFERENCES transfers(id),
-        CONSTRAINT FK_transfer_items_batches FOREIGN KEY (batch_id) REFERENCES product_batches(id)
+        CONSTRAINT FK_transfer_items_transfers FOREIGN KEY (transfer_id) REFERENCES transfers(id)
     );
     
     CREATE INDEX IX_transfer_items_transfer_id ON transfer_items(transfer_id);
@@ -342,32 +280,36 @@ GO
 
 -- =====================================================
 -- Table: restock_requests
--- Store yêu cầu nhập hàng từ Warehouse
 -- =====================================================
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'restock_requests')
 BEGIN
     CREATE TABLE restock_requests (
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        request_number NVARCHAR(50) NOT NULL UNIQUE,    -- RST-2024-001
-        store_id UNIQUEIDENTIFIER NOT NULL,             -- warehouses.id (location_type = STORE)
-        warehouse_id UNIQUEIDENTIFIER NOT NULL,         -- warehouses.id (location_type = WAREHOUSE)
-        requested_by UNIQUEIDENTIFIER NOT NULL,         -- IdentityDB.users.id (Store staff)
+        request_number NVARCHAR(50) NOT NULL UNIQUE,        -- RST-2024-001
+        -- Hierarchy flow:
+        --   Store Manager    → from=branch_warehouse, to=store,         to_type=STORE
+        --   Warehouse Manager→ from=kho_tong,         to=branch,        to_type=WAREHOUSE
+        --   Warehouse Admin  → from=NULL (supplier),  to=kho_tong,      to_type=WAREHOUSE
+        from_warehouse_id UNIQUEIDENTIFIER NULL,            -- source of goods (NULL = external supplier)
+        from_location_type NVARCHAR(20) NOT NULL DEFAULT 'WAREHOUSE', -- WAREHOUSE | STORE
+        to_warehouse_id   UNIQUEIDENTIFIER NULL,            -- destination / requester location (parent or child warehouse)
+        to_location_type  NVARCHAR(20) NOT NULL DEFAULT 'WAREHOUSE',   -- WAREHOUSE | STORE
+        requested_by UNIQUEIDENTIFIER NOT NULL,             -- IdentityDB.users.id
         requested_date DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        priority NVARCHAR(50) NOT NULL DEFAULT 'NORMAL', -- NORMAL | HIGH | URGENT
-        status NVARCHAR(50) NOT NULL DEFAULT 'PENDING', -- PENDING | APPROVED | PROCESSING | COMPLETED | REJECTED
-        approved_by UNIQUEIDENTIFIER,                   -- IdentityDB.users.id (Warehouse manager)
+        priority NVARCHAR(50) NOT NULL DEFAULT 'NORMAL',    -- NORMAL | HIGH | URGENT
+        status NVARCHAR(50) NOT NULL DEFAULT 'PENDING',     -- PENDING | APPROVED | PROCESSING | COMPLETED | REJECTED
+        approved_by UNIQUEIDENTIFIER,
         approved_date DATETIME2,
-        transfer_id UNIQUEIDENTIFIER,                   -- Liên kết transfers khi được duyệt
+        transfer_id UNIQUEIDENTIFIER,
         notes NVARCHAR(MAX),
         created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         updated_at DATETIME2,
-        CONSTRAINT FK_restock_store FOREIGN KEY (store_id) REFERENCES warehouses(id),
-        CONSTRAINT FK_restock_warehouse FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
         CONSTRAINT FK_restock_transfers FOREIGN KEY (transfer_id) REFERENCES transfers(id)
     );
     
     CREATE INDEX IX_restock_request_number ON restock_requests(request_number);
-    CREATE INDEX IX_restock_store_id ON restock_requests(store_id);
+    CREATE INDEX IX_restock_from_warehouse ON restock_requests(from_warehouse_id);
+    CREATE INDEX IX_restock_to_warehouse   ON restock_requests(to_warehouse_id);
     CREATE INDEX IX_restock_status ON restock_requests(status);
     CREATE INDEX IX_restock_priority ON restock_requests(priority);
 END
@@ -494,133 +436,51 @@ END
 GO
 
 -- =====================================================
--- Table: purchase_orders → FK trên stock_movements & product_batches
+-- Insert sample warehouses (per-row check để idempotent)
 -- =====================================================
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'purchase_orders')
-BEGIN
-    CREATE TABLE purchase_orders (
-        id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        order_number NVARCHAR(50) NOT NULL UNIQUE,          -- PO-2024-001
-        supplier_id UNIQUEIDENTIFIER NOT NULL,              -- ProductDB.suppliers.id (reference only)
-        supplier_name NVARCHAR(255) NOT NULL,               -- Snapshot tên NCC tại thời điểm đặt hàng
-        warehouse_id UNIQUEIDENTIFIER NOT NULL,             -- Điếm nhập hàng
-        order_date DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        expected_delivery DATETIME2,
-        actual_delivery DATETIME2,
-        status NVARCHAR(50) NOT NULL DEFAULT 'PENDING',     -- PENDING | CONFIRMED | SHIPPED | RECEIVED | CANCELLED
-        total_amount DECIMAL(18, 2),
-        ordered_by UNIQUEIDENTIFIER NOT NULL,               -- IdentityDB.users.id
-        received_by UNIQUEIDENTIFIER,                       -- IdentityDB.users.id
-        notes NVARCHAR(MAX),
-        created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        updated_at DATETIME2,
-        CONSTRAINT FK_purchase_orders_warehouses FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)
-    );
+IF NOT EXISTS (SELECT * FROM warehouses WHERE id = 'A0000001-0001-0001-0001-000000000001')
+    INSERT INTO warehouses (id, name, location, capacity, status, parent_id, created_by, created_at) VALUES
+    ('A0000001-0001-0001-0001-000000000001', N'Kho Tổng HCM', N'Quận Thủ Đức, TP. Hồ Chí Minh', 120, 'ACTIVE', NULL,
+     '11111111-1111-1111-1111-111111111111', GETUTCDATE());
 
-    CREATE INDEX IX_po_order_number ON purchase_orders(order_number);
-    CREATE INDEX IX_po_supplier_id ON purchase_orders(supplier_id);
-    CREATE INDEX IX_po_warehouse_id ON purchase_orders(warehouse_id);
-    CREATE INDEX IX_po_status ON purchase_orders(status);
-    CREATE INDEX IX_po_order_date ON purchase_orders(order_date);
-END
-GO
+IF NOT EXISTS (SELECT * FROM warehouses WHERE id = 'A0000001-0001-0001-0001-000000000002')
+    INSERT INTO warehouses (id, name, location, capacity, status, parent_id, created_by, created_at) VALUES
+    ('A0000001-0001-0001-0001-000000000002', N'Kho Chi Nhánh Miền Bắc', N'Quận Long Biên, Hà Nội', 100, 'ACTIVE', 'A0000001-0001-0001-0001-000000000001',
+     '11111111-1111-1111-1111-111111111111', GETUTCDATE());
 
--- =====================================================
--- Table: purchase_order_items
--- Chi tiết sản phẩm trong một đơn đặt hàng
--- =====================================================
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'purchase_order_items')
-BEGIN
-    CREATE TABLE purchase_order_items (
-        id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-        order_id UNIQUEIDENTIFIER NOT NULL,
-        product_id UNIQUEIDENTIFIER NOT NULL,               -- ProductDB.products.id (reference only)
-        quantity_ordered INT NOT NULL,
-        quantity_received INT NOT NULL DEFAULT 0,
-        unit_price DECIMAL(18, 2) NOT NULL,
-        total_price AS (quantity_ordered * unit_price) PERSISTED,
-        manufacturing_date DATE,
-        expiry_date DATE,
-        notes NVARCHAR(500),
-        CONSTRAINT FK_po_items_orders FOREIGN KEY (order_id) REFERENCES purchase_orders(id)
-    );
+IF NOT EXISTS (SELECT * FROM warehouses WHERE id = 'A0000001-0001-0001-0001-000000000003')
+    INSERT INTO warehouses (id, name, location, capacity, status, parent_id, created_by, created_at) VALUES
+    ('A0000001-0001-0001-0001-000000000003', N'Kho Chi Nhánh Bình Dương', N'Thành phố Thủ Dầu Một, Bình Dương', 80, 'ACTIVE', 'A0000001-0001-0001-0001-000000000001',
+     '11111111-1111-1111-1111-111111111111', GETUTCDATE());
 
-    CREATE INDEX IX_po_items_order_id ON purchase_order_items(order_id);
-    CREATE INDEX IX_po_items_product_id ON purchase_order_items(product_id);
-END
-GO
+IF NOT EXISTS (SELECT * FROM warehouses WHERE id = 'A0000001-0001-0001-0001-000000000004')
+    INSERT INTO warehouses (id, name, location, capacity, status, parent_id, created_by, created_at) VALUES
+    ('A0000001-0001-0001-0001-000000000004', N'Kho Chi Nhánh Long An', N'Thị xã Tân An, Long An', 60, 'ACTIVE', 'A0000001-0001-0001-0001-000000000001',
+     '11111111-1111-1111-1111-111111111111', GETUTCDATE());
 
--- =====================================================
--- Thêm FK cho stock_movements và product_batches
--- sau khi purchase_orders và transfers đã được tạo
--- =====================================================
-IF NOT EXISTS (
-    SELECT * FROM sys.foreign_keys
-    WHERE name = 'FK_movements_purchase_orders'
-)
-BEGIN
-    ALTER TABLE stock_movements
-        ADD CONSTRAINT FK_movements_purchase_orders
-        FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id);
-END
-GO
-
-IF NOT EXISTS (
-    SELECT * FROM sys.foreign_keys
-    WHERE name = 'FK_movements_transfers'
-)
-BEGIN
-    ALTER TABLE stock_movements
-        ADD CONSTRAINT FK_movements_transfers
-        FOREIGN KEY (transfer_id) REFERENCES transfers(id);
-END
-GO
-
-IF NOT EXISTS (
-    SELECT * FROM sys.foreign_keys
-    WHERE name = 'FK_batches_purchase_orders'
-)
-BEGIN
-    ALTER TABLE product_batches
-        ADD CONSTRAINT FK_batches_purchase_orders
-        FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id);
-END
-GO
-
--- =====================================================
--- Insert sample warehouses
--- =====================================================
-IF NOT EXISTS (SELECT * FROM warehouses)
-BEGIN
-    INSERT INTO warehouses (id, name, location, capacity, status, created_by, created_at) VALUES
-    ('A0000001-0001-0001-0001-000000000001', N'Kho Tổng HCM', N'Quận Thủ Đức, TP. Hồ Chí Minh', 120, 'ACTIVE', 
-     '11111111-1111-1111-1111-111111111111', GETUTCDATE()),
-    ('A0000001-0001-0001-0001-000000000002', N'Kho Miền Bắc', N'Quận Long Biên, Hà Nội', 100, 'ACTIVE', 
-     '11111111-1111-1111-1111-111111111111', GETUTCDATE()),
-    ('B0000001-0001-0001-0001-000000000001', N'Cửa Hàng Thủ Đức', N'123 Lê Văn Việt, Quận 9, HCM', 50, 'ACTIVE', 
-     '22222222-2222-2222-2222-222222222221', GETUTCDATE()),
-    ('B0000001-0001-0001-0001-000000000002', N'Cửa Hàng Quận 1', N'456 Nguyễn Huệ, Quận 1, HCM', 40, 'ACTIVE', 
+IF NOT EXISTS (SELECT * FROM warehouses WHERE id = 'B0000001-0001-0001-0001-000000000001')
+    INSERT INTO warehouses (id, name, location, capacity, status, parent_id, created_by, created_at) VALUES
+    ('B0000001-0001-0001-0001-000000000001', N'Cửa Hàng Thủ Đức', N'123 Lê Văn Việt, Quận 9, HCM', 50, 'ACTIVE', 'A0000001-0001-0001-0001-000000000001',
      '22222222-2222-2222-2222-222222222221', GETUTCDATE());
-END
+
+IF NOT EXISTS (SELECT * FROM warehouses WHERE id = 'B0000001-0001-0001-0001-000000000002')
+    INSERT INTO warehouses (id, name, location, capacity, status, parent_id, created_by, created_at) VALUES
+    ('B0000001-0001-0001-0001-000000000002', N'Cửa Hàng Quận 1', N'456 Nguyễn Huệ, Quận 1, HCM', 40, 'ACTIVE', 'A0000001-0001-0001-0001-000000000001',
+     '22222222-2222-2222-2222-222222222221', GETUTCDATE());
 GO
 
 -- =====================================================
--- Insert sample warehouse slots for Kho Tổng HCM
+-- Migration: Add parent_id column to warehouses if missing
 -- =====================================================
-DECLARE @WarehouseId UNIQUEIDENTIFIER = 'A0000001-0001-0001-0001-000000000001';
-IF NOT EXISTS (SELECT * FROM warehouse_slots WHERE warehouse_id = @WarehouseId)
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('warehouses') AND name = 'parent_id')
 BEGIN
-    INSERT INTO warehouse_slots (id, warehouse_id, slot_code, zone, row_number, column_number, status) VALUES
-    ('AA000001-0001-0001-0001-000000000001', @WarehouseId, 'A-01-01', 'A', 1, 1, 'OCCUPIED'),
-    ('AA000001-0001-0001-0001-000000000002', @WarehouseId, 'A-01-02', 'A', 1, 2, 'OCCUPIED'),
-    ('AA000001-0001-0001-0001-000000000003', @WarehouseId, 'A-02-01', 'A', 2, 1, 'OCCUPIED'),
-    ('AA000001-0001-0001-0001-000000000004', @WarehouseId, 'B-01-01', 'B', 1, 1, 'EMPTY'),
-    ('AA000001-0001-0001-0001-000000000005', @WarehouseId, 'B-01-02', 'B', 1, 2, 'EMPTY');
+    ALTER TABLE warehouses ADD parent_id UNIQUEIDENTIFIER NULL;
+    ALTER TABLE warehouses ADD CONSTRAINT FK_warehouses_parent FOREIGN KEY (parent_id) REFERENCES warehouses(id);
 END
 GO
 
 -- =====================================================
--- Insert sample inventories
+-- Insert sample inventories (per-row check để idempotent)
 -- =====================================================
 IF NOT EXISTS (SELECT * FROM inventories)
 BEGIN
@@ -641,134 +501,35 @@ END
 GO
 
 -- =====================================================
--- Insert sample purchase orders (supplier → warehouse)
--- INSERT TRƯỚC product_batches vì batch.purchase_order_id tham chiếu bảng này
--- =====================================================
-IF NOT EXISTS (SELECT * FROM purchase_orders)
-BEGIN
-    INSERT INTO purchase_orders
-        (id, order_number, supplier_id, supplier_name, warehouse_id,
-         order_date, expected_delivery, actual_delivery, status,
-         total_amount, ordered_by, received_by, notes)
-    VALUES
-    ('60000001-0001-0001-0001-000000000001',
-     'PO-2024-001',
-     '50000001-0001-0001-0001-000000000001', 'Vinamilk Co.',
-     'A0000001-0001-0001-0001-000000000001',
-     '2024-02-01', '2024-02-05', '2024-02-05', 'RECEIVED',
-     16000000,
-     '44444444-4444-4444-4444-444444444441',
-     '44444444-4444-4444-4444-444444444441',
-     N'500 hộp sữa Vinamilk'),
-
-    ('60000001-0001-0001-0001-000000000002',
-     'PO-2024-002',
-     '50000001-0001-0001-0001-000000000002', 'TH True Milk Co.',
-     'A0000001-0001-0001-0001-000000000001',
-     '2024-02-01', '2024-02-05', '2024-02-05', 'RECEIVED',
-     19000000,
-     '44444444-4444-4444-4444-444444444441',
-     '44444444-4444-4444-4444-444444444441',
-     N'500 hộp sữa TH True Milk'),
-
-    ('60000001-0001-0001-0001-000000000003',
-     'PO-2024-003',
-     '50000001-0001-0001-0001-000000000003', 'ST25 Co.',
-     'A0000001-0001-0001-0001-000000000001',
-     '2024-01-15', '2024-01-20', '2024-01-20', 'RECEIVED',
-     30000000,
-     '44444444-4444-4444-4444-444444444441',
-     '44444444-4444-4444-4444-444444444441',
-     N'200 kg gạo ST25');
-END
-GO
-
--- =====================================================
--- Insert sample purchase order items
--- =====================================================
-IF NOT EXISTS (SELECT * FROM purchase_order_items)
-BEGIN
-    INSERT INTO purchase_order_items
-        (id, order_id, product_id, quantity_ordered, quantity_received, unit_price,
-         manufacturing_date, expiry_date)
-    VALUES
-    (NEWID(), '60000001-0001-0001-0001-000000000001',
-     'F0000001-0001-0001-0001-000000000005', 500, 500, 32000,
-     '2024-02-01', '2024-08-01'),
-
-    (NEWID(), '60000001-0001-0001-0001-000000000002',
-     'F0000001-0001-0001-0001-000000000006', 500, 500, 38000,
-     '2024-02-01', '2024-08-01'),
-
-    (NEWID(), '60000001-0001-0001-0001-000000000003',
-     'F0000001-0001-0001-0001-000000000007', 200, 200, 150000,
-     '2024-01-15', '2025-01-15');
-END
-GO
-
--- =====================================================
 -- Insert sample product batches
--- supplier_id references ProductDB.suppliers.id
--- purchase_order_id references purchase_orders.id (đã insert ở trên)
 -- =====================================================
 IF NOT EXISTS (SELECT * FROM product_batches)
 BEGIN
-    INSERT INTO product_batches (id, product_id, warehouse_id, slot_id, batch_number, quantity,
-        manufacturing_date, expiry_date, supplier, supplier_id, purchase_order_id, received_at, status) VALUES
-    ('BA000001-0001-0001-0001-000000000001',
-     'F0000001-0001-0001-0001-000000000005', 'A0000001-0001-0001-0001-000000000001',
-     'AA000001-0001-0001-0001-000000000001',
-     'VNM-2024-001', 500, '2024-02-01', '2024-08-01',
-     'Vinamilk Co.', '50000001-0001-0001-0001-000000000001',
-     '60000001-0001-0001-0001-000000000001', '2024-02-05', 'AVAILABLE'),
-
-    ('BA000001-0001-0001-0001-000000000002',
-     'F0000001-0001-0001-0001-000000000006', 'A0000001-0001-0001-0001-000000000001',
-     'AA000001-0001-0001-0001-000000000002',
-     'TH-2024-001', 500, '2024-02-01', '2024-08-01',
-     'TH True Milk Co.', '50000001-0001-0001-0001-000000000002',
-     '60000001-0001-0001-0001-000000000002', '2024-02-05', 'AVAILABLE'),
-
-    ('BA000001-0001-0001-0001-000000000003',
-     'F0000001-0001-0001-0001-000000000007', 'A0000001-0001-0001-0001-000000000001',
-     'AA000001-0001-0001-0001-000000000003',
-     'ST25-2024-001', 200, '2024-01-15', '2025-01-15',
-     'ST25 Co.', '50000001-0001-0001-0001-000000000003',
-     '60000001-0001-0001-0001-000000000003', '2024-01-20', 'AVAILABLE');
+    INSERT INTO product_batches (id, product_id, warehouse_id, batch_number, quantity, manufacturing_date, expiry_date, supplier, received_at, status) VALUES
+    ('BA000001-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000005', 'A0000001-0001-0001-0001-000000000001',
+     'VNM-2024-001', 500, '2024-02-01', '2024-08-01', 'Vinamilk Co.', '2024-02-05', 'AVAILABLE'),
+    ('BA000001-0001-0001-0001-000000000002', 'F0000001-0001-0001-0001-000000000006', 'A0000001-0001-0001-0001-000000000001',
+     'TH-2024-001', 500, '2024-02-01', '2024-08-01', 'TH True Milk Co.', '2024-02-05', 'AVAILABLE'),
+    ('BA000001-0001-0001-0001-000000000003', 'F0000001-0001-0001-0001-000000000007', 'A0000001-0001-0001-0001-000000000001',
+     'ST25-2024-001', 200, '2024-01-15', '2025-01-15', 'ST25 Co.', '2024-01-20', 'AVAILABLE');
 END
 GO
 
 -- =====================================================
 -- Insert sample stock movements (receiving goods)
--- purchase_order_id liên kết trực tiếp tới purchase_orders
 -- =====================================================
 IF NOT EXISTS (SELECT * FROM stock_movements)
 BEGIN
-    INSERT INTO stock_movements
-        (id, movement_number, movement_type, location_id, location_type,
-         movement_date, purchase_order_id, supplier_name, transfer_id,
-         received_by, status, notes)
-    VALUES
-    ('CA000001-0001-0001-0001-000000000001',
-     'SM-2024-001', 'INBOUND',
-     'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
-     '2024-02-05',
-     '60000001-0001-0001-0001-000000000001', 'Vinamilk Co.', NULL,
-     '44444444-4444-4444-4444-444444444441', 'COMPLETED',
-     N'Received 500 units of milk'),
-
-    ('CA000001-0001-0001-0001-000000000002',
-     'SM-2024-002', 'INBOUND',
-     'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
-     '2024-02-10',
-     '60000001-0001-0001-0001-000000000003', N'ST25 Co.', NULL,
-     '44444444-4444-4444-4444-444444444441', 'COMPLETED',
-     N'Received 200 kg gạo ST25');
+    INSERT INTO stock_movements (id, movement_number, movement_type, location_id, location_type, movement_date, supplier_name, received_by, status, notes) VALUES
+    ('CA000001-0001-0001-0001-000000000001', 'SM-2024-001', 'INBOUND', 'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
+     '2024-02-05', 'Vinamilk Co.', '44444444-4444-4444-4444-444444444441', 'COMPLETED', N'Received 500 units of milk'),
+    ('CA000001-0001-0001-0001-000000000002', 'SM-2024-002', 'INBOUND', 'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
+     '2024-02-10', N'Đà Lḛt Suppliers', '44444444-4444-4444-4444-444444444441', 'COMPLETED', N'Received fresh vegetables');
 END
 GO
 
 -- =====================================================
--- Insert sample transfers (warehouse ↔ store / warehouse ↔ warehouse)
+-- Insert sample transfers (warehouse → store)
 -- =====================================================
 IF NOT EXISTS (SELECT * FROM transfers)
 BEGIN
@@ -784,10 +545,29 @@ GO
 IF NOT EXISTS (SELECT * FROM transfer_items)
 BEGIN
     DECLARE @TransferId UNIQUEIDENTIFIER = 'DA000001-0001-0001-0001-000000000001';
-    INSERT INTO transfer_items (id, transfer_id, product_id, batch_id, requested_quantity, shipped_quantity, received_quantity, damaged_quantity) VALUES
-    (NEWID(), @TransferId, 'F0000001-0001-0001-0001-000000000005', 'BA000001-0001-0001-0001-000000000001', 100, 100, 98, 2),
-    (NEWID(), @TransferId, 'F0000001-0001-0001-0001-000000000007', 'BA000001-0001-0001-0001-000000000003', 20, 20, 20, 0);
+    INSERT INTO transfer_items (id, transfer_id, product_id, requested_quantity, shipped_quantity, received_quantity, damaged_quantity) VALUES
+    (NEWID(), @TransferId, 'F0000001-0001-0001-0001-000000000005', 100, 100, 98, 2),
+    (NEWID(), @TransferId, 'F0000001-0001-0001-0001-000000000007', 20, 20, 20, 0);
 END
+GO
+
+-- =====================================================
+-- Insert sample restock requests
+-- =====================================================
+-- Migration: rename old columns if existing table
+IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('restock_requests') AND name = 'store_id')
+BEGIN
+    EXEC sp_rename 'restock_requests.store_id',    'to_warehouse_id',   'COLUMN';
+    EXEC sp_rename 'restock_requests.warehouse_id', 'from_warehouse_id', 'COLUMN';
+END
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('restock_requests') AND name = 'from_location_type')
+    ALTER TABLE restock_requests ADD from_location_type NVARCHAR(20) NOT NULL DEFAULT 'WAREHOUSE';
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('restock_requests') AND name = 'to_location_type')
+    ALTER TABLE restock_requests ADD to_location_type NVARCHAR(20) NOT NULL DEFAULT 'WAREHOUSE';
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_restock_from_warehouse' AND object_id = OBJECT_ID('restock_requests'))
+    CREATE INDEX IX_restock_from_warehouse ON restock_requests(from_warehouse_id);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_restock_to_warehouse' AND object_id = OBJECT_ID('restock_requests'))
+    CREATE INDEX IX_restock_to_warehouse ON restock_requests(to_warehouse_id);
 GO
 
 -- =====================================================
@@ -795,10 +575,17 @@ GO
 -- =====================================================
 IF NOT EXISTS (SELECT * FROM restock_requests)
 BEGIN
-    INSERT INTO restock_requests (id, request_number, store_id, warehouse_id, requested_by, requested_date, priority, status, notes) VALUES
-    ('EA000001-0001-0001-0001-000000000001', 'RST-2024-001', 'B0000001-0001-0001-0001-000000000001', 'A0000001-0001-0001-0001-000000000001', 
+    -- RST-2024-001: Store Manager (Thủ Đức) → Warehouse Manager (Kho Miền Bắc branch)
+    -- Goods come FROM branch A...002  TO store B...001
+    INSERT INTO restock_requests (id, request_number, from_warehouse_id, from_location_type, to_warehouse_id, to_location_type, requested_by, requested_date, priority, status, notes) VALUES
+    ('EA000001-0001-0001-0001-000000000001', 'RST-2024-001',
+     'A0000001-0001-0001-0001-000000000002', 'WAREHOUSE',
+     'B0000001-0001-0001-0001-000000000001', 'STORE',
      '33333333-3333-3333-3333-333333333331', '2024-03-01', 'NORMAL', 'COMPLETED', N'Weekly restock'),
-    ('EA000001-0001-0001-0001-000000000002', 'RST-2024-002', 'B0000001-0001-0001-0001-000000000001', 'A0000001-0001-0001-0001-000000000001', 
+    -- RST-2024-002: Store Manager (Thủ Đức) → Warehouse Manager (urgent)
+    ('EA000001-0001-0001-0001-000000000002', 'RST-2024-002',
+     'A0000001-0001-0001-0001-000000000002', 'WAREHOUSE',
+     'B0000001-0001-0001-0001-000000000001', 'STORE',
      '33333333-3333-3333-3333-333333333331', '2024-03-03', 'HIGH', 'PENDING', N'Urgent: Low stock on milk');
 END
 GO
@@ -816,25 +603,380 @@ BEGIN
 END
 GO
 
+-- =====================================================
+-- Inventories bổ sung cho 4 địa điểm hiện có
+-- Profile tồn kho mỗi nơi khác nhau rõ ràng:
+--   Kho Tổng HCM  (A...001): số lượng lớn, main warehouse
+--   Kho Miền Bắc  (A...002): số lượng vừa, có reserved
+--   CH Thủ Đức    (B...001): store bình thường, vài SKU sắp hết
+--   CH Quận 1     (B...002): store lớn hơn, reserved nhiều hơn
+-- =====================================================
+
+-- Kho Tổng HCM: bổ sung F006 (TH True Milk) hiện chưa có
+IF NOT EXISTS (SELECT * FROM inventories WHERE product_id = 'F0000001-0001-0001-0001-000000000006'
+               AND location_id = 'A0000001-0001-0001-0001-000000000001')
+    INSERT INTO inventories (id, product_id, location_type, location_id, quantity, reserved_quantity, min_stock_level, max_stock_level)
+    VALUES (NEWID(), 'F0000001-0001-0001-0001-000000000006', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 700,  50, 100, 1500);
+GO
+
+-- Kho Miền Bắc: đầy đủ sản phẩm, tồn kho vừa phải
+IF NOT EXISTS (SELECT * FROM inventories WHERE location_id = 'A0000001-0001-0001-0001-000000000002')
+BEGIN
+    INSERT INTO inventories (id, product_id, location_type, location_id, quantity, reserved_quantity, min_stock_level, max_stock_level) VALUES
+    (NEWID(), 'F0000001-0001-0001-0001-000000000001', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002', 150,   0,  30,  400),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000002', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002', 120,   0,  20,  300),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000003', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002', 180,   0,  25,  500),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000005', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002', 400,  80, 100, 1000), -- reserved 80 (đang chờ transfer)
+    (NEWID(), 'F0000001-0001-0001-0001-000000000006', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002', 350,   0,  80,  800),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000007', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002', 120,  20,  30,  400);
+END
+GO
+
+-- CH Thủ Đức: bổ sung F002, F006 còn thiếu
+IF NOT EXISTS (SELECT * FROM inventories WHERE product_id = 'F0000001-0001-0001-0001-000000000002'
+               AND location_id = 'B0000001-0001-0001-0001-000000000001')
+    INSERT INTO inventories (id, product_id, location_type, location_id, quantity, reserved_quantity, min_stock_level, max_stock_level)
+    VALUES (NEWID(), 'F0000001-0001-0001-0001-000000000002', 'STORE', 'B0000001-0001-0001-0001-000000000001', 22, 0, 8, 60);
+GO
+IF NOT EXISTS (SELECT * FROM inventories WHERE product_id = 'F0000001-0001-0001-0001-000000000006'
+               AND location_id = 'B0000001-0001-0001-0001-000000000001')
+    INSERT INTO inventories (id, product_id, location_type, location_id, quantity, reserved_quantity, min_stock_level, max_stock_level)
+    VALUES (NEWID(), 'F0000001-0001-0001-0001-000000000006', 'STORE', 'B0000001-0001-0001-0001-000000000001',  9, 0, 15, 80); -- ⚠ LOW STOCK
+GO
+
+-- CH Quận 1: đầy đủ sản phẩm, level cao hơn Thủ Đức, có reservation online
+IF NOT EXISTS (SELECT * FROM inventories WHERE location_id = 'B0000001-0001-0001-0001-000000000002')
+BEGIN
+    INSERT INTO inventories (id, product_id, location_type, location_id, quantity, reserved_quantity, min_stock_level, max_stock_level) VALUES
+    (NEWID(), 'F0000001-0001-0001-0001-000000000001', 'STORE', 'B0000001-0001-0001-0001-000000000002',  45,  5,  10,  100),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000002', 'STORE', 'B0000001-0001-0001-0001-000000000002',  38,  0,   8,   80),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000003', 'STORE', 'B0000001-0001-0001-0001-000000000002',  72,  0,  15,  150),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000005', 'STORE', 'B0000001-0001-0001-0001-000000000002',  95, 20,  20,  180), -- reserved 20 (đơn online)
+    (NEWID(), 'F0000001-0001-0001-0001-000000000006', 'STORE', 'B0000001-0001-0001-0001-000000000002',  65, 10,  15,  120),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000007', 'STORE', 'B0000001-0001-0001-0001-000000000002',  28,  0,   5,   60);
+END
+GO
+
+-- =====================================================
+-- Thêm product batches
+-- =====================================================
+IF NOT EXISTS (SELECT * FROM product_batches WHERE id = 'BA000001-0001-0001-0001-000000000004')
+BEGIN
+    INSERT INTO product_batches
+        (id, product_id, warehouse_id, batch_number, quantity,
+         manufacturing_date, expiry_date, supplier, supplier_id, received_at, status)
+    VALUES
+    -- Kho Chi Nhánh Miền Bắc: Vinamilk batch 2
+    ('BA000001-0001-0001-0001-000000000004',
+     'F0000001-0001-0001-0001-000000000005', 'A0000001-0001-0001-0001-000000000002',
+     'VNM-2024-002', 400, '2024-03-01', '2024-09-01',
+     'Vinamilk Co.', '50000001-0001-0001-0001-000000000001', '2024-03-05', 'AVAILABLE'),
+
+    -- Kho Chi Nhánh Miền Bắc: TH True Milk batch 2
+    ('BA000001-0001-0001-0001-000000000005',
+     'F0000001-0001-0001-0001-000000000006', 'A0000001-0001-0001-0001-000000000002',
+     'TH-2024-002', 350, '2024-03-10', '2024-09-10',
+     'TH True Milk Co.', '50000001-0001-0001-0001-000000000002', '2024-03-15', 'AVAILABLE'),
+
+    -- Kho Tổng HCM: Gạo ST25 batch 2
+    ('BA000001-0001-0001-0001-000000000006',
+     'F0000001-0001-0001-0001-000000000007', 'A0000001-0001-0001-0001-000000000001',
+     'ST25-2024-002', 80, '2024-03-05', '2025-03-05',
+     'ST25 Co.', '50000001-0001-0001-0001-000000000003', '2024-03-10', 'AVAILABLE'),
+
+    -- Kho Tổng HCM: Vinamilk batch 3 (sắp hết hạn, cảnh báo)
+    ('BA000001-0001-0001-0001-000000000007',
+     'F0000001-0001-0001-0001-000000000005', 'A0000001-0001-0001-0001-000000000001',
+     'VNM-2024-003', 150, '2024-01-15', '2024-07-15',
+     'Vinamilk Co.', '50000001-0001-0001-0001-000000000001', '2024-01-20', 'AVAILABLE');
+END
+GO
+
+-- =====================================================
+-- Thêm transfers (phải insert TRƯỚC stock_movements)
+-- =====================================================
+IF NOT EXISTS (SELECT * FROM transfers WHERE id = 'DA000001-0001-0001-0001-000000000002')
+BEGIN
+    INSERT INTO transfers
+        (id, transfer_number, from_location_type, from_location_id,
+         to_location_type, to_location_id,
+         transfer_date, expected_delivery, actual_delivery, status,
+         shipped_by, received_by, notes)
+    VALUES
+    -- Kho Tổng HCM → Cửa Hàng Quận 1 (DELIVERED)
+    ('DA000001-0001-0001-0001-000000000002', 'TRF-2024-002',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001',
+     'STORE',     'B0000001-0001-0001-0001-000000000002',
+     '2024-03-20', '2024-03-21', '2024-03-21', 'DELIVERED',
+     '44444444-4444-4444-4444-444444444441', '33333333-3333-3333-3333-333333333331',
+     N'Nhập hàng lần đầu cho Cửa Hàng Quận 1'),
+
+    -- Kho Miền Bắc → Cửa Hàng Thủ Đức (DELIVERED)
+    ('DA000001-0001-0001-0001-000000000003', 'TRF-2024-003',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002',
+     'STORE',     'B0000001-0001-0001-0001-000000000001',
+     '2024-03-22', '2024-03-23', '2024-03-23', 'DELIVERED',
+     '44444444-4444-4444-4444-444444444441', '33333333-3333-3333-3333-333333333331',
+     N'Bổ sung hàng từ Kho Miền Bắc cho Cửa Hàng Thủ Đức'),
+
+    -- Kho Tổng HCM → Kho Miền Bắc (warehouse-to-warehouse, đang vận chuyển)
+    ('DA000001-0001-0001-0001-000000000004', 'TRF-2024-004',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002',
+     '2024-03-28', '2024-03-30', NULL, 'IN_TRANSIT',
+     '44444444-4444-4444-4444-444444444441', NULL,
+     N'Điều phối hàng từ Kho Tổng HCM sang Kho Miền Bắc'),
+
+    -- Kho Tổng HCM → Cửa Hàng Quận 1 (bổ sung lần 2)
+    ('DA000001-0001-0001-0001-000000000005', 'TRF-2024-005',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001',
+     'STORE',     'B0000001-0001-0001-0001-000000000002',
+     '2024-03-25', '2024-03-26', '2024-03-26', 'DELIVERED',
+     '44444444-4444-4444-4444-444444444441', '33333333-3333-3333-3333-333333333331',
+     N'Bổ sung hàng lần 2 cho Cửa Hàng Quận 1');
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM transfer_items WHERE transfer_id = 'DA000001-0001-0001-0001-000000000002')
+BEGIN
+    INSERT INTO transfer_items
+        (id, transfer_id, product_id, requested_quantity, shipped_quantity, received_quantity, damaged_quantity)
+    VALUES
+    -- TRF-2024-002: Kho Tổng → Quận 1
+    (NEWID(), 'DA000001-0001-0001-0001-000000000002', 'F0000001-0001-0001-0001-000000000005',
+      60,  60,  60, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000002', 'F0000001-0001-0001-0001-000000000007',
+      25,  25,  24, 1),
+
+    -- TRF-2024-003: Kho Miền Bắc → Thủ Đức
+    (NEWID(), 'DA000001-0001-0001-0001-000000000003', 'F0000001-0001-0001-0001-000000000005',
+      80,  80,  80, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000003', 'F0000001-0001-0001-0001-000000000006',
+      70,  70,  68, 2),
+
+    -- TRF-2024-004: Kho Tổng → Kho Miền Bắc (đang vận chuyển, chưa nhận)
+    (NEWID(), 'DA000001-0001-0001-0001-000000000004', 'F0000001-0001-0001-0001-000000000005',
+     150, 150, NULL, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000004', 'F0000001-0001-0001-0001-000000000007',
+      30,  30, NULL, 0),
+
+    -- TRF-2024-005: Kho Tổng → Quận 1
+    (NEWID(), 'DA000001-0001-0001-0001-000000000005', 'F0000001-0001-0001-0001-000000000003',
+      70,  70,  70, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000005', 'F0000001-0001-0001-0001-000000000005',
+      90,  90,  88, 2);
+END
+GO
+
+-- =====================================================
+-- Thêm stock movements (sau transfers vì SM tham chiếu transfer_id)
+-- =====================================================
+IF NOT EXISTS (SELECT * FROM stock_movements WHERE id = 'CA000001-0001-0001-0001-000000000003')
+BEGIN
+    INSERT INTO stock_movements
+        (id, movement_number, movement_type, location_id, location_type,
+         movement_date, supplier_name, transfer_id,
+         received_by, status, notes)
+    VALUES
+    ('CA000001-0001-0001-0001-000000000003',
+     'SM-2024-003', 'INBOUND', 'A0000001-0001-0001-0001-000000000002', 'WAREHOUSE',
+     '2024-03-05', 'Vinamilk Co.', NULL,
+     '44444444-4444-4444-4444-444444444441', 'COMPLETED',
+     N'Nhận 400 hộp sữa Vinamilk tại Kho Miền Bắc'),
+
+    ('CA000001-0001-0001-0001-000000000004',
+     'SM-2024-004', 'INBOUND', 'A0000001-0001-0001-0001-000000000002', 'WAREHOUSE',
+     '2024-03-15', 'TH True Milk Co.', NULL,
+     '44444444-4444-4444-4444-444444444441', 'COMPLETED',
+     N'Nhận 350 hộp TH True Milk tại Kho Miền Bắc'),
+
+    ('CA000001-0001-0001-0001-000000000005',
+     'SM-2024-005', 'TRANSFER', 'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
+     '2024-03-20', NULL, 'DA000001-0001-0001-0001-000000000002',
+     '44444444-4444-4444-4444-444444444441', 'COMPLETED',
+     N'Xuất hàng cho Cửa Hàng Quận 1 (TRF-2024-002)'),
+
+    ('CA000001-0001-0001-0001-000000000006',
+     'SM-2024-006', 'TRANSFER', 'A0000001-0001-0001-0001-000000000002', 'WAREHOUSE',
+     '2024-03-22', NULL, 'DA000001-0001-0001-0001-000000000003',
+     '44444444-4444-4444-4444-444444444441', 'COMPLETED',
+     N'Xuất hàng lần đầu cho Cửa Hàng Thủ Đức từ Kho Miền Bắc'),
+
+    ('CA000001-0001-0001-0001-000000000007',
+     'SM-2024-007', 'ADJUSTMENT', 'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
+     '2024-03-25', NULL, NULL,
+     '11111111-1111-1111-1111-111111111111', 'COMPLETED',
+     N'Điều chỉnh sau kiểm kê tháng 3 - hao hụt rau củ');
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM stock_movement_items WHERE movement_id = 'CA000001-0001-0001-0001-000000000003')
+BEGIN
+    INSERT INTO stock_movement_items (id, movement_id, product_id, quantity, unit_price) VALUES
+    (NEWID(), 'CA000001-0001-0001-0001-000000000003', 'F0000001-0001-0001-0001-000000000005',
+     400, 32000),
+    (NEWID(), 'CA000001-0001-0001-0001-000000000004', 'F0000001-0001-0001-0001-000000000006',
+     350, 38000),
+    (NEWID(), 'CA000001-0001-0001-0001-000000000005', 'F0000001-0001-0001-0001-000000000005',
+      60, 32000),
+    (NEWID(), 'CA000001-0001-0001-0001-000000000005', 'F0000001-0001-0001-0001-000000000007',
+      25, 150000),
+    (NEWID(), 'CA000001-0001-0001-0001-000000000006', 'F0000001-0001-0001-0001-000000000005',
+      80, 32000),
+    (NEWID(), 'CA000001-0001-0001-0001-000000000006', 'F0000001-0001-0001-0001-000000000006',
+      70, 38000),
+    (NEWID(), 'CA000001-0001-0001-0001-000000000007', 'F0000001-0001-0001-0001-000000000001',
+     -5, 0); -- Điều chỉnh: -5 kg rau muống hỏng
+END
+GO
+
+-- =====================================================
+-- Thêm restock requests
+-- =====================================================
+IF NOT EXISTS (SELECT * FROM restock_requests WHERE id = 'EA000001-0001-0001-0001-000000000003')
+BEGIN
+    INSERT INTO restock_requests
+        (id, request_number, from_warehouse_id, from_location_type, to_warehouse_id, to_location_type,
+         requested_by, requested_date, priority, status, notes)
+    VALUES
+    -- Thủ Đức URGENT: TH True Milk hết (quantity=9, min=15 → LOW STOCK)
+    -- Goods come FROM Kho Tổng HCM (A...001) TO Cửa Hàng Thủ Đức (B...001)
+    ('EA000001-0001-0001-0001-000000000003', 'RST-2024-003',
+     'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
+     'B0000001-0001-0001-0001-000000000001', 'STORE',
+     '33333333-3333-3333-3333-333333333331', '2024-03-28', 'URGENT', 'APPROVED',
+     N'TH True Milk dưới ngưỡng tối thiểu, cần bổ sung gấp'),
+
+    -- Quận 1 bổ sung định kỳ: FROM Kho Tổng HCM TO CH Quận 1
+    ('EA000001-0001-0001-0001-000000000004', 'RST-2024-004',
+     'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
+     'B0000001-0001-0001-0001-000000000002', 'STORE',
+     '33333333-3333-3333-3333-333333333331', '2024-03-29', 'NORMAL', 'PENDING',
+     N'Bổ sung định kỳ tuần 2 cho CH Quận 1'),
+
+    -- Quận 1 rau củ mùa vụ (đang xử lý): FROM Kho Tổng HCM TO CH Quận 1
+    ('EA000001-0001-0001-0001-000000000005', 'RST-2024-005',
+     'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
+     'B0000001-0001-0001-0001-000000000002', 'STORE',
+     '33333333-3333-3333-3333-333333333331', '2024-03-30', 'HIGH', 'PROCESSING',
+     N'Rau củ tuần tới tăng tiêu thụ - mùa lễ'),
+
+    -- Thủ Đức bị từ chối (yêu cầu quá nhiều): FROM Kho Tổng HCM TO CH Thủ Đức
+    ('EA000001-0001-0001-0001-000000000006', 'RST-2024-006',
+     'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
+     'B0000001-0001-0001-0001-000000000001', 'STORE',
+     '33333333-3333-3333-3333-333333333331', '2024-03-27', 'NORMAL', 'REJECTED',
+     N'Yêu cầu không hợp lệ - số lượng vượt giới hạn tháng');
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM restock_request_items WHERE request_id = 'EA000001-0001-0001-0001-000000000003')
+BEGIN
+    DECLARE @R3 UNIQUEIDENTIFIER = 'EA000001-0001-0001-0001-000000000003';
+    DECLARE @R4 UNIQUEIDENTIFIER = 'EA000001-0001-0001-0001-000000000004';
+    DECLARE @R5 UNIQUEIDENTIFIER = 'EA000001-0001-0001-0001-000000000005';
+    DECLARE @R6 UNIQUEIDENTIFIER = 'EA000001-0001-0001-0001-000000000006';
+
+    INSERT INTO restock_request_items
+        (id, request_id, product_id, requested_quantity, current_quantity, approved_quantity, reason)
+    VALUES
+    -- RST-2024-003: Thủ Đức URGENT (TH True Milk low stock)
+    (NEWID(), @R3, 'F0000001-0001-0001-0001-000000000006',  80,  9,  80, N'Dưới ngưỡng tối thiểu (9/15)'),
+    (NEWID(), @R3, 'F0000001-0001-0001-0001-000000000005',  50, 45,  50, N'Sắp hết trong tuần'),
+
+    -- RST-2024-004: Quận 1 NORMAL định kỳ
+    (NEWID(), @R4, 'F0000001-0001-0001-0001-000000000001',  40, 45, NULL, N'Bổ sung định kỳ'),
+    (NEWID(), @R4, 'F0000001-0001-0001-0001-000000000002',  30, 38, NULL, N'Bổ sung định kỳ'),
+
+    -- RST-2024-005: Quận 1 HIGH mùa vụ
+    (NEWID(), @R5, 'F0000001-0001-0001-0001-000000000003',  80, 72,  80, N'Cam sành tăng tiêu thụ mùa lễ'),
+    (NEWID(), @R5, 'F0000001-0001-0001-0001-000000000001',  50, 45,  50, N'Rau muống tăng đột biến'),
+
+    -- RST-2024-006: Thủ Đức REJECTED
+    (NEWID(), @R6, 'F0000001-0001-0001-0001-000000000005', 500, 100, 0, N'Yêu cầu quá nhiều - từ chối');
+END
+GO
+
+-- =====================================================
+-- Damage reports mẫu
+-- =====================================================
+IF NOT EXISTS (SELECT * FROM damage_reports)
+BEGIN
+    INSERT INTO damage_reports
+        (id, report_number, location_type, location_id, damage_type,
+         reported_by, reported_date, total_value, description, status, approved_by, approved_date)
+    VALUES
+    ('FA000001-0001-0001-0001-000000000001', 'DMG-2024-001',
+     'STORE', 'B0000001-0001-0001-0001-000000000001', 'EXPIRED',
+     '33333333-3333-3333-3333-333333333331', '2024-03-15', 320000,
+     N'2 hộp sữa Vinamilk hết hạn tại Cửa Hàng Thủ Đức',
+     'APPROVED', '22222222-2222-2222-2222-222222222221', '2024-03-16'),
+
+    ('FA000001-0001-0001-0001-000000000002', 'DMG-2024-002',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 'PHYSICAL_DAMAGE',
+     '44444444-4444-4444-4444-444444444441', '2024-03-20', 750000,
+     N'5 kg rau muống hỏng trong quá trình vận chuyển',
+     'APPROVED', '11111111-1111-1111-1111-111111111111', '2024-03-21'),
+
+    ('FA000001-0001-0001-0001-000000000003', 'DMG-2024-003',
+     'STORE', 'B0000001-0001-0001-0001-000000000002', 'QUALITY_ISSUE',
+     '33333333-3333-3333-3333-333333333331', '2024-03-29', 192000,
+     N'1 túi gạo ST25 bị ẩm khi nhận hàng tại CH Quận 1',
+     'PENDING', NULL, NULL);
+END
+GO
+
+-- =====================================================
+-- Inventory checks mẫu
+-- =====================================================
+IF NOT EXISTS (SELECT * FROM inventory_checks)
+BEGIN
+    INSERT INTO inventory_checks
+        (id, check_number, location_type, location_id, check_type,
+         check_date, checked_by, status, total_discrepancies, notes)
+    VALUES
+    ('0A000001-0001-0001-0001-000000000001', 'IC-2024-001',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 'FULL',
+     '2024-03-25', '44444444-4444-4444-4444-444444444441', 'COMPLETED', 2,
+     N'Kiểm kê tháng 3 - phát hiện hao hụt rau muống và cam'),
+
+    ('0A000001-0001-0001-0001-000000000002', 'IC-2024-002',
+     'STORE', 'B0000001-0001-0001-0001-000000000001', 'SPOT',
+     '2024-03-28', '33333333-3333-3333-3333-333333333331', 'COMPLETED', 0,
+     N'Kiểm tra đột xuất - không phát hiện chênh lệch'),
+
+    ('0A000001-0001-0001-0001-000000000003', 'IC-2024-003',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002', 'PARTIAL',
+     '2024-03-30', '44444444-4444-4444-4444-444444444441', 'PENDING', 0,
+     N'Kiểm kê một phần - đang thực hiện');
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM inventory_check_items WHERE check_id = '0A000001-0001-0001-0001-000000000001')
+BEGIN
+    INSERT INTO inventory_check_items (id, check_id, product_id, system_quantity, actual_quantity, note) VALUES
+    (NEWID(), '0A000001-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000001', 500, 495, N'Hao hụt 5 kg rau muống'),
+    (NEWID(), '0A000001-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000003', 800, 798, N'Thiếu 2 kg cam'),
+    (NEWID(), '0A000001-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000005', 1000, 1000, N'Khớp số liệu'),
+    (NEWID(), '0A000001-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000007',  200,  200, N'Khớp số liệu'),
+    (NEWID(), '0A000001-0001-0001-0001-000000000002', 'F0000001-0001-0001-0001-000000000005',  100,  100, N'Khớp số liệu'),
+    (NEWID(), '0A000001-0001-0001-0001-000000000002', 'F0000001-0001-0001-0001-000000000007',   15,   15, N'Khớp số liệu');
+END
+GO
+
 PRINT '===============================================';
 PRINT 'Inventory Management Database Created Successfully';
 PRINT '===============================================';
 PRINT '';
-PRINT 'Total Tables: 18 tables';
-PRINT '  (Added: purchase_orders, purchase_order_items)';
-PRINT 'Key Flows:';
-PRINT '  [1] Supplier → Warehouse : purchase_orders / purchase_order_items';
-PRINT '        supplier_id → tham chiếu logic tới ProductDB.suppliers.id';
-PRINT '  [2] Warehouse → Store    : restock_requests → transfers → transfer_items';
-PRINT '  [3] Warehouse → Warehouse: transfers (from/to_location_type = WAREHOUSE)';
+PRINT 'Total Tables: 15 tables';
 PRINT 'Sample Data:';
-PRINT '  - 3 Purchase Orders (PO-2024-001..003) + 3 Items';
-PRINT '  - 4 Warehouses/Stores';
-PRINT '  - 5 Warehouse Slots';
-PRINT '  - 9 Inventory Records';
-PRINT '  - 3 Product Batches (linked to purchase_orders)';
-PRINT '  - 2 Stock Movements';
-PRINT '  - 1 Transfer (with 2 items)';
-PRINT '  - 2 Restock Requests (with 3 items)';
+PRINT '  - 6 Warehouses/Stores (4 warehouses + 2 stores)';
+PRINT '  - 20+ Inventory Records';
+PRINT '  - 7 Product Batches';
+PRINT '  - 7 Stock Movements';
+PRINT '  - 5 Transfers (with items)';
+PRINT '  - 6 Restock Requests (with items)';
+PRINT '  - 3 Damage Reports';
+PRINT '  - 3 Inventory Checks';
 PRINT '===============================================';
 GO

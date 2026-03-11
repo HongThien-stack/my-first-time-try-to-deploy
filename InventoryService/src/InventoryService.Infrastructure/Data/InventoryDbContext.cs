@@ -11,7 +11,6 @@ public class InventoryDbContext : DbContext
 
     // DbSets
     public DbSet<Warehouse> Warehouses { get; set; }
-    public DbSet<WarehouseSlot> WarehouseSlots { get; set; }
     public DbSet<Inventory> Inventories { get; set; }
     public DbSet<ProductBatch> ProductBatches { get; set; }
     public DbSet<StockMovement> StockMovements { get; set; }
@@ -43,39 +42,19 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Location).HasColumnName("location").HasMaxLength(500);
             entity.Property(e => e.Capacity).HasColumnName("capacity");
             entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("ACTIVE");
+            entity.Property(e => e.ParentId).HasColumnName("parent_id");
             entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETUTCDATE()");
             entity.Property(e => e.CreatedBy).HasColumnName("created_by");
 
+            entity.HasOne(e => e.Parent)
+                .WithMany(w => w.SubWarehouses)
+                .HasForeignKey(e => e.ParentId)
+                .HasConstraintName("FK_warehouses_parent")
+                .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasIndex(e => e.Name).HasDatabaseName("IX_warehouses_name");
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_warehouses_status");
-        });
-
-        // =====================================================
-        // WarehouseSlot Configuration
-        // =====================================================
-        modelBuilder.Entity<WarehouseSlot>(entity =>
-        {
-            entity.ToTable("warehouse_slots");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.WarehouseId).HasColumnName("warehouse_id");
-            entity.Property(e => e.SlotCode).HasColumnName("slot_code").IsRequired().HasMaxLength(50);
-            entity.Property(e => e.Zone).HasColumnName("zone").HasMaxLength(10);
-            entity.Property(e => e.RowNumber).HasColumnName("row_number");
-            entity.Property(e => e.ColumnNumber).HasColumnName("column_number");
-            entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("EMPTY");
-            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").HasDefaultValue(false);
-            entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETUTCDATE()");
-
-            entity.HasOne(e => e.Warehouse)
-                .WithMany(w => w.WarehouseSlots)
-                .HasForeignKey(e => e.WarehouseId)
-                .HasConstraintName("FK_warehouse_slots_warehouses");
-
-            entity.HasIndex(e => e.WarehouseId).HasDatabaseName("IX_slots_warehouse_id");
-            entity.HasIndex(e => e.Status).HasDatabaseName("IX_slots_status");
-            entity.HasIndex(e => new { e.WarehouseId, e.SlotCode }).IsUnique().HasDatabaseName("UQ_warehouse_slot");
         });
 
         // =====================================================
@@ -112,12 +91,13 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.ProductId).HasColumnName("product_id");
             entity.Property(e => e.WarehouseId).HasColumnName("warehouse_id");
-            entity.Property(e => e.SlotId).HasColumnName("slot_id");
             entity.Property(e => e.BatchNumber).HasColumnName("batch_number").IsRequired().HasMaxLength(100);
             entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.ManufacturingDate).HasColumnName("manufacturing_date");
             entity.Property(e => e.ExpiryDate).HasColumnName("expiry_date");
             entity.Property(e => e.Supplier).HasColumnName("supplier").HasMaxLength(255);
+            entity.Property(e => e.SupplierId).HasColumnName("supplier_id");
+            entity.Property(e => e.RestockRequestId).HasColumnName("restock_request_id");
             entity.Property(e => e.ReceivedAt).HasColumnName("received_at").HasDefaultValueSql("GETUTCDATE()");
             entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("AVAILABLE");
 
@@ -125,11 +105,6 @@ public class InventoryDbContext : DbContext
                 .WithMany(w => w.ProductBatches)
                 .HasForeignKey(e => e.WarehouseId)
                 .HasConstraintName("FK_batches_warehouses");
-
-            entity.HasOne(e => e.WarehouseSlot)
-                .WithMany(s => s.ProductBatches)
-                .HasForeignKey(e => e.SlotId)
-                .HasConstraintName("FK_batches_slots");
 
             entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_batches_product_id");
             entity.HasIndex(e => e.WarehouseId).HasDatabaseName("IX_batches_warehouse_id");
@@ -151,8 +126,9 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.LocationId).HasColumnName("location_id");
             entity.Property(e => e.LocationType).HasColumnName("location_type").IsRequired().HasMaxLength(50);
             entity.Property(e => e.MovementDate).HasColumnName("movement_date").HasDefaultValueSql("GETUTCDATE()");
-            entity.Property(e => e.Supplier).HasColumnName("supplier").HasMaxLength(255);
-            entity.Property(e => e.PoNumber).HasColumnName("po_number").HasMaxLength(100);
+            entity.Property(e => e.RestockRequestId).HasColumnName("restock_request_id");
+            entity.Property(e => e.SupplierName).HasColumnName("supplier_name").HasMaxLength(255);
+            entity.Property(e => e.TransferId).HasColumnName("transfer_id");
             entity.Property(e => e.ReceivedBy).HasColumnName("received_by");
             entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("COMPLETED");
             entity.Property(e => e.Notes).HasColumnName("notes");
@@ -174,8 +150,6 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.MovementId).HasColumnName("movement_id");
             entity.Property(e => e.ProductId).HasColumnName("product_id");
-            entity.Property(e => e.BatchId).HasColumnName("batch_id");
-            entity.Property(e => e.SlotId).HasColumnName("slot_id");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.UnitPrice).HasColumnName("unit_price").HasColumnType("decimal(18,2)");
 
@@ -183,11 +157,6 @@ public class InventoryDbContext : DbContext
                 .WithMany(sm => sm.StockMovementItems)
                 .HasForeignKey(e => e.MovementId)
                 .HasConstraintName("FK_movement_items_movements");
-
-            entity.HasOne(e => e.ProductBatch)
-                .WithMany(b => b.StockMovementItems)
-                .HasForeignKey(e => e.BatchId)
-                .HasConstraintName("FK_movement_items_batches");
 
             entity.HasIndex(e => e.MovementId).HasDatabaseName("IX_movement_items_movement_id");
             entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_movement_items_product_id");
@@ -233,7 +202,6 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.TransferId).HasColumnName("transfer_id");
             entity.Property(e => e.ProductId).HasColumnName("product_id");
-            entity.Property(e => e.BatchId).HasColumnName("batch_id");
             entity.Property(e => e.RequestedQuantity).HasColumnName("requested_quantity");
             entity.Property(e => e.ShippedQuantity).HasColumnName("shipped_quantity");
             entity.Property(e => e.ReceivedQuantity).HasColumnName("received_quantity");
@@ -244,11 +212,6 @@ public class InventoryDbContext : DbContext
                 .WithMany(t => t.TransferItems)
                 .HasForeignKey(e => e.TransferId)
                 .HasConstraintName("FK_transfer_items_transfers");
-
-            entity.HasOne(e => e.ProductBatch)
-                .WithMany(b => b.TransferItems)
-                .HasForeignKey(e => e.BatchId)
-                .HasConstraintName("FK_transfer_items_batches");
 
             entity.HasIndex(e => e.TransferId).HasDatabaseName("IX_transfer_items_transfer_id");
             entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_transfer_items_product_id");
@@ -263,8 +226,10 @@ public class InventoryDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.RequestNumber).HasColumnName("request_number").IsRequired().HasMaxLength(50);
-            entity.Property(e => e.StoreId).HasColumnName("store_id");
-            entity.Property(e => e.WarehouseId).HasColumnName("warehouse_id");
+            entity.Property(e => e.FromWarehouseId).HasColumnName("from_warehouse_id").IsRequired(false);
+            entity.Property(e => e.FromLocationType).HasColumnName("from_location_type").IsRequired().HasMaxLength(20).HasDefaultValue("WAREHOUSE");
+            entity.Property(e => e.ToWarehouseId).HasColumnName("to_warehouse_id").IsRequired(false);
+            entity.Property(e => e.ToLocationType).HasColumnName("to_location_type").IsRequired().HasMaxLength(20).HasDefaultValue("WAREHOUSE");
             entity.Property(e => e.RequestedBy).HasColumnName("requested_by");
             entity.Property(e => e.RequestedDate).HasColumnName("requested_date").HasDefaultValueSql("GETUTCDATE()");
             entity.Property(e => e.Priority).HasColumnName("priority").IsRequired().HasMaxLength(50).HasDefaultValue("NORMAL");
@@ -282,7 +247,8 @@ public class InventoryDbContext : DbContext
                 .HasConstraintName("FK_restock_transfers");
 
             entity.HasIndex(e => e.RequestNumber).IsUnique().HasDatabaseName("IX_restock_request_number");
-            entity.HasIndex(e => e.StoreId).HasDatabaseName("IX_restock_store_id");
+            entity.HasIndex(e => e.FromWarehouseId).HasDatabaseName("IX_restock_from_warehouse");
+            entity.HasIndex(e => e.ToWarehouseId).HasDatabaseName("IX_restock_to_warehouse");
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_restock_status");
             entity.HasIndex(e => e.Priority).HasDatabaseName("IX_restock_priority");
         });

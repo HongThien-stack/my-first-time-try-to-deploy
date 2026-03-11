@@ -155,15 +155,12 @@ BEGIN
     CREATE TABLE stock_movement_items (
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         movement_id UNIQUEIDENTIFIER NOT NULL,
-        batch_id UNIQUEIDENTIFIER NOT NULL,
         quantity INT NOT NULL,
         created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        CONSTRAINT FK_stock_movement_items_movements FOREIGN KEY (movement_id) REFERENCES stock_movements(id),
-        CONSTRAINT FK_stock_movement_items_batches FOREIGN KEY (batch_id) REFERENCES product_batches(id)
+        CONSTRAINT FK_stock_movement_items_movements FOREIGN KEY (movement_id) REFERENCES stock_movements(id)
     );
     
     CREATE INDEX IX_stock_movement_items_movement_id ON stock_movement_items(movement_id);
-    CREATE INDEX IX_stock_movement_items_batch_id ON stock_movement_items(batch_id);
 END
 GO
 
