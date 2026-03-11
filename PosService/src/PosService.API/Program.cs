@@ -1,4 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using PosService.Application.Interfaces;
+using PosService.Application.Services;
+using PosService.Infrastructure.Data;
 using PosService.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,8 +19,19 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Register DbContexts for cross-database queries
+builder.Services.AddDbContext<ProductDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("ProductDB")));
+
+builder.Services.AddDbContext<InventoryDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("InventoryDB")));
+
 // Register repositories
 builder.Services.AddScoped<ISaleRepository, SaleRepository>();
+builder.Services.AddScoped<IProductSearchRepository, ProductSearchRepository>();
+
+// Register services
+builder.Services.AddScoped<IProductSearchService, ProductSearchService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
