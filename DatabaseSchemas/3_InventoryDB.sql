@@ -497,6 +497,16 @@ IF NOT EXISTS (SELECT * FROM warehouses WHERE id = 'B0000001-0001-0001-0001-0000
     INSERT INTO warehouses (id, name, location, capacity, status, parent_id, created_by, created_at) VALUES
     ('B0000001-0001-0001-0001-000000000004', N'Cửa Hàng Long An', N'12 Nguyễn Huệ, Tân An, Long An', 35, 'ACTIVE', 'A0000001-0001-0001-0001-000000000004',
      '22222222-2222-2222-2222-222222222221', GETUTCDATE());
+
+IF NOT EXISTS (SELECT * FROM warehouses WHERE id = 'B0000001-0001-0001-0001-000000000005')
+    INSERT INTO warehouses (id, name, location, capacity, status, parent_id, created_by, created_at) VALUES
+    ('B0000001-0001-0001-0001-000000000005', N'Cửa Hàng Biên Hòa', N'123 Nguyễn Ái Quốc, Tân Tiến, Biên Hòa', 35, 'ACTIVE', 'A0000001-0001-0001-0001-000000000004',
+     '22222222-2222-2222-2222-222222222221', GETUTCDATE());
+
+IF NOT EXISTS (SELECT * FROM warehouses WHERE id = 'B0000001-0001-0001-0001-000000000006')
+    INSERT INTO warehouses (id, name, location, capacity, status, parent_id, created_by, created_at) VALUES
+    ('B0000001-0001-0001-0001-000000000006', N'Cửa Hàng Quận 7', N'36 Nguyễn Thị Thập, Quận 7, TP. Hồ Chí Minh', 40, 'ACTIVE', 'A0000001-0001-0001-0001-000000000002',
+     '22222222-2222-2222-2222-222222222221', GETUTCDATE());
 GO
 
 -- =====================================================
@@ -612,7 +622,7 @@ BEGIN
      'A0000001-0001-0001-0001-000000000002', 'WAREHOUSE',
      'B0000001-0001-0001-0001-000000000001', 'STORE',
      '33333333-3333-3333-3333-333333333331', '2024-03-01', 'NORMAL', 'COMPLETED',
-     'DA000001-0001-0001-0001-000000000003', N'Weekly restock'),
+     NULL, N'Weekly restock'),
     -- RST-2024-002: Store Manager (Thủ Đức) → Warehouse Manager (urgent)
     ('EA000001-0001-0001-0001-000000000002', 'RST-2024-002',
      'A0000001-0001-0001-0001-000000000002', 'WAREHOUSE',
@@ -715,6 +725,32 @@ BEGIN
 END
 GO
 
+-- CH Biên Hòa: tồn kho nhỏ, cửa hàng mới
+IF NOT EXISTS (SELECT * FROM inventories WHERE location_id = 'B0000001-0001-0001-0001-000000000005')
+BEGIN
+    INSERT INTO inventories (id, product_id, location_type, location_id, quantity, reserved_quantity, min_stock_level, max_stock_level) VALUES
+    (NEWID(), 'F0000001-0001-0001-0001-000000000001', 'STORE', 'B0000001-0001-0001-0001-000000000005',  20,  0,   5,   50),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000002', 'STORE', 'B0000001-0001-0001-0001-000000000005',  15,  0,   5,   40),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000003', 'STORE', 'B0000001-0001-0001-0001-000000000005',  30,  0,   8,   70),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000005', 'STORE', 'B0000001-0001-0001-0001-000000000005',  40,  0,  12,   90),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000006', 'STORE', 'B0000001-0001-0001-0001-000000000005',  10,  0,   8,   60), -- ⚠ gần ngưỡng tối thiểu
+    (NEWID(), 'F0000001-0001-0001-0001-000000000007', 'STORE', 'B0000001-0001-0001-0001-000000000005',   8,  0,   3,   30);
+END
+GO
+
+-- CH Quận 7: tồn kho bình thường, cửa hàng mới
+IF NOT EXISTS (SELECT * FROM inventories WHERE location_id = 'B0000001-0001-0001-0001-000000000006')
+BEGIN
+    INSERT INTO inventories (id, product_id, location_type, location_id, quantity, reserved_quantity, min_stock_level, max_stock_level) VALUES
+    (NEWID(), 'F0000001-0001-0001-0001-000000000001', 'STORE', 'B0000001-0001-0001-0001-000000000006',  30,  0,   8,   70),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000002', 'STORE', 'B0000001-0001-0001-0001-000000000006',  25,  0,   6,   60),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000003', 'STORE', 'B0000001-0001-0001-0001-000000000006',  50,  0,  12,  110),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000005', 'STORE', 'B0000001-0001-0001-0001-000000000006',  60,  5,  15,  130),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000006', 'STORE', 'B0000001-0001-0001-0001-000000000006',  45,  0,  12,  100),
+    (NEWID(), 'F0000001-0001-0001-0001-000000000007', 'STORE', 'B0000001-0001-0001-0001-000000000006',  18,  0,   4,   45);
+END
+GO
+
 -- =====================================================
 -- Thêm product batches
 -- =====================================================
@@ -811,6 +847,32 @@ BEGIN
 END
 GO
 
+IF NOT EXISTS (SELECT * FROM transfers WHERE id = 'DA000001-0001-0001-0001-000000000008')
+BEGIN
+    INSERT INTO transfers
+        (id, transfer_number, from_location_type, from_location_id,
+         to_location_type, to_location_id,
+         transfer_date, expected_delivery, actual_delivery, status,
+         shipped_by, received_by, notes)
+    VALUES
+    -- Kho Chi Nhánh Long An → Cửa Hàng Biên Hòa (DELIVERED)
+    ('DA000001-0001-0001-0001-000000000008', 'TRF-2024-008',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000004',
+     'STORE',     'B0000001-0001-0001-0001-000000000005',
+     '2024-03-20', '2024-03-21', '2024-03-21', 'DELIVERED',
+     '44444444-4444-4444-4444-444444444441', '33333333-3333-3333-3333-333333333331',
+     N'Nhập hàng lần đầu cho Cửa Hàng Biên Hòa'),
+
+    -- Kho Chi Nhánh Quận 12 → Cửa Hàng Quận 7 (DELIVERED)
+    ('DA000001-0001-0001-0001-000000000009', 'TRF-2024-009',
+     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002',
+     'STORE',     'B0000001-0001-0001-0001-000000000006',
+     '2024-03-21', '2024-03-22', '2024-03-22', 'DELIVERED',
+     '44444444-4444-4444-4444-444444444441', '33333333-3333-3333-3333-333333333331',
+     N'Nhập hàng lần đầu cho Cửa Hàng Quận 7');
+END
+GO
+
 IF NOT EXISTS (SELECT * FROM transfer_items WHERE transfer_id = 'DA000001-0001-0001-0001-000000000002')
 BEGIN
     INSERT INTO transfer_items
@@ -859,6 +921,26 @@ BEGIN
     (NEWID(), 'DA000001-0001-0001-0001-000000000007', 'F0000001-0001-0001-0001-000000000006', NULL,  12,  12,  12, 0),
     (NEWID(), 'DA000001-0001-0001-0001-000000000007', 'F0000001-0001-0001-0001-000000000007', NULL,  10,  10,  10, 0),
     (NEWID(), 'DA000001-0001-0001-0001-000000000007', 'F0000001-0001-0001-0001-000000000003', NULL,  35,  35,  35, 0);
+END
+GO
+
+-- Transfer items cho 2 cửa hàng mới (Biên Hòa, Quận 7)
+IF NOT EXISTS (SELECT * FROM transfer_items WHERE transfer_id = 'DA000001-0001-0001-0001-000000000008')
+BEGIN
+    INSERT INTO transfer_items
+        (id, transfer_id, product_id, batch_id, requested_quantity, shipped_quantity, received_quantity, damaged_quantity)
+    VALUES
+    -- TRF-2024-008: Kho Long An → CH Biên Hòa
+    (NEWID(), 'DA000001-0001-0001-0001-000000000008', 'F0000001-0001-0001-0001-000000000005', NULL,  40,  40,  40, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000008', 'F0000001-0001-0001-0001-000000000006', NULL,  10,  10,  10, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000008', 'F0000001-0001-0001-0001-000000000007', NULL,   8,   8,   8, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000008', 'F0000001-0001-0001-0001-000000000001', NULL,  20,  20,  20, 0),
+
+    -- TRF-2024-009: Kho Chi Nhánh Quận 12 → CH Quận 7
+    (NEWID(), 'DA000001-0001-0001-0001-000000000009', 'F0000001-0001-0001-0001-000000000005', NULL,  60,  60,  60, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000009', 'F0000001-0001-0001-0001-000000000006', NULL,  45,  45,  45, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000009', 'F0000001-0001-0001-0001-000000000007', NULL,  18,  18,  18, 0),
+    (NEWID(), 'DA000001-0001-0001-0001-000000000009', 'F0000001-0001-0001-0001-000000000003', NULL,  50,  50,  50, 0);
 END
 GO
 
@@ -1071,6 +1153,9 @@ WHERE id = 'DA000001-0001-0001-0001-000000000001' AND restock_request_id IS NULL
 -- TRF-2024-003 ← RST-2024-001 cũng liên quan (Kho Miền Bắc → Thủ Đức)
 UPDATE transfers SET restock_request_id = 'EA000001-0001-0001-0001-000000000001'
 WHERE id = 'DA000001-0001-0001-0001-000000000003' AND restock_request_id IS NULL;
+-- RST-2024-001 ← TRF-2024-003 (link transfer_id after DA...003 is inserted)
+UPDATE restock_requests SET transfer_id = 'DA000001-0001-0001-0001-000000000003'
+WHERE id = 'EA000001-0001-0001-0001-000000000001' AND transfer_id IS NULL;
 -- TRF-2024-005 ← RST-2024-005 (PROCESSING, Quận 1 mùa vụ)
 UPDATE transfers SET restock_request_id = 'EA000001-0001-0001-0001-000000000005'
 WHERE id = 'DA000001-0001-0001-0001-000000000005' AND restock_request_id IS NULL;
@@ -1082,11 +1167,11 @@ PRINT '===============================================';
 PRINT '';
 PRINT 'Total Tables: 15 tables';
 PRINT 'Sample Data:';
-PRINT '  - 8 Warehouses/Stores (4 warehouses + 4 stores)';
+PRINT '  - 10 Warehouses/Stores (4 warehouses + 6 stores)';
 PRINT '  - 20+ Inventory Records';
 PRINT '  - 7 Product Batches';
 PRINT '  - 7 Stock Movements';
-PRINT '  - 7 Transfers (with items, with restock_request_id)';
+PRINT '  - 9 Transfers (with items, with restock_request_id)';
 PRINT '  - 6 Restock Requests (with transfer_id where applicable)';
 PRINT '  - 3 Damage Reports';
 PRINT '  - 3 Inventory Checks';
