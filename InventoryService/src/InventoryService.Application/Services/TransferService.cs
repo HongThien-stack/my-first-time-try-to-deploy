@@ -8,13 +8,16 @@ namespace InventoryService.Application.Services;
 public class TransferService : ITransferService
 {
     private readonly ITransferRepository _transferRepository;
+    private readonly IInventoryRepository _inventoryRepository;
     private readonly ILogger<TransferService> _logger;
 
     public TransferService(
         ITransferRepository transferRepository,
+        IInventoryRepository inventoryRepository,
         ILogger<TransferService> logger)
     {
         _transferRepository = transferRepository;
+        _inventoryRepository = inventoryRepository;
         _logger = logger;
     }
 
@@ -77,6 +80,29 @@ public class TransferService : ITransferService
         };
 
         var created = await _transferRepository.AddAsync(transfer);
+
+        // Cập nhật reserved_quantity tại kho nguồn cho từng sản phẩm
+        foreach (var item in created.TransferItems)
+        {
+            var inventory = await _inventoryRepository.GetByLocationAndProductAsync(
+                dto.FromLocationType, dto.FromLocationId, item.ProductId);
+
+            if (inventory != null)
+            {
+                inventory.ReservedQuantity += item.RequestedQuantity;
+                await _inventoryRepository.UpdateAsync(inventory);
+                _logger.LogInformation(
+                    "Reserved {Qty} units of product {ProductId} at {Type}:{LocationId} for transfer {TransferNumber}",
+                    item.RequestedQuantity, item.ProductId, dto.FromLocationType, dto.FromLocationId, created.TransferNumber);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Inventory not found for product {ProductId} at {Type}:{LocationId} — reserved_quantity not updated",
+                    item.ProductId, dto.FromLocationType, dto.FromLocationId);
+            }
+        }
+
         return MapToDto(created);
     }
 
