@@ -14,6 +14,7 @@ public class TransferDto
     public string Status { get; set; } = string.Empty;
     public Guid? ShippedBy { get; set; }
     public Guid? ReceivedBy { get; set; }
+    public Guid? RestockRequestId { get; set; }
     public string? Notes { get; set; }
     public List<TransferItemDto> Items { get; set; } = new();
 }
@@ -38,6 +39,7 @@ public class CreateTransferDto
     public Guid ToLocationId { get; set; }
     public DateTime? ExpectedDelivery { get; set; }
     public Guid ShippedBy { get; set; }
+    public Guid? RestockRequestId { get; set; }
     public string? Notes { get; set; }
     public List<CreateTransferItemDto> Items { get; set; } = new();
 }

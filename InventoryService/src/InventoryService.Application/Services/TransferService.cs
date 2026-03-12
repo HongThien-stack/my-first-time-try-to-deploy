@@ -65,6 +65,7 @@ public class TransferService : ITransferService
             ExpectedDelivery = dto.ExpectedDelivery,
             Status = "PENDING",
             ShippedBy = dto.ShippedBy,
+            RestockRequestId = dto.RestockRequestId,
             Notes = dto.Notes,
             TransferItems = dto.Items.Select(item => new TransferItem
             {
@@ -127,6 +128,7 @@ public class TransferService : ITransferService
             Status = transfer.Status,
             ShippedBy = transfer.ShippedBy,
             ReceivedBy = transfer.ReceivedBy,
+            RestockRequestId = transfer.RestockRequestId,
             Notes = transfer.Notes,
             Items = transfer.TransferItems.Select(item => new TransferItemDto
             {
