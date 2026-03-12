@@ -12,4 +12,5 @@ public interface ITransferService
     Task<TransferDto> CreateTransferAsync(CreateTransferDto dto);
     Task UpdateTransferStatusAsync(Guid id, string status, Guid? userId = null);
     Task<bool> DeleteTransferAsync(Guid id);
+    Task<TransferDto> ReceiveTransferAsync(Guid transferId, ReceiveTransferDto dto, Guid receivedBy);
 }

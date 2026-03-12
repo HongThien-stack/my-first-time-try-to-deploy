@@ -1,4 +1,4 @@
-namespace InventoryService.Application.DTOs;
+﻿namespace InventoryService.Application.DTOs;
 
 public class TransferDto
 {
@@ -52,3 +52,20 @@ public class CreateTransferItemDto
     public int ReceivedQuantity { get; set; }
     public string? Notes { get; set; }
 }
+
+/// <summary>
+///  Receive Transfer
+/// </summary>
+public class ReceiveTransferDto
+{
+    public List<ReceiveTransferItemDto> Items { get; set; } = new();
+    public string? Notes { get; set; }
+}
+public class ReceiveTransferItemDto
+{
+    public Guid TransferItemId { get; set; }
+    public int ShippedQuantity { get; set; }      // ← Số lượng giao đi
+    public int DamagedQuantity { get; set; }      // ← Số lượng hư (kiểm tra nhập)
+    public string? Notes { get; set; }
+}
+/// 

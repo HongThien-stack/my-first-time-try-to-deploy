@@ -1,17 +1,25 @@
 ﻿using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace InventoryService.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
+
     public class TransferController : ControllerBase
     {
         private readonly ITransferService _transferService;
-        public TransferController(ITransferService transferService)
+        private readonly ILogger<TransferController> _logger;
+
+        public TransferController(ITransferService transferService, ILogger<TransferController> logger)
         {
             _transferService = transferService;
+            _logger = logger;
         }
 
         [HttpGet("transfers")]
@@ -55,6 +63,53 @@ namespace InventoryService.API.Controllers
         {
             await _transferService.DeleteTransferAsync(id);
             return Ok("Transfer deleted successfully.");
+        }
+
+        /// <summary>
+        /// Nhận hàng (nhập kho): cập nhật số lượng thực nhận, hàng hư, tạo StockMovement,
+        /// tự động set Transfer và RestockRequest thành COMPLETED.
+        /// </summary>
+        [HttpPut("transfer/{id}/receive")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> ReceiveTransfer([FromRoute] Guid id, [FromBody] ReceiveTransferDto dto)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue("sub");
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var receivedBy))
+                    return Unauthorized(new { success = false, message = "Invalid or missing user identity in token" });
+
+                var result = await _transferService.ReceiveTransferAsync(id, dto, receivedBy);
+                return Ok(new
+                {
+                    success = true,
+                    message = "Transfer received and marked as COMPLETED",
+                    data = result
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { success = false, message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Receive transfer failed: {Message}", ex.Message);
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error receiving transfer {TransferId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An error occurred while receiving transfer",
+                    error = ex.Message
+                });
+            }
         }
     }
 }
