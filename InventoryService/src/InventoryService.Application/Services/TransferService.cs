@@ -9,24 +9,33 @@ namespace InventoryService.Application.Services;
 public class TransferService : ITransferService
 {
     private readonly ITransferRepository _transferRepository;
+<<<<<<< HEAD
     private readonly IProductBatchRepository _productBatchRepository;
     private readonly IStockMovementRepository _stockMovementRepository;
     private readonly IRestockRequestRepository _restockRequestRepository;
+=======
+>>>>>>> 2da5de4caf5da668b5f5a822ca247c539e5c4b0d
     private readonly IInventoryRepository _inventoryRepository;
     private readonly ILogger<TransferService> _logger;
 
     public TransferService(
         ITransferRepository transferRepository,
+<<<<<<< HEAD
         IProductBatchRepository productBatchRepository,
         IStockMovementRepository stockMovementRepository,
         IRestockRequestRepository restockRequestRepository,
+=======
+>>>>>>> 2da5de4caf5da668b5f5a822ca247c539e5c4b0d
         IInventoryRepository inventoryRepository,
         ILogger<TransferService> logger)
     {
         _transferRepository = transferRepository;
+<<<<<<< HEAD
         _productBatchRepository = productBatchRepository;
         _stockMovementRepository = stockMovementRepository;
         _restockRequestRepository = restockRequestRepository;
+=======
+>>>>>>> 2da5de4caf5da668b5f5a822ca247c539e5c4b0d
         _inventoryRepository = inventoryRepository;
         _logger = logger;
     }
@@ -90,6 +99,29 @@ public class TransferService : ITransferService
         };
 
         var created = await _transferRepository.AddAsync(transfer);
+
+        // Cập nhật reserved_quantity tại kho nguồn cho từng sản phẩm
+        foreach (var item in created.TransferItems)
+        {
+            var inventory = await _inventoryRepository.GetByLocationAndProductAsync(
+                dto.FromLocationType, dto.FromLocationId, item.ProductId);
+
+            if (inventory != null)
+            {
+                inventory.ReservedQuantity += item.RequestedQuantity;
+                await _inventoryRepository.UpdateAsync(inventory);
+                _logger.LogInformation(
+                    "Reserved {Qty} units of product {ProductId} at {Type}:{LocationId} for transfer {TransferNumber}",
+                    item.RequestedQuantity, item.ProductId, dto.FromLocationType, dto.FromLocationId, created.TransferNumber);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Inventory not found for product {ProductId} at {Type}:{LocationId} — reserved_quantity not updated",
+                    item.ProductId, dto.FromLocationType, dto.FromLocationId);
+            }
+        }
+
         return MapToDto(created);
     }
 
