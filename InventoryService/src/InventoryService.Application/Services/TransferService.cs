@@ -9,33 +9,24 @@ namespace InventoryService.Application.Services;
 public class TransferService : ITransferService
 {
     private readonly ITransferRepository _transferRepository;
-<<<<<<< HEAD
     private readonly IProductBatchRepository _productBatchRepository;
     private readonly IStockMovementRepository _stockMovementRepository;
     private readonly IRestockRequestRepository _restockRequestRepository;
-=======
->>>>>>> 2da5de4caf5da668b5f5a822ca247c539e5c4b0d
     private readonly IInventoryRepository _inventoryRepository;
     private readonly ILogger<TransferService> _logger;
 
     public TransferService(
         ITransferRepository transferRepository,
-<<<<<<< HEAD
         IProductBatchRepository productBatchRepository,
         IStockMovementRepository stockMovementRepository,
         IRestockRequestRepository restockRequestRepository,
-=======
->>>>>>> 2da5de4caf5da668b5f5a822ca247c539e5c4b0d
         IInventoryRepository inventoryRepository,
         ILogger<TransferService> logger)
     {
         _transferRepository = transferRepository;
-<<<<<<< HEAD
         _productBatchRepository = productBatchRepository;
         _stockMovementRepository = stockMovementRepository;
         _restockRequestRepository = restockRequestRepository;
-=======
->>>>>>> 2da5de4caf5da668b5f5a822ca247c539e5c4b0d
         _inventoryRepository = inventoryRepository;
         _logger = logger;
     }
