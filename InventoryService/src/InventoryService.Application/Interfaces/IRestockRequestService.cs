@@ -12,7 +12,7 @@ public interface IRestockRequestService
     Task<IEnumerable<RestockRequestDto>> GetRequestsByParentWarehouseAsync(Guid parentWarehouseId);
     Task<IEnumerable<RestockRequestDto>> GetPendingRequestsAsync();
     Task<RestockRequestDto> CreateRequestAsync(CreateRestockRequestDto dto, Guid requestedBy);
-    Task<ApproveRestockResponseDto> ApproveRequestAsync(Guid id, Guid approvedBy, ApproveRestockRequestDto dto);
+    Task<RestockRequestDto> ApproveRequestAsync(Guid id, Guid approvedBy);
     Task RejectRequestAsync(Guid id, Guid rejectedBy, RejectRestockRequestDto dto);
     Task<bool> DeleteRequestAsync(Guid id);
 }
