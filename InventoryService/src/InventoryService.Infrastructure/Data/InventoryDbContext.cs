@@ -149,6 +149,7 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.MovementId).HasColumnName("movement_id");
             entity.Property(e => e.ProductId).HasColumnName("product_id");
+            entity.Property(e => e.BatchId).HasColumnName("batch_id");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.UnitPrice).HasColumnName("unit_price").HasColumnType("decimal(18,2)");
 
@@ -157,8 +158,14 @@ public class InventoryDbContext : DbContext
                 .HasForeignKey(e => e.MovementId)
                 .HasConstraintName("FK_movement_items_movements");
 
+            entity.HasOne(e => e.ProductBatch)
+                .WithMany(b => b.StockMovementItems)
+                .HasForeignKey(e => e.BatchId)
+                .HasConstraintName("FK_movement_items_batches");
+
             entity.HasIndex(e => e.MovementId).HasDatabaseName("IX_movement_items_movement_id");
             entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_movement_items_product_id");
+            entity.HasIndex(e => e.BatchId).HasDatabaseName("IX_movement_items_batch_id");
         });
 
         // =====================================================
@@ -183,7 +190,6 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Notes).HasColumnName("notes");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETUTCDATE()");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
-            entity.Property(e => e.RestockRequestId).HasColumnName("restock_request_id");
 
             entity.HasIndex(e => e.TransferNumber).IsUnique().HasDatabaseName("IX_transfers_transfer_number");
             entity.HasIndex(e => new { e.FromLocationType, e.FromLocationId }).HasDatabaseName("IX_transfers_from_location");
