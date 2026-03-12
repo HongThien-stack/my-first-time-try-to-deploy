@@ -17,6 +17,7 @@ public class Transfer
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public Guid? RestockRequestId { get; set; } // restock_requests.id
 
     // Navigation properties
     public ICollection<TransferItem> TransferItems { get; set; } = new List<TransferItem>();
