@@ -162,14 +162,10 @@ IF EXISTS (SELECT * FROM sys.tables WHERE name = 'transfers')
 BEGIN
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('transfers') AND name = 'restock_request_id')
         ALTER TABLE transfers ADD restock_request_id UNIQUEIDENTIFIER;
-    -- Drop batch_id from stock_movement_items if exists (no longer used)
+    -- Re-introduce batch_id to stock_movement_items for transfer receipt tracking
     IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movement_items') AND name = 'batch_id')
     BEGIN
-        IF EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_movement_items_batches')
-            ALTER TABLE stock_movement_items DROP CONSTRAINT FK_movement_items_batches;
-        IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_movement_items_batch_id' AND object_id = OBJECT_ID('stock_movement_items'))
-            DROP INDEX IX_movement_items_batch_id ON stock_movement_items;
-        ALTER TABLE stock_movement_items DROP COLUMN batch_id;
+        -- batch_id already exists, no action needed
     END
 END
 GO
@@ -183,13 +179,16 @@ BEGIN
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         movement_id UNIQUEIDENTIFIER NOT NULL,
         product_id UNIQUEIDENTIFIER NOT NULL, -- ProductDB.products.id
+        batch_id UNIQUEIDENTIFIER NULL, -- Batch reference for transfer receipt lineage
         quantity INT NOT NULL,
         unit_price DECIMAL(18,2), -- For valuation
-        CONSTRAINT FK_movement_items_movements FOREIGN KEY (movement_id) REFERENCES stock_movements(id)
+        CONSTRAINT FK_movement_items_movements FOREIGN KEY (movement_id) REFERENCES stock_movements(id),
+        CONSTRAINT FK_movement_items_batches FOREIGN KEY (batch_id) REFERENCES product_batches(id)
     );
     
     CREATE INDEX IX_movement_items_movement_id ON stock_movement_items(movement_id);
     CREATE INDEX IX_movement_items_product_id ON stock_movement_items(product_id);
+    CREATE INDEX IX_movement_items_batch_id ON stock_movement_items(batch_id);
 END
 GO
 
