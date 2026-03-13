@@ -26,12 +26,19 @@ builder.Services.AddDbContext<ProductDbContext>(options =>
 builder.Services.AddDbContext<InventoryDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("InventoryDB")));
 
+builder.Services.AddDbContext<PosReceiptDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("PosDB")));
+
 // Register repositories
 builder.Services.AddScoped<ISaleRepository, SaleRepository>();
 builder.Services.AddScoped<IProductSearchRepository, ProductSearchRepository>();
+builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
 
 // Register services
 builder.Services.AddScoped<IProductSearchService, ProductSearchService>();
+builder.Services.AddScoped<IReceiptService, ReceiptService>();
+builder.Services.AddScoped<IPdfReceiptService, PdfReceiptService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
