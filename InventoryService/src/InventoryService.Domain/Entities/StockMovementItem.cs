@@ -1,6 +1,6 @@
 namespace InventoryService.Domain.Entities;
 
-public class StockMovementItem
+public class    StockMovementItem
 {
     public Guid Id { get; set; }
     public Guid MovementId { get; set; }

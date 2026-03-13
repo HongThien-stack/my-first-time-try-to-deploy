@@ -69,6 +69,12 @@ public class InventoryRepository : IInventoryRepository
             .ToListAsync();
     }
 
+    public async Task<Inventory?> GetInventoryByLocationIdAndProductIdAsync(Guid deliverWarehouseId, Guid productId)
+    {
+         return await _context.Inventories
+            .FirstOrDefaultAsync(i => i.LocationId == deliverWarehouseId && i.ProductId == productId);
+    }
+
     public async Task<Inventory> AddAsync(Inventory inventory)
     {
         inventory.UpdatedAt = DateTime.UtcNow;
@@ -80,6 +86,12 @@ public class InventoryRepository : IInventoryRepository
     public async Task UpdateAsync(Inventory inventory)
     {
         inventory.UpdatedAt = DateTime.UtcNow;
+        _context.Inventories.Update(inventory);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateReservedQuantityAsync(Inventory inventory)
+    {
         _context.Inventories.Update(inventory);
         await _context.SaveChangesAsync();
     }

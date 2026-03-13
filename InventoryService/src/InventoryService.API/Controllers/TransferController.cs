@@ -1,5 +1,7 @@
 ﻿using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
+using InventoryService.Application.Services;
+using InventoryService.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -14,12 +16,17 @@ namespace InventoryService.API.Controllers
     public class TransferController : ControllerBase
     {
         private readonly ITransferService _transferService;
+        private readonly IInventoryService _inventoryService;
+        private readonly IStockMovementService _stockMovementService;
         private readonly ILogger<TransferController> _logger;
 
-        public TransferController(ITransferService transferService, ILogger<TransferController> logger)
+        public TransferController(ITransferService transferService, ILogger<TransferController> logger,
+            IInventoryService inventoryService, IStockMovementService stockMovementService)
         {
             _transferService = transferService;
             _logger = logger;
+            _inventoryService = inventoryService;
+            _stockMovementService = stockMovementService;
         }
 
         [HttpGet("transfers")]
@@ -110,6 +117,68 @@ namespace InventoryService.API.Controllers
                     error = ex.Message
                 });
             }
+        }
+
+        [HttpPatch("transferV2/{transferId}")]
+        public async Task<ActionResult> CreateStockMovement([FromRoute] Guid transferId)
+        {
+            //1. Lấy transfer theo id
+            var transfer = await _transferService.GetTransferByIdAsync(transferId);
+            if (transfer == null)
+                return NotFound("No transfer is found with this id.");
+            var deliverWarehouseId = transfer.FromLocationId;
+            //2. Lấy transfer items theo transferId
+            var transferItems = transfer.Items;
+            //3. Lấy inventory theo deliverWarehouseId và productId
+            foreach (var item in transferItems)
+            {
+                var inventory = await _inventoryService.GetInventoryByLocationIdAndProductIdAsync(deliverWarehouseId, item.ProductId);
+                if (inventory != null)
+                {
+                    inventory.Quantity -= item.RequestedQuantity;
+                    inventory.ReservedQuantity -= item.RequestedQuantity;
+                    await _inventoryService.UpdateReservedQuantityAsync(inventory);
+                }
+            }
+            //4. Tạo StockMovement
+            Guid movementId = Guid.NewGuid();
+            var count = await _stockMovementService.CountStockMovementAsync();
+            int order = count + 1;
+            StockMovement stockMovement = new StockMovement
+            {
+                Id = movementId,
+                MovementNumber = $"SM-{DateTime.UtcNow.Year}-{order:D3}",
+                MovementType = "OUTBOUND",
+                LocationId = transfer.FromLocationId,
+                LocationType = "WAREHOUSE",
+                MovementDate = transfer.TransferDate,
+                RestockRequestId = transfer.RestockRequestId,
+                SupplierName = null,
+                TransferId = transfer.Id,
+                ReceivedBy = transfer.ReceivedBy,
+                Status = "COMPLETE",
+                Notes = null,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _stockMovementService.AddNewStockMovementAsync(stockMovement);
+            //5. Tạo StockMovementItem
+            foreach (var item in transferItems)
+            {
+                var inventory = await _inventoryService.GetInventoryByLocationIdAndProductIdAsync(deliverWarehouseId, item.ProductId);
+                if (inventory != null)
+                {
+                    StockMovementItem stockMovementItem = new StockMovementItem
+                    {
+                        Id = Guid.NewGuid(),
+                        MovementId = movementId,
+                        ProductId = item.ProductId,
+                        Quantity = item.RequestedQuantity,
+                        UnitPrice = 35000
+                    };
+                    await _stockMovementService.AddNewStockMovementItemAsync(stockMovementItem);
+                }
+            }
+            return Ok("Stock movement created successfully.");
         }
     }
 }

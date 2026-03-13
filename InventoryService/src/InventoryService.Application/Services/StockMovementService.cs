@@ -43,6 +43,21 @@ public class StockMovementService : IStockMovementService
         return movement.StockMovementItems.Select(MapItemToDto);
     }
 
+    public async Task AddNewStockMovementAsync(StockMovement stockMovement)
+    {
+        await _repository.AddNewStockMovementAsync(stockMovement);
+    }
+
+    public async Task AddNewStockMovementItemAsync(StockMovementItem stockMovementItem)
+    {
+        await _repository.AddNewStockMovementItemAsync(stockMovementItem);
+    }
+
+    public async Task<int> CountStockMovementAsync()
+    {
+        return await _repository.CountStockMovementAsync();
+    }
+
     private static StockMovementDto MapToDto(StockMovement m)
     {
         return new StockMovementDto
