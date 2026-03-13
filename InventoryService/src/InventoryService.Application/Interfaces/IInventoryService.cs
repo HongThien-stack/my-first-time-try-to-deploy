@@ -9,5 +9,10 @@ public interface IInventoryService
     Task<IEnumerable<InventoryDto>> GetInventoriesByLocationAsync(string locationType, Guid locationId);
     Task<IEnumerable<InventoryDto>> GetInventoriesByProductAsync(Guid productId);
     Task<IEnumerable<InventoryDto>> GetLowStockItemsAsync(string? locationType = null);
+    Task<LowStockAlertResponse> GetLowStockAlertsAsync(
+        string? locationType = null,
+        Guid? locationId = null,
+        int pageNumber = 1,
+        int pageSize = 20);
     Task<InventoryDto> UpdateInventoryAsync(Guid id, int quantity, Guid performedBy, string reason);
 }
