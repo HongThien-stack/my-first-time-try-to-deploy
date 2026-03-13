@@ -100,6 +100,7 @@ builder.Services.AddScoped<IProductBatchService, ProductBatchService>();
 builder.Services.AddScoped<IBatchQueryService, BatchQueryService>();
 builder.Services.AddScoped<IDamageReportService, DamageReportService>();
 builder.Services.AddScoped<IInventoryCheckService, InventoryCheckService>();
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 // HTTP client for inter-service calls
 builder.Services.AddHttpClient<IProductServiceClient, ProductServiceClient>(client =>

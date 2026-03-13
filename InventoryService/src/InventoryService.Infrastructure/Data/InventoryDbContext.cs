@@ -165,6 +165,7 @@ public class InventoryDbContext : DbContext
 
             entity.HasIndex(e => e.MovementId).HasDatabaseName("IX_movement_items_movement_id");
             entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_movement_items_product_id");
+            entity.HasIndex(e => e.BatchId).HasDatabaseName("IX_movement_items_batch_id");
         });
 
         // =====================================================
@@ -226,6 +227,7 @@ public class InventoryDbContext : DbContext
 
             entity.HasIndex(e => e.TransferId).HasDatabaseName("IX_transfer_items_transfer_id");
             entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_transfer_items_product_id");
+            entity.HasIndex(e => e.BatchId).HasDatabaseName("IX_transfer_items_batch_id");
         });
 
         // =====================================================

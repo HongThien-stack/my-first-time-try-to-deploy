@@ -1,4 +1,5 @@
 using InventoryService.Application.Interfaces;
+using InventoryService.Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -93,6 +94,142 @@ public class DamageReportsController : ControllerBase
             {
                 success = false,
                 message = "An error occurred while retrieving damage report",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/damage-reports - Create new damage report with photo upload
+    /// Roles: Admin, Manager, Warehouse Manager, Store Staff, Warehouse Staff
+    /// </summary>
+    /// <param name="request">Damage report creation data with photo files</param>
+    /// <returns>Created damage report</returns>
+    [HttpPost("Create-Damage-Report")]
+    [DisableRequestSizeLimit]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> CreateDamageReport([FromForm] CreateDamageReportRequest request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Invalid request data",
+                    errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))
+                });
+            }
+
+            var damageReport = await _damageReportService.CreateDamageReportAsync(request);
+
+            return CreatedAtAction(
+                nameof(GetDamageReportById),
+                new { id = damageReport.Id },
+                new
+                {
+                    success = true,
+                    message = "Damage report created successfully",
+                    data = damageReport
+                }
+            );
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid damage report data");
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating damage report");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while creating damage report",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// PUT /api/damage-reports/{id}/approve - Approve damage report
+    /// Roles: Admin, Manager, Warehouse Manager
+    /// </summary>
+    /// <param name="id">Damage report ID</param>
+    /// <param name="request">Approval details</param>
+    /// <returns>Updated damage report</returns>
+    [HttpPut("{id}/approve")]
+    [Authorize(Roles = "Admin,Manager,Warehouse Manager")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ApproveDamageReport(Guid id, [FromBody] ApproveDamageReportRequest request)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Invalid request data",
+                    errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))
+                });
+            }
+
+            var damageReport = await _damageReportService.ApproveDamageReportAsync(id, request);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Damage report approved successfully",
+                data = damageReport
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Damage report not found: {Id}", id);
+            return NotFound(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid operation on damage report {Id}", id);
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid approval data");
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error approving damage report {Id}", id);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while approving damage report",
                 error = ex.Message
             });
         }
