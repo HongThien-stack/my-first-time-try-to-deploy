@@ -22,24 +22,24 @@ SELECT
     b.id AS BatchId,
     b.product_id AS ProductId,
     p.name AS ProductName,
-    CAST(b.manufacture_date AS DATETIME2) AS ManufacturingDate,
-    CAST(b.expiration_date AS DATETIME2) AS ExpiryDate,
+    CAST(b.manufacturing_date AS DATETIME2) AS ManufacturingDate,
+    CAST(b.expiry_date AS DATETIME2) AS ExpiryDate,
     p.shelf_life_days AS ShelfLifeDays,
     p.is_perishable AS IsPerishable,
     CAST(b.quantity AS decimal(18,2)) AS Quantity,
-    'AVAILABLE' AS Status,
-    DATEDIFF(day, GETUTCDATE(), b.expiration_date) AS RemainingDays,
+    b.status AS Status,
+    DATEDIFF(day, GETUTCDATE(), b.expiry_date) AS RemainingDays,
     CASE
-        WHEN b.expiration_date < GETUTCDATE() THEN 'EXPIRED'
-        WHEN p.is_perishable = 0 AND DATEDIFF(day, GETUTCDATE(), b.expiration_date) <= 30 THEN 'EXPIRING_SOON'
-        WHEN p.is_perishable = 1 AND p.shelf_life_days <= 3 AND DATEDIFF(day, GETUTCDATE(), b.expiration_date) <= 1 THEN 'EXPIRING_SOON'
-        WHEN p.is_perishable = 1 AND p.shelf_life_days <= 7 AND DATEDIFF(day, GETUTCDATE(), b.expiration_date) <= 2 THEN 'EXPIRING_SOON'
-        WHEN p.is_perishable = 1 AND p.shelf_life_days > 7 AND DATEDIFF(day, GETUTCDATE(), b.expiration_date) <= 3 THEN 'EXPIRING_SOON'
+        WHEN b.expiry_date < GETUTCDATE() THEN 'EXPIRED'
+        WHEN p.is_perishable = 0 AND DATEDIFF(day, GETUTCDATE(), b.expiry_date) <= 30 THEN 'EXPIRING_SOON'
+        WHEN p.is_perishable = 1 AND p.shelf_life_days <= 3 AND DATEDIFF(day, GETUTCDATE(), b.expiry_date) <= 1 THEN 'EXPIRING_SOON'
+        WHEN p.is_perishable = 1 AND p.shelf_life_days <= 7 AND DATEDIFF(day, GETUTCDATE(), b.expiry_date) <= 2 THEN 'EXPIRING_SOON'
+        WHEN p.is_perishable = 1 AND p.shelf_life_days > 7 AND DATEDIFF(day, GETUTCDATE(), b.expiry_date) <= 3 THEN 'EXPIRING_SOON'
         ELSE 'VALID'
     END AS ExpiryState
 FROM InventoryDB.dbo.product_batches b
-INNER JOIN ProductDB.dbo.products p ON b.product_id = p.id
-WHERE b.id = @BatchId AND b.is_deleted = 0";
+LEFT JOIN ProductDB.dbo.products p ON b.product_id = p.id
+WHERE b.id = @BatchId";
 
         var batchIdParameter = new SqlParameter("@BatchId", id);
 
@@ -57,21 +57,20 @@ WITH BatchComputed AS
         b.id AS BatchId,
         b.product_id AS ProductId,
         p.name AS ProductName,
-        CAST(b.expiration_date AS DATETIME2) AS ExpiryDate,
-        DATEDIFF(day, GETUTCDATE(), b.expiration_date) AS RemainingDays,
+        CAST(b.expiry_date AS DATETIME2) AS ExpiryDate,
+        DATEDIFF(day, GETUTCDATE(), b.expiry_date) AS RemainingDays,
         CAST(b.quantity AS decimal(18,2)) AS Quantity,
         p.is_perishable AS IsPerishable,
         CASE
-            WHEN b.expiration_date < GETUTCDATE() THEN 'EXPIRED'
-            WHEN p.is_perishable = 0 AND DATEDIFF(day, GETUTCDATE(), b.expiration_date) <= 30 THEN 'EXPIRING_SOON'
-            WHEN p.is_perishable = 1 AND p.shelf_life_days <= 3 AND DATEDIFF(day, GETUTCDATE(), b.expiration_date) <= 1 THEN 'EXPIRING_SOON'
-            WHEN p.is_perishable = 1 AND p.shelf_life_days <= 7 AND DATEDIFF(day, GETUTCDATE(), b.expiration_date) <= 2 THEN 'EXPIRING_SOON'
-            WHEN p.is_perishable = 1 AND p.shelf_life_days > 7 AND DATEDIFF(day, GETUTCDATE(), b.expiration_date) <= 3 THEN 'EXPIRING_SOON'
+            WHEN b.expiry_date < GETUTCDATE() THEN 'EXPIRED'
+            WHEN p.is_perishable = 0 AND DATEDIFF(day, GETUTCDATE(), b.expiry_date) <= 30 THEN 'EXPIRING_SOON'
+            WHEN p.is_perishable = 1 AND p.shelf_life_days <= 3 AND DATEDIFF(day, GETUTCDATE(), b.expiry_date) <= 1 THEN 'EXPIRING_SOON'
+            WHEN p.is_perishable = 1 AND p.shelf_life_days <= 7 AND DATEDIFF(day, GETUTCDATE(), b.expiry_date) <= 2 THEN 'EXPIRING_SOON'
+            WHEN p.is_perishable = 1 AND p.shelf_life_days > 7 AND DATEDIFF(day, GETUTCDATE(), b.expiry_date) <= 3 THEN 'EXPIRING_SOON'
             ELSE 'VALID'
         END AS ExpiryState
     FROM InventoryDB.dbo.product_batches b
-    INNER JOIN ProductDB.dbo.products p ON b.product_id = p.id
-    WHERE b.is_deleted = 0
+    LEFT JOIN ProductDB.dbo.products p ON b.product_id = p.id
 )
 SELECT
     BatchId,

@@ -86,6 +86,7 @@ public class StockMovementService : IStockMovementService
             Id = i.Id,
             MovementId = i.MovementId,
             ProductId = i.ProductId,
+            BatchId = i.BatchId,
             Quantity = i.Quantity,
             UnitPrice = i.UnitPrice
         };

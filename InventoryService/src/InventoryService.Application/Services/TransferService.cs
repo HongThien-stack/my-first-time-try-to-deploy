@@ -211,11 +211,25 @@ public class TransferService : ITransferService
                     });
                 }
             }
-            // 4. Gom StockMovementItem — quantity = netReceived (đã trừ hàng hư)
+            // 4. Cập nhật ProductBatch.WarehouseId sang kho đích nếu có BatchId
+            if (transferItem.BatchId.HasValue)
+            {
+                var batch = await _productBatchRepository.GetByIdAsync(transferItem.BatchId.Value);
+                if (batch != null)
+                {
+                    batch.WarehouseId = transfer.ToLocationId;
+                    await _productBatchRepository.UpdateAsync(batch);
+                    _logger.LogInformation("ProductBatch {BatchId} moved to warehouse {WarehouseId}",
+                        batch.Id, batch.WarehouseId);
+                }
+            }
+
+            // 5. Gom StockMovementItem — quantity = netReceived (đã trừ hàng hư)
             stockMovementItems.Add(new StockMovementItem
             {
                 Id = Guid.NewGuid(),
                 ProductId = transferItem.ProductId,
+                BatchId = transferItem.BatchId,
                 Quantity = receivedQuantity
             });
         } // kết thúc foreach
