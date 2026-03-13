@@ -120,65 +120,41 @@ namespace InventoryService.API.Controllers
         }
 
         [HttpPatch("transferV2/{transferId}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> CreateStockMovement([FromRoute] Guid transferId)
         {
-            //1. Lấy transfer theo id
-            var transfer = await _transferService.GetTransferByIdAsync(transferId);
-            if (transfer == null)
-                return NotFound("No transfer is found with this id.");
-            var deliverWarehouseId = transfer.FromLocationId;
-            //2. Lấy transfer items theo transferId
-            var transferItems = transfer.Items;
-            //3. Lấy inventory theo deliverWarehouseId và productId
-            foreach (var item in transferItems)
+            try
             {
-                var inventory = await _inventoryService.GetInventoryByLocationIdAndProductIdAsync(deliverWarehouseId, item.ProductId);
-                if (inventory != null)
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue("sub");
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var shippedBy))
+                    return Unauthorized(new { success = false, message = "Invalid or missing user identity in token" });
+
+                var result = await _transferService.CreateOutboundStockMovementAsync(transferId, shippedBy);
+                return Ok(new
                 {
-                    inventory.Quantity -= item.RequestedQuantity;
-                    inventory.ReservedQuantity -= item.RequestedQuantity;
-                    await _inventoryService.UpdateReservedQuantityAsync(inventory);
-                }
+                    success = true,
+                    message = "Outbound stock movement created successfully",
+                    data = result
+                });
             }
-            //4. Tạo StockMovement
-            Guid movementId = Guid.NewGuid();
-            var count = await _stockMovementService.CountStockMovementAsync();
-            int order = count + 1;
-            StockMovement stockMovement = new StockMovement
+            catch (KeyNotFoundException ex)
             {
-                Id = movementId,
-                MovementNumber = $"SM-{DateTime.UtcNow.Year}-{order:D3}",
-                MovementType = "OUTBOUND",
-                LocationId = transfer.FromLocationId,
-                LocationType = "WAREHOUSE",
-                MovementDate = transfer.TransferDate,
-                RestockRequestId = transfer.RestockRequestId,
-                SupplierName = null,
-                TransferId = transfer.Id,
-                ReceivedBy = transfer.ReceivedBy,
-                Status = "COMPLETE",
-                Notes = null,
-                CreatedAt = DateTime.UtcNow
-            };
-            await _stockMovementService.AddNewStockMovementAsync(stockMovement);
-            //5. Tạo StockMovementItem
-            foreach (var item in transferItems)
+                return NotFound(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
             {
-                var inventory = await _inventoryService.GetInventoryByLocationIdAndProductIdAsync(deliverWarehouseId, item.ProductId);
-                if (inventory != null)
+                _logger.LogError(ex, "Error creating outbound stock movement for transfer {TransferId}", transferId);
+                return StatusCode(500, new
                 {
-                    StockMovementItem stockMovementItem = new StockMovementItem
-                    {
-                        Id = Guid.NewGuid(),
-                        MovementId = movementId,
-                        ProductId = item.ProductId,
-                        Quantity = item.RequestedQuantity,
-                        UnitPrice = 35000
-                    };
-                    await _stockMovementService.AddNewStockMovementItemAsync(stockMovementItem);
-                }
+                    success = false,
+                    message = "An error occurred while creating stock movement",
+                    error = ex.Message
+                });
             }
-            return Ok("Stock movement created successfully.");
         }
     }
 }

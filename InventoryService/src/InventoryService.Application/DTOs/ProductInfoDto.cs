@@ -9,4 +9,5 @@ public class ProductInfoDto
     public string Name { get; set; } = string.Empty;
     public string Unit { get; set; } = string.Empty;
     public decimal? QuantityPerUnit { get; set; }
+    public decimal? OriginalPrice { get; set; } // Unit price from ProductService
 }

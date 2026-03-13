@@ -12,3 +12,4 @@ public class ProductBatchDto
     public string? Supplier { get; set; }
     public DateTime ReceivedAt { get; set; }
     public string Status { get; set; } = string.Empty;
+}
