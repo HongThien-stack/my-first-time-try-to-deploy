@@ -163,18 +163,6 @@ BEGIN
 END
 GO
 
--- Migration: add restock_request_id to transfers if missing
-IF EXISTS (SELECT * FROM sys.tables WHERE name = 'transfers')
-BEGIN
-    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('transfers') AND name = 'restock_request_id')
-        ALTER TABLE transfers ADD restock_request_id UNIQUEIDENTIFIER;
-    -- Re-introduce batch_id to stock_movement_items for transfer receipt tracking
-    IF EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('stock_movement_items') AND name = 'batch_id')
-    BEGIN
-        -- batch_id already exists, no action needed
-    END
-GO
-
 -- =====================================================
 -- Table: stock_movement_items
 -- =====================================================
