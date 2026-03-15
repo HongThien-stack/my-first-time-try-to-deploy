@@ -29,6 +29,12 @@ public class RestockRequestRepository : IRestockRequestRepository
             .FirstOrDefaultAsync(r => r.Id == id);
     }
 
+    public async Task<RestockRequest?> GetByRequestIdWithoutRestockRequestItemAsync(Guid restockRequestId)
+    {
+        return await _context.RestockRequests
+            .FirstOrDefaultAsync(r => r.Id == restockRequestId);
+    }
+
     public async Task<RestockRequest?> GetByRequestNumberAsync(string requestNumber)
     {
         return await _context.RestockRequests

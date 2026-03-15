@@ -27,6 +27,12 @@ public class TransferRepository : ITransferRepository
             .FirstOrDefaultAsync(t => t.Id == id);
     }
 
+    public async Task<Transfer?> GetByTransferIdWithoutTransferItemAsync(Guid transferId)
+    {
+        return await _context.Transfers
+            .FirstOrDefaultAsync(t => t.Id == transferId);
+    }
+
     public async Task<Transfer?> GetByTransferNumberAsync(string transferNumber)
     {
         return await _context.Transfers

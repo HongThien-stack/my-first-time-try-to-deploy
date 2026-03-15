@@ -6,6 +6,7 @@ public interface IRestockRequestRepository
 {
     Task<IEnumerable<RestockRequest>> GetAllAsync();
     Task<RestockRequest?> GetByIdAsync(Guid id);
+    Task<RestockRequest?> GetByRequestIdWithoutRestockRequestItemAsync(Guid restockRequestId);
     Task<RestockRequest?> GetByRequestNumberAsync(string requestNumber);
     Task<IEnumerable<RestockRequest>> GetByWarehouseIdAsync(Guid warehouseId);
     Task<IEnumerable<RestockRequest>> GetByParentWarehouseIdAsync(Guid parentWarehouseId);

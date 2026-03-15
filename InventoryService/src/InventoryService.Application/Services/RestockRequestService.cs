@@ -49,6 +49,11 @@ public class RestockRequestService : IRestockRequestService
         return dto;
     }
 
+    public async Task<RestockRequest?> GetByRequestIdWithoutRestockRequestItemAsync(Guid restockRequestId)
+    {
+        return await _requestRepository.GetByRequestIdWithoutRestockRequestItemAsync(restockRequestId);
+    }
+
     public async Task<IEnumerable<RestockRequestDto>> GetRequestsByWarehouseAsync(Guid warehouseId)
     {
         _logger.LogInformation("Getting restock requests for warehouse: {WarehouseId}", warehouseId);
@@ -150,6 +155,12 @@ public class RestockRequestService : IRestockRequestService
         _logger.LogInformation("Deleting restock request: {RequestId}", id);
         await _requestRepository.DeleteAsync(id);
         return true;
+    }
+
+    public async Task UpdateAsync(RestockRequest request)
+    {
+        _logger.LogInformation("Updating restock request: {RequestId}", request.Id);
+        await _requestRepository.UpdateAsync(request);
     }
 
     private async Task EnrichWithProductInfoAsync(IEnumerable<RestockRequestDto> dtos)

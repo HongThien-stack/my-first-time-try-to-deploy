@@ -1,4 +1,5 @@
-﻿using InventoryService.Application.DTOs;
+﻿using Azure.Core;
+using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
 using InventoryService.Application.Services;
 using InventoryService.Domain.Entities;
@@ -18,15 +19,17 @@ namespace InventoryService.API.Controllers
         private readonly ITransferService _transferService;
         private readonly IInventoryService _inventoryService;
         private readonly IStockMovementService _stockMovementService;
+        private readonly IRestockRequestService _restockRequestService;
         private readonly ILogger<TransferController> _logger;
 
         public TransferController(ITransferService transferService, ILogger<TransferController> logger,
-            IInventoryService inventoryService, IStockMovementService stockMovementService)
+            IInventoryService inventoryService, IStockMovementService stockMovementService, IRestockRequestService restockRequestService)
         {
             _transferService = transferService;
             _logger = logger;
             _inventoryService = inventoryService;
             _stockMovementService = stockMovementService;
+            _restockRequestService = restockRequestService;
         }
 
         [HttpGet("transfers")]
@@ -119,6 +122,7 @@ namespace InventoryService.API.Controllers
             }
         }
 
+        //Luồng xuất kho
         [HttpPatch("transferV2/{transferId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -134,12 +138,26 @@ namespace InventoryService.API.Controllers
                     return Unauthorized(new { success = false, message = "Invalid or missing user identity in token" });
 
                 var result = await _transferService.CreateOutboundStockMovementAsync(transferId, shippedBy);
+                //Cập nhật trạng thái Restock Request
+                var transfer = await _transferService.GetByTransferIdWithoutTransferItemAsync(transferId);
+                if (transfer != null && transfer.RestockRequestId.HasValue)
+                {
+                    var restockRequest = await _restockRequestService.GetByRequestIdWithoutRestockRequestItemAsync(transfer.RestockRequestId.Value);
+                    if (restockRequest != null)
+                    {
+                        restockRequest.Status = "PROCESSING";
+                        restockRequest.UpdatedAt = DateTime.UtcNow;
+                        await _restockRequestService.UpdateAsync(restockRequest);
+                    }
+                }
+
                 return Ok(new
                 {
                     success = true,
                     message = "Outbound stock movement created successfully",
                     data = result
                 });
+                
             }
             catch (KeyNotFoundException ex)
             {

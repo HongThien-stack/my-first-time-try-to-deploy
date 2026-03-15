@@ -48,6 +48,12 @@ public class TransferService : ITransferService
         return transfer != null ? MapToDto(transfer) : null;
     }
 
+    public async Task<Transfer?> GetByTransferIdWithoutTransferItemAsync(Guid transferId)
+    {
+        _logger.LogInformation("Getting transfer by ID without items: {TransferId}", transferId);
+        return await _transferRepository.GetByTransferIdWithoutTransferItemAsync(transferId);
+    }
+
     public async Task<TransferDto?> GetTransferByNumberAsync(string transferNumber)
     {
         _logger.LogInformation("Getting transfer by number: {TransferNumber}", transferNumber);
