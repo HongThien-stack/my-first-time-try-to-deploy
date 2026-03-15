@@ -14,6 +14,13 @@ public class ProductBatchRepository : IProductBatchRepository
         _context = context;
     }
 
+    public async Task<ProductBatch> AddAsync(ProductBatch newBatch)
+    {
+        _context.ProductBatches.Add(newBatch);
+        await _context.SaveChangesAsync();
+        return newBatch;
+    }
+
     public async Task<IEnumerable<ProductBatch>> GetAllAsync()
     {
         return await _context.ProductBatches
