@@ -393,7 +393,7 @@ public class SaleRepository : ISaleRepository
     // Cart Management Methods
     // =====================================================
 
-    public Task<Sale> CreateCartAsync(Guid storeId, Guid cashierId, Guid? customerId, string? notes)
+    public Task<Sale> CreateCartAsync(Guid storeId, Guid cashierId, Guid? customerId, string paymentMethod, string? notes)
     {
         var saleNumber = $"SALE-2026-{_saleCounter++:D3}";
         
@@ -409,7 +409,7 @@ public class SaleRepository : ISaleRepository
             TaxAmount = 0m,
             DiscountAmount = 0m,
             TotalAmount = 0m,
-            PaymentMethod = "PENDING",
+            PaymentMethod = paymentMethod, // Store the payment method
             PaymentStatus = "PENDING",
             Status = "PENDING", // Cart is a PENDING sale
             Notes = notes,
@@ -427,19 +427,14 @@ public class SaleRepository : ISaleRepository
         return Task.FromResult(cart);
     }
 
-    public async Task<SaleItem> AddItemToCartAsync(Guid cartId, string barcode, int quantity)
+    public async Task<SaleItem> AddItemToCartAsync(Guid cartId, Guid productId, string productName, decimal unitPrice, int quantity)
     {
         var cart = await GetCartByIdAsync(cartId);
         if (cart == null)
             throw new Exception("Cart not found or already completed");
 
-        // Get product info
-        var productInfo = await GetProductByBarcodeAsync(barcode);
-        if (productInfo == null)
-            throw new Exception($"Product with barcode {barcode} not found");
-
         // Check if product already exists in cart
-        var existingItem = cart.SaleItems.FirstOrDefault(i => i.ProductId == productInfo.Value.ProductId);
+        var existingItem = cart.SaleItems.FirstOrDefault(i => i.ProductId == productId);
         
         if (existingItem != null)
         {
@@ -454,14 +449,14 @@ public class SaleRepository : ISaleRepository
             {
                 Id = Guid.NewGuid(),
                 SaleId = cartId,
-                ProductId = productInfo.Value.ProductId,
-                ProductName = productInfo.Value.ProductName,
-                ProductSku = productInfo.Value.Sku,
+                ProductId = productId,
+                ProductName = productName,
+                ProductSku = null,
                 Quantity = quantity,
-                UnitPrice = productInfo.Value.UnitPrice,
+                UnitPrice = unitPrice,
                 LineDiscount = 0m,
                 LineTax = 0m,
-                LineTotal = quantity * productInfo.Value.UnitPrice
+                LineTotal = quantity * unitPrice
             };
             cart.SaleItems.Add(existingItem);
         }
@@ -537,19 +532,17 @@ public class SaleRepository : ISaleRepository
         return Task.FromResult<Sale?>(cart);
     }
 
-    public Task<(Guid ProductId, string ProductName, string Sku, string? Barcode, decimal UnitPrice)?> GetProductByBarcodeAsync(string barcode)
+    public Task<Sale?> CompleteCartAsync(Guid cartId)
     {
-        var product = _mockProducts.FirstOrDefault(p => p.Barcode == barcode);
-        
-        if (product == default)
-            return Task.FromResult<(Guid, string, string, string?, decimal)?>(null);
+        var cart = _sales.FirstOrDefault(s => s.Id == cartId && s.Status == "PENDING");
+        if (cart == null)
+            return Task.FromResult<Sale?>(null);
 
-        return Task.FromResult<(Guid, string, string, string?, decimal)?>((
-            product.ProductId,
-            product.ProductName,
-            product.Sku,
-            product.Barcode,
-            product.UnitPrice
-        ));
+        // Change status to COMPLETED
+        cart.Status = "COMPLETED";
+        cart.PaymentStatus = "PAID";
+        cart.UpdatedAt = DateTime.UtcNow;
+
+        return Task.FromResult<Sale?>(cart);
     }
 }

@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using PosService.Application.Interfaces;
+using PosService.Application.Services;
 using PosService.Infrastructure.Repositories;
+using PosService.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,8 +47,15 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Register repositories
+// Register repositories and services
 builder.Services.AddScoped<ISaleRepository, SaleRepository>();
+builder.Services.AddHttpClient<PosService.Application.Services.IInventoryServiceClient, InventoryServiceClient>((provider, client) =>
+{
+    // Configure the HttpClient for Inventory Service
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    var inventoryServiceUrl = configuration["Services:InventoryService:Url"] ?? "http://localhost:5002";
+    client.BaseAddress = new Uri(inventoryServiceUrl);
+});
 
 // Add JWT Authentication
 var jwtSecret = builder.Configuration["JwtSettings:Secret"];
