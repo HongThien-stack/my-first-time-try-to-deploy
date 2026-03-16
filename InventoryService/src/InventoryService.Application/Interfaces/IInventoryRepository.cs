@@ -10,7 +10,9 @@ public interface IInventoryRepository
     Task<IEnumerable<Inventory>> GetByProductIdAsync(Guid productId);
     Task<Inventory?> GetByLocationAndProductAsync(string locationType, Guid locationId, Guid productId);
     Task<IEnumerable<Inventory>> GetLowStockItemsAsync(string? locationType = null);
+    Task<Inventory?> GetInventoryByLocationIdAndProductIdAsync(Guid deliverWarehouseId, Guid productId);
     Task<Inventory> AddAsync(Inventory inventory);
     Task UpdateAsync(Inventory inventory);
+    Task UpdateReservedQuantityAsync(Inventory inventory);
     Task DeleteAsync(Guid id);
 }

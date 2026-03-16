@@ -63,6 +63,11 @@ public class InventoryManagementService : IInventoryService
         return inventories.Select(MapToDto);
     }
 
+    public async Task<Inventory?> GetInventoryByLocationIdAndProductIdAsync(Guid deliverWarehouseId, Guid productId)
+    {
+        return await _inventoryRepository.GetInventoryByLocationIdAndProductIdAsync(deliverWarehouseId, productId);
+    }
+
     public async Task<InventoryDto> UpdateInventoryAsync(Guid id, int quantity, Guid performedBy, string reason)
     {
         _logger.LogInformation("Updating inventory {InventoryId} to quantity {Quantity}", id, quantity);
@@ -79,6 +84,11 @@ public class InventoryManagementService : IInventoryService
         await _inventoryRepository.UpdateAsync(inventory);
         
         return MapToDto(inventory);
+    }
+
+    public async Task UpdateReservedQuantityAsync(Inventory inventory)
+    {
+        await _inventoryRepository.UpdateReservedQuantityAsync(inventory);
     }
 
     private InventoryDto MapToDto(Inventory inventory)
