@@ -73,20 +73,22 @@ public class TransferService : ITransferService
         _logger.LogInformation("Creating new transfer from {FromType}:{FromId} to {ToType}:{ToId}",
             dto.FromLocationType, dto.FromLocationId, dto.ToLocationType, dto.ToLocationId);
 
+        ValidateCreateTransfer(dto);
+
         var transferNumber = await GenerateTransferNumberAsync();
 
         var transfer = new Transfer
         {
             Id = Guid.NewGuid(),
             TransferNumber = transferNumber,
-            FromLocationType = dto.FromLocationType,
+            FromLocationType = dto.FromLocationType.Trim().ToUpperInvariant(),
             FromLocationId = dto.FromLocationId,
-            ToLocationType = dto.ToLocationType,
+            ToLocationType = dto.ToLocationType.Trim().ToUpperInvariant(),
             ToLocationId = dto.ToLocationId,
             TransferDate = DateTime.UtcNow,
             ExpectedDelivery = dto.ExpectedDelivery,
             Status = "PENDING",
-            ShippedBy = dto.ShippedBy,
+            ShippedBy = dto.ShippedBy == Guid.Empty ? null : dto.ShippedBy,
             RestockRequestId = dto.RestockRequestId,
             Notes = dto.Notes,
             TransferItems = dto.Items.Select(item => new TransferItem
@@ -153,6 +155,13 @@ public class TransferService : ITransferService
     public async Task<bool> DeleteTransferAsync(Guid id)
     {
         _logger.LogInformation("Deleting transfer: {TransferId}", id);
+
+        var transfer = await _transferRepository.GetByIdAsync(id);
+        if (transfer == null)
+        {
+            return false;
+        }
+
         await _transferRepository.DeleteAsync(id);
         return true;
     }
@@ -394,6 +403,41 @@ public class TransferService : ITransferService
                 Notes = item.Notes
             }).ToList()
         };
+    }
+
+    private static void ValidateCreateTransfer(CreateTransferDto dto)
+    {
+        var validLocationTypes = new[] { "WAREHOUSE", "STORE" };
+
+        if (string.IsNullOrWhiteSpace(dto.FromLocationType))
+            throw new InvalidOperationException("FromLocationType is required.");
+
+        if (string.IsNullOrWhiteSpace(dto.ToLocationType))
+            throw new InvalidOperationException("ToLocationType is required.");
+
+        if (!validLocationTypes.Contains(dto.FromLocationType.Trim().ToUpperInvariant()))
+            throw new InvalidOperationException("FromLocationType must be WAREHOUSE or STORE.");
+
+        if (!validLocationTypes.Contains(dto.ToLocationType.Trim().ToUpperInvariant()))
+            throw new InvalidOperationException("ToLocationType must be WAREHOUSE or STORE.");
+
+        if (dto.FromLocationId == Guid.Empty)
+            throw new InvalidOperationException("FromLocationId is required.");
+
+        if (dto.ToLocationId == Guid.Empty)
+            throw new InvalidOperationException("ToLocationId is required.");
+
+        if (dto.FromLocationId == dto.ToLocationId && string.Equals(dto.FromLocationType, dto.ToLocationType, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Source and destination locations must be different.");
+
+        if (dto.Items == null || dto.Items.Count == 0)
+            throw new InvalidOperationException("At least one transfer item is required.");
+
+        if (dto.Items.Any(item => item.ProductId == Guid.Empty))
+            throw new InvalidOperationException("Each transfer item must have a valid ProductId.");
+
+        if (dto.Items.Any(item => item.RequestedQuantity <= 0))
+            throw new InvalidOperationException("Each transfer item must have RequestedQuantity greater than 0.");
     }
 
     private async Task<string> GenerateTransferNumberAsync()

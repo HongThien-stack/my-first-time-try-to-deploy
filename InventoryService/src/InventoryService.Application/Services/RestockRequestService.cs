@@ -79,19 +79,21 @@ public class RestockRequestService : IRestockRequestService
     {
         _logger.LogInformation("Creating new restock request to warehouse: {ToWarehouseId}", dto.ToWarehouseId);
 
+        ValidateCreateRequest(dto);
+
         var requestNumber = await GenerateRequestNumberAsync();
-        
+
         var request = new RestockRequest
         {
             Id = Guid.NewGuid(),
             RequestNumber = requestNumber,
             FromWarehouseId = dto.FromWarehouseId,
-            FromLocationType = dto.FromLocationType,
+            FromLocationType = dto.FromLocationType.Trim().ToUpperInvariant(),
             ToWarehouseId = dto.ToWarehouseId,
-            ToLocationType = dto.ToLocationType,
+            ToLocationType = dto.ToLocationType.Trim().ToUpperInvariant(),
             RequestedBy = requestedBy,
             RequestedDate = DateTime.UtcNow,
-            Priority = dto.Priority,
+            Priority = string.IsNullOrWhiteSpace(dto.Priority) ? "NORMAL" : dto.Priority.Trim().ToUpperInvariant(),
             Status = "PENDING",
             Notes = dto.Notes,
             RestockRequestItems = dto.Items.Select(item => new RestockRequestItem
@@ -217,6 +219,37 @@ public class RestockRequestService : IRestockRequestService
         var allRequests = await _requestRepository.GetAllAsync();
         var count = allRequests.Count(r => r.RequestNumber.StartsWith(prefix));
         return $"{prefix}{(count + 1):D3}";
+    }
+
+    private static void ValidateCreateRequest(CreateRestockRequestDto dto)
+    {
+        if (dto.ToWarehouseId == null || dto.ToWarehouseId == Guid.Empty)
+            throw new InvalidOperationException("ToWarehouseId is required.");
+
+        if (string.IsNullOrWhiteSpace(dto.ToLocationType))
+            throw new InvalidOperationException("ToLocationType is required.");
+
+        if (dto.Items == null || dto.Items.Count == 0)
+            throw new InvalidOperationException("At least one restock request item is required.");
+
+        var validLocationTypes = new[] { "WAREHOUSE", "STORE" };
+        if (!validLocationTypes.Contains(dto.ToLocationType.Trim().ToUpperInvariant()))
+            throw new InvalidOperationException("ToLocationType must be WAREHOUSE or STORE.");
+
+        if (!string.IsNullOrWhiteSpace(dto.FromLocationType) && !validLocationTypes.Contains(dto.FromLocationType.Trim().ToUpperInvariant()))
+            throw new InvalidOperationException("FromLocationType must be WAREHOUSE or STORE.");
+
+        if (dto.FromWarehouseId.HasValue && dto.FromWarehouseId.Value != Guid.Empty && dto.FromWarehouseId == dto.ToWarehouseId)
+            throw new InvalidOperationException("Source and destination locations must be different.");
+
+        if (dto.Items.Any(item => item.ProductId == Guid.Empty))
+            throw new InvalidOperationException("Each restock request item must have a valid ProductId.");
+
+        if (dto.Items.Any(item => item.RequestedQuantity <= 0))
+            throw new InvalidOperationException("Each restock request item must have RequestedQuantity greater than 0.");
+
+        if (dto.Items.Any(item => item.CurrentQuantity < 0))
+            throw new InvalidOperationException("CurrentQuantity cannot be negative.");
     }
 
     private async Task<string> GenerateTransferNumberAsync()

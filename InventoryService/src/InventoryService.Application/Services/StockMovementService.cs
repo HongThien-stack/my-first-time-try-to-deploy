@@ -32,6 +32,13 @@ public class StockMovementService : IStockMovementService
         return movement != null ? MapToDto(movement) : null;
     }
 
+    public async Task<IEnumerable<StockMovementDto>> GetByLocationIdAsync(Guid locationId)
+    {
+        _logger.LogInformation("Retrieving stock movements for location {LocationId}", locationId);
+        var movements = await _repository.GetByLocationIdAsync(locationId);
+        return movements.Select(MapToDto);
+    }
+
     public async Task<IEnumerable<StockMovementItemDto>> GetItemsByMovementIdAsync(Guid movementId)
     {
         _logger.LogInformation("Retrieving items for stock movement {MovementId}", movementId);
