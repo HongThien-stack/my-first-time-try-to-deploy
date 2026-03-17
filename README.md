@@ -12,7 +12,7 @@ Hệ thống quản lý siêu thị Bách Hóa Xanh với kiến trúc microserv
 
 ---
 
-## 🏗️ Kiến trúc hệ thống
+## 🏗️ Kiến trúc hệ thốn
 
 ```
 ┌─────────────────────┐
