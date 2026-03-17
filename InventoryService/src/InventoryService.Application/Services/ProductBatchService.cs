@@ -8,14 +8,24 @@ namespace InventoryService.Application.Services;
 public class ProductBatchService : IProductBatchService
 {
     private readonly IProductBatchRepository _repository;
+    private readonly IRestockRequestRepository _restockRequestRepository;
+    private readonly IInventoryRepository _inventoryRepository;
+    private readonly IStockMovementRepository _stockMovementRepository;
     private readonly ILogger<ProductBatchService> _logger;
 
     public ProductBatchService(
         IProductBatchRepository repository,
+        IRestockRequestRepository restockRequestRepository,
+        IInventoryRepository inventoryRepository,
+        IStockMovementRepository stockMovementRepository,
         ILogger<ProductBatchService> logger)
     {
         _repository = repository;
+        _stockMovementRepository = stockMovementRepository;
+        _restockRequestRepository = restockRequestRepository;
+        _inventoryRepository = inventoryRepository;
         _logger = logger;
+        
     }
 
     public async Task<IEnumerable<ProductBatchDto>> GetAllAsync()
@@ -82,6 +92,118 @@ public class ProductBatchService : IProductBatchService
 
         return MapToDto(createdBatch);
     }
+
+
+    public async Task<IEnumerable<ProductBatchDto>> ReceiveFromSupplierAsync(ReceiveFromSupplierDto dto)
+    {
+        _logger.LogInformation("Receiving goods from supplier for RestockRequest {RestockRequestId}", dto.RestockRequestId);
+        //1. Validate RstockRequest exists
+        var restockRequest = await _restockRequestRepository.GetByIdAsync(dto.RestockRequestId)
+            ?? throw new KeyNotFoundException($"RestockRequest {dto.RestockRequestId} not found");
+        
+        if (restockRequest.Status != "APPROVED")
+        {
+            throw new InvalidOperationException(
+                restockRequest.Status is "COMPLETED" or "CANCELLED"
+                    ? $"RestockRequest is already in '{restockRequest.Status}' state."
+                    : $"RestockRequest {dto.RestockRequestId} is not approved. Current status: {restockRequest.Status}");
+        }
+        var createdBatches = new List<ProductBatch>();
+        var stockMovementItems = new List<StockMovementItem>();
+
+        // 2.Create ProductBatch cho mỗi item.
+        foreach (var item in dto.Items)
+        {
+            // Tự động tạo BatchNumber nếu không được cung cấp
+            //var batchNumber = !string.IsNullOrWhiteSpace(item.BatchNumber)
+            //    ? item.BatchNumber
+            //    : $"BN-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
+
+            var newBatch = new ProductBatch
+            {
+                Id = Guid.NewGuid(),
+                ProductId = item.ProductId,
+                WarehouseId = dto.WarehouseId,
+                BatchNumber = item.BatchNumber,
+                Quantity = item.Quantity,
+                ManufacturingDate = item.ManufacturingDate,
+                ExpiryDate = item.ExpiryDate,
+                Supplier = item.SupplierName,
+                SupplierId = item.SupplierId,
+                ReceivedAt = DateTime.UtcNow,
+                Status = "AVAILABLE"
+            };
+            // tạo batch và lưu vào database để lấy Id cho StockMovementItem
+            var createdBatch = await _repository.AddAsync(newBatch);
+            createdBatches.Add(createdBatch);
+
+            // tạo StockMovementItem cho mỗi batch được tạo ra
+            stockMovementItems.Add(new StockMovementItem
+            {
+                Id = Guid.NewGuid(),
+                ProductId = createdBatch.ProductId,
+                BatchId = createdBatch.Id,
+                Quantity = createdBatch.Quantity,
+                UnitPrice = item.UnitPrice
+            });
+
+            // 3. Update Inventory: tăng quantity lên
+            var inventory = await _inventoryRepository.GetByLocationAndProductAsync("WAREHOUSE", dto.WarehouseId, item.ProductId);
+            if (inventory != null)
+            {
+                inventory.Quantity += item.Quantity;
+                inventory.UpdatedAt = DateTime.UtcNow;
+                await _inventoryRepository.UpdateAsync(inventory);
+            }
+            else
+            {
+                await _inventoryRepository.AddAsync(new Inventory
+                // Nếu chưa có record Inventory nào cho product này tại warehouse này, tạo mới
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = item.ProductId,
+                    LocationType = "WAREHOUSE",
+                    LocationId = dto.WarehouseId,
+                    Quantity = item.Quantity,
+                    UpdatedAt = DateTime.UtcNow
+                });
+                
+            }
+            _logger.LogInformation("Inventory for Product {ProductId} at Warehouse {WarehouseId} updated by {Quantity}", item.ProductId, dto.WarehouseId, item.Quantity);
+        }
+
+        // 4. Tạo StockMovement Nhập kho
+        var movementCount = await _stockMovementRepository.CountByDateAsync(DateTime.UtcNow);
+        var stockMovement = new StockMovement
+        {
+            Id = Guid.NewGuid(),
+            MovementNumber = $"SM-{DateTime.UtcNow:yyyyMMdd}-{(movementCount + 1):D3}",
+            MovementType = "INBOUND",
+            LocationId = dto.WarehouseId,
+            LocationType = "WAREHOUSE",
+            MovementDate = DateTime.UtcNow,
+            RestockRequestId = dto.RestockRequestId,
+            ReceivedBy = dto.ReceivedBy,
+            TransferId = null,
+            Status = "COMPLETED",
+            Notes = dto.Notes,
+            StockMovementItems = stockMovementItems
+        };
+        await _stockMovementRepository.AddAsync(stockMovement);
+        _logger.LogInformation("Created INBOUND StockMovement {MovementNumber}", stockMovement.MovementNumber);
+
+        //5. Cập nhật status của Restock Request
+        restockRequest.Status = "COMPLETED";
+        restockRequest.UpdatedAt = DateTime.UtcNow;
+        await _restockRequestRepository.UpdateAsync(restockRequest);
+        _logger.LogInformation("RestockRequest {RestockRequestId} status updated to COMPLETED", dto.RestockRequestId);
+
+        return createdBatches.Select(MapToDto);
+
+    }
+
+
+
 
     private static ProductBatchDto MapToDto(ProductBatch b)
     {

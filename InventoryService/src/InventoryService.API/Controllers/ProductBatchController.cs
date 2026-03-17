@@ -3,6 +3,7 @@ using InventoryService.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace InventoryService.API.Controllers;
 
@@ -103,6 +104,38 @@ public class ProductBatchController : ControllerBase
                 message = "An error occurred while allocating batch",
                 error = ex.Message
             });
+        }
+    }
+
+    [HttpPost("receive-from-supplier")]
+    [ProducesResponseType(typeof(IEnumerable<ProductBatchDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReceiveFromSupplier([FromBody] ReceiveFromSupplierDto dto)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var receivedById))
+            {
+                return Unauthorized(new { success = false, message = "Invalid or missing user identity in token" });
+            }
+            dto.ReceivedBy = receivedById;
+            var result = await _productBatchService.ReceiveFromSupplierAsync(dto);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while receiving goods from supplier for request {RestockRequestId}", dto.RestockRequestId);
+            return StatusCode(500, new { success = false, message = "An internal error occurred." });
         }
     }
 }
