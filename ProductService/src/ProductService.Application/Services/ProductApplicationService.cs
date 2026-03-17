@@ -23,6 +23,25 @@ public class ProductApplicationService : IProductService
         _logger = logger;
     }
 
+    public async Task<IEnumerable<ProductDetailsDto>> GetProductDetailsBatchAsync(IEnumerable<Guid> productIds)
+    {
+        if (productIds == null || !productIds.Any())
+        {
+            return Enumerable.Empty<ProductDetailsDto>();
+        }
+
+        var products = await _productRepository.GetByIdsAsync(productIds);
+
+        return products.Select(p => new ProductDetailsDto
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Price = p.Price,
+            CategoryId = p.CategoryId,
+            CategoryName = p.Category?.Name ?? string.Empty
+        });
+    }
+
     public async Task<IEnumerable<ProductDto>> GetAllProductsAsync()
     {
         var products = await _productRepository.GetAllAsync();

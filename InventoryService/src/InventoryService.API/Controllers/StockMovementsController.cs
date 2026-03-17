@@ -138,7 +138,7 @@ public class StockMovementsController : ControllerBase
     /// Lấy UserId từ JWT token claim
     /// </summary>
     private Guid GetCurrentUserId()
-    {
+        {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
@@ -146,4 +146,41 @@ public class StockMovementsController : ControllerBase
         }
         return userId;
     }
+
+        /// <summary>
+        /// Get all stock movements for a specific location (warehouse or store)
+        /// </summary>
+        /// <param name="locationId">Warehouse ID or Store ID</param>
+        /// <returns>List of stock movements at that location</returns>
+        [HttpGet("by-location/{locationId}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetByLocationId(Guid locationId)
+        {
+            if (locationId == Guid.Empty)
+            {
+                return BadRequest(new { success = false, message = "locationId must be a valid non-empty GUID." });
+            }
+
+            try
+            {
+                var movements = await _stockMovementService.GetByLocationIdAsync(locationId);
+                return Ok(new
+                {
+                    success = true,
+                    message = "Stock movements retrieved successfully",
+                    data = movements
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting stock movements for location {LocationId}", locationId);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An error occurred while retrieving stock movements",
+                    error = ex.Message
+                });
+            }
+        }
 }

@@ -54,6 +54,15 @@ public class StockMovementRepository : IStockMovementRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<StockMovement>> GetByLocationIdAsync(Guid locationId)
+    {
+        return await _context.StockMovements
+            .Include(sm => sm.StockMovementItems)
+            .Where(sm => sm.LocationId == locationId)
+            .OrderByDescending(sm => sm.MovementDate)
+            .ToListAsync();
+    }
+
     public async Task<int> CountByDateAsync(DateTime date)
     {
         return await _context.StockMovements 

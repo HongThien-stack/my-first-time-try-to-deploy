@@ -6,13 +6,14 @@ public class SaleItem
     public Guid SaleId { get; set; }
     public Guid ProductId { get; set; }
     public string ProductName { get; set; } = string.Empty;
-    public string? ProductSku { get; set; }
+    public string Sku { get; set; } = string.Empty;
+    public string? Barcode { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
-    public decimal LineDiscount { get; set; }
-    public decimal LineTax { get; set; }
+    public decimal DiscountAmount { get; set; }
     public decimal LineTotal { get; set; }
-    public string? Notes { get; set; }
+    public bool PromotionApplied { get; set; }
+    public Guid? PromotionId { get; set; }
 
     // Navigation
     public Sale Sale { get; set; } = null!;

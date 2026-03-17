@@ -8,6 +8,7 @@ public interface IStockMovementService
     Task<IEnumerable<StockMovementDto>> GetAllAsync();
     Task<StockMovementDto?> GetByIdAsync(Guid id);
     Task<IEnumerable<StockMovementItemDto>> GetItemsByMovementIdAsync(Guid movementId);
+    Task<IEnumerable<StockMovementDto>> GetByLocationIdAsync(Guid locationId);
     Task AddNewStockMovementAsync(StockMovement stockMovement);
     Task AddNewStockMovementItemAsync(StockMovementItem stockMovementItem);
     Task<int> CountStockMovementAsync();

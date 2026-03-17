@@ -14,6 +14,14 @@ public class ProductRepository : IProductRepository
         _context = context;
     }
 
+    public async Task<IEnumerable<Product>> GetByIdsAsync(IEnumerable<Guid> ids)
+    {
+        return await _context.Products
+            .Include(p => p.Category)
+            .Where(p => ids.Contains(p.Id))
+            .ToListAsync();
+    }
+
     public async Task<IEnumerable<Product>> GetAllAsync()
     {
         return await _context.Products

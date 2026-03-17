@@ -1,3 +1,4 @@
+using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -148,6 +149,137 @@ public class InventoryController : ControllerBase
             {
                 success = false,
                 message = "An error occurred while retrieving inventories",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Check if inventory exists for a product at a location. If not, create a new one.
+    /// </summary>
+    /// <param name="dto">Inventory creation details</param>
+    /// <returns>Existing or newly created inventory</returns>
+    [HttpPost("check-or-create")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> CheckOrCreateInventory([FromBody] CreateInventoryDto dto)
+    {
+        try
+        {
+            // Validate input
+            if (dto == null || dto.ProductId == Guid.Empty || dto.LocationId == Guid.Empty)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Product ID and Location ID are required",
+                    errors = new
+                    {
+                        productId = dto?.ProductId == Guid.Empty ? "Product ID is required" : null,
+                        locationId = dto?.LocationId == Guid.Empty ? "Location ID is required" : null
+                    }
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.LocationType))
+                dto.LocationType = "WAREHOUSE";
+
+            _logger.LogInformation("Checking or creating inventory for product {ProductId} at {LocationType}:{LocationId}", 
+                dto.ProductId, dto.LocationType, dto.LocationId);
+
+            var inventory = await _inventoryService.CheckOrCreateInventoryAsync(dto);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Inventory checked/created successfully",
+                data = inventory
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking or creating inventory");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while checking or creating inventory",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Get low stock alerts - inventory items where available quantity is at or below minimum stock level
+    /// </summary>
+    /// <param name="locationType">Optional filter: Location type (WAREHOUSE or STORE)</param>
+    /// <param name="locationId">Optional filter: Specific location ID</param>
+    /// <param name="pageNumber">Page number (default: 1)</param>
+    /// <param name="pageSize">Page size (default: 20, max: 100)</param>
+    /// <returns>Paginated list of low stock items with product details and stock status</returns>
+    [HttpGet("low-stock-alerts")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetLowStockAlerts(
+        [FromQuery] string? locationType = null,
+        [FromQuery] Guid? locationId = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            // Validate pagination parameters
+            if (pageNumber < 1)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Page number must be greater than 0"
+                });
+            }
+
+            if (pageSize < 1 || pageSize > 100)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Page size must be between 1 and 100"
+                });
+            }
+
+            // Validate location type if provided
+            if (!string.IsNullOrEmpty(locationType) && 
+                locationType != "WAREHOUSE" && 
+                locationType != "STORE")
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Location type must be either 'WAREHOUSE' or 'STORE'"
+                });
+            }
+
+            _logger.LogInformation(
+                "Fetching low stock alerts - LocationType: {LocationType}, LocationId: {LocationId}, Page: {PageNumber}, PageSize: {PageSize}",
+                locationType, locationId, pageNumber, pageSize);
+
+            var result = await _inventoryService.GetLowStockAlertsAsync(
+                locationType, locationId, pageNumber, pageSize);
+
+            return Ok(new
+            {
+                success = true,
+                message = $"Low stock alerts retrieved successfully ({result.TotalItems} items found)",
+                data = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting low stock alerts");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while retrieving low stock alerts",
                 error = ex.Message
             });
         }
