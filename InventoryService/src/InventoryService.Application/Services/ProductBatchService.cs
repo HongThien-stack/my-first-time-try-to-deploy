@@ -205,6 +205,127 @@ public class ProductBatchService : IProductBatchService
 
 
 
+    /// <summary>
+    /// Automatically update batch status to EXPIRED based on expiry date
+    /// Called by background service at scheduled intervals
+    /// </summary>
+    public async Task<int> UpdateExpiredBatchesAsync()
+    {
+        _logger.LogInformation("Starting automatic expired batch update");
+        
+        var allBatches = await _repository.GetAllAsync();
+        var now = DateTime.UtcNow;
+        var batchesToUpdate = allBatches.Where(b => 
+            b.Status == "AVAILABLE" && 
+            b.ExpiryDate.HasValue && 
+            b.ExpiryDate.Value <= now).ToList();
+
+        int updatedCount = 0;
+
+        foreach (var batch in batchesToUpdate)
+        {
+            batch.Status = "EXPIRED";
+            await _repository.UpdateAsync(batch);
+            updatedCount++;
+            _logger.LogInformation("Batch {BatchId} ({BatchNumber}) auto-marked as EXPIRED", batch.Id, batch.BatchNumber);
+        }
+
+        _logger.LogInformation("Completed auto-update of expired batches: {Count} batches updated", updatedCount);
+        return updatedCount;
+    }
+
+    /// <summary>
+    /// Create outbound stock movement for all expired batches at a warehouse
+    /// </summary>
+    public async Task<OutboundStockMovementResponseDto> CreateOutboundFromExpiredBatchesAsync(CreateOutboundFromExpiredBatchesDto request)
+    {
+        _logger.LogInformation("Creating outbound stock movement for expired batches at warehouse {WarehouseId}", request.WarehouseId);
+
+        // Get all EXPIRED batches at the warehouse
+        var warehouseBatches = await _repository.GetByWarehouseIdAsync(request.WarehouseId);
+        var expiredBatches = warehouseBatches.Where(b => b.Status == "EXPIRED" && b.Quantity > 0).ToList();
+
+        if (!expiredBatches.Any())
+        {
+            throw new InvalidOperationException($"No expired batches found at warehouse {request.WarehouseId}");
+        }
+
+        _logger.LogInformation("Found {Count} expired batches at warehouse {WarehouseId}", expiredBatches.Count, request.WarehouseId);
+
+        // Create stock movement items
+        var stockMovementItems = new List<StockMovementItem>();
+        var processedBatches = new List<ExpiredBatchDetailDto>();
+        int totalQuantity = 0;
+
+        foreach (var batch in expiredBatches)
+        {
+            stockMovementItems.Add(new StockMovementItem
+            {
+                Id = Guid.NewGuid(),
+                ProductId = batch.ProductId,
+                BatchId = batch.Id,
+                Quantity = batch.Quantity,
+                UnitPrice = null
+            });
+
+            processedBatches.Add(new ExpiredBatchDetailDto
+            {
+                BatchId = batch.Id,
+                BatchNumber = batch.BatchNumber,
+                ProductId = batch.ProductId,
+                Quantity = batch.Quantity,
+                ExpiryDate = batch.ExpiryDate
+            });
+
+            totalQuantity += batch.Quantity;
+        }
+
+        // Create stock movement
+        var movementCount = await _stockMovementRepository.CountStockMovementAsync();
+        var movementNumber = $"SM-{DateTime.UtcNow:yyyyMMdd}-{(movementCount + 1):D3}";
+
+        var stockMovement = new StockMovement
+        {
+            Id = Guid.NewGuid(),
+            MovementNumber = movementNumber,
+            MovementType = "OUTBOUND",
+            LocationId = request.WarehouseId,
+            LocationType = "WAREHOUSE",
+            MovementDate = DateTime.UtcNow,
+            Status = "COMPLETED",
+            Notes = $"Automatic outbound for expired batches. {request.Notes}",
+            StockMovementItems = stockMovementItems
+        };
+
+        await _stockMovementRepository.AddAsync(stockMovement);
+        _logger.LogInformation("Created OUTBOUND StockMovement {MovementNumber} for {Count} expired batches", movementNumber, expiredBatches.Count);
+
+        // Update inventory for each expired batch
+        foreach (var batch in expiredBatches)
+        {
+            var inventory = await _inventoryRepository.GetByLocationAndProductAsync("WAREHOUSE", request.WarehouseId, batch.ProductId);
+            if (inventory != null)
+            {
+                inventory.Quantity -= batch.Quantity;
+                inventory.UpdatedAt = DateTime.UtcNow;
+                await _inventoryRepository.UpdateAsync(inventory);
+                _logger.LogInformation("Inventory updated: Product {ProductId} at Warehouse {WarehouseId} reduced by {Quantity}", 
+                    batch.ProductId, request.WarehouseId, batch.Quantity);
+            }
+        }
+
+        return new OutboundStockMovementResponseDto
+        {
+            StockMovementId = stockMovement.Id,
+            MovementNumber = stockMovement.MovementNumber,
+            TotalBatchesProcessed = expiredBatches.Count,
+            TotalQuantityOutbound = totalQuantity,
+            MovementDate = stockMovement.MovementDate,
+            Message = $"Outbound created for {expiredBatches.Count} expired batches with total quantity {totalQuantity}",
+            ProcessedBatches = processedBatches
+        };
+    }
+
     private static ProductBatchDto MapToDto(ProductBatch b)
     {
         return new ProductBatchDto
