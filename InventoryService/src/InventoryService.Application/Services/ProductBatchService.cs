@@ -32,6 +32,13 @@ public class ProductBatchService : IProductBatchService
         return batch != null ? MapToDto(batch) : null;
     }
 
+    public async Task<IEnumerable<ProductBatchDto>> GetByWarehouseIdAsync(Guid warehouseId)
+    {
+        _logger.LogInformation("Retrieving product batches for warehouse {WarehouseId}", warehouseId);
+        var batches = await _repository.GetByWarehouseIdAsync(warehouseId);
+        return batches.Select(MapToDto);
+    }
+
     /// <summary>
     /// Allocate/split a product batch: create a new batch from an existing batch
     /// with the specified quantity, reduce the source batch by that amount

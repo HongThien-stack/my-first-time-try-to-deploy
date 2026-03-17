@@ -29,6 +29,24 @@ public class ProductBatchController : ControllerBase
         return Ok(batches);
     }
 
+    [HttpGet("warehouse/{warehouseId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IEnumerable<ProductBatchDto>>> GetBatchesByWarehouse([FromRoute] Guid warehouseId)
+    {
+        _logger.LogInformation("Getting product batches for warehouse {WarehouseId}", warehouseId);
+        var batches = await _productBatchService.GetByWarehouseIdAsync(warehouseId);
+        if (!batches.Any())
+            return NotFound(new { success = false, message = "No batches found for this warehouse" });
+        
+        return Ok(new
+        {
+            success = true,
+            data = batches,
+            count = batches.Count()
+        });
+    }
+
     [HttpGet("batch/{id}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

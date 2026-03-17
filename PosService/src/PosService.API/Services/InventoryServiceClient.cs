@@ -1,11 +1,10 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using PosService.Application.DTOs;
-using PosService.Application.Services;
 
 namespace PosService.API.Services;
 
-public class InventoryServiceClient : IInventoryServiceClient
+public class InventoryServiceClient
 {
     private readonly HttpClient _httpClient;
 

@@ -13,4 +13,5 @@ public interface IInventoryService
     Task<Inventory?> GetInventoryByLocationIdAndProductIdAsync(Guid deliverWarehouseId, Guid productId);
     Task<InventoryDto> UpdateInventoryAsync(Guid id, int quantity, Guid performedBy, string reason);
     Task UpdateReservedQuantityAsync(Inventory inventory);
+    Task<InventoryDto> CheckOrCreateInventoryAsync(CreateInventoryDto dto);
 }

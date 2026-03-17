@@ -26,6 +26,14 @@ public class ProductBatchRepository : IProductBatchRepository
         return await _context.ProductBatches.FindAsync(id);
     }
 
+    public async Task<IEnumerable<ProductBatch>> GetByWarehouseIdAsync(Guid warehouseId)
+    {
+        return await _context.ProductBatches
+            .Where(b => b.WarehouseId == warehouseId)
+            .OrderByDescending(b => b.ReceivedAt)
+            .ToListAsync();
+    }
+
     public async Task UpdateAsync(ProductBatch batch)
     {
         _context.ProductBatches.Update(batch);

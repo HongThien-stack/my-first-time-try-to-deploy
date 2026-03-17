@@ -6,6 +6,7 @@ public interface IProductBatchRepository
 {
     Task<IEnumerable<ProductBatch>> GetAllAsync();
     Task<ProductBatch?> GetByIdAsync(Guid id);
+    Task<IEnumerable<ProductBatch>> GetByWarehouseIdAsync(Guid warehouseId);
     Task<ProductBatch> AddAsync(ProductBatch batch);
     Task UpdateAsync(ProductBatch batch);
 }

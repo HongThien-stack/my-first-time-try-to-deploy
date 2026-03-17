@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using PosService.Application.Interfaces;
-using PosService.Application.Services;
 using PosService.Infrastructure.Repositories;
 using PosService.API.Services;
 
@@ -49,10 +48,12 @@ builder.Services.AddSwaggerGen(c =>
 
 // Register repositories and services
 builder.Services.AddScoped<ISaleRepository, SaleRepository>();
-builder.Services.AddHttpClient<PosService.Application.Services.IInventoryServiceClient, InventoryServiceClient>((provider, client) =>
+
+// Register HttpClient for InventoryServiceClient
+builder.Services.AddHttpClient<InventoryServiceClient>((provider, client) =>
 {
     // Configure the HttpClient for Inventory Service
-    var configuration = provider.GetRequiredService<IConfiguration>();
+    var configuration = builder.Configuration;
     var inventoryServiceUrl = configuration["Services:InventoryService:Url"] ?? "http://localhost:5002";
     client.BaseAddress = new Uri(inventoryServiceUrl);
 });

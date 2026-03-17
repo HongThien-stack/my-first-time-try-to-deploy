@@ -91,6 +91,42 @@ public class InventoryManagementService : IInventoryService
         await _inventoryRepository.UpdateReservedQuantityAsync(inventory);
     }
 
+    public async Task<InventoryDto> CheckOrCreateInventoryAsync(CreateInventoryDto dto)
+    {
+        _logger.LogInformation("Checking or creating inventory for product {ProductId} at location {LocationType}:{LocationId}", 
+            dto.ProductId, dto.LocationType, dto.LocationId);
+
+        // Check if inventory already exists
+        var existingInventory = await _inventoryRepository.GetInventoryByLocationIdAndProductIdAsync(dto.LocationId, dto.ProductId);
+        
+        if (existingInventory != null)
+        {
+            _logger.LogInformation("Inventory already exists for product {ProductId} at location {LocationId}", 
+                dto.ProductId, dto.LocationId);
+            return MapToDto(existingInventory);
+        }
+
+        // Create new inventory if it doesn't exist
+        var newInventory = new Inventory
+        {
+            Id = Guid.NewGuid(),
+            ProductId = dto.ProductId,
+            LocationType = dto.LocationType,
+            LocationId = dto.LocationId,
+            Quantity = dto.Quantity,
+            ReservedQuantity = 0,
+            MinStockLevel = dto.MinStockLevel ?? 10,
+            MaxStockLevel = dto.MaxStockLevel ?? 1000,
+            LastStockCheck = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        var createdInventory = await _inventoryRepository.AddAsync(newInventory);
+        _logger.LogInformation("New inventory created with ID {InventoryId}", createdInventory.Id);
+
+        return MapToDto(createdInventory);
+    }
+
     private InventoryDto MapToDto(Inventory inventory)
     {
         return new InventoryDto
