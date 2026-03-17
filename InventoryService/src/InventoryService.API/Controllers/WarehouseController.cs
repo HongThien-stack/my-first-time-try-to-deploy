@@ -104,6 +104,7 @@ public class WarehouseController : ControllerBase
                 Location = warehouseDto.Location,
                 Capacity = warehouseDto.Capacity,
                 Status = warehouseDto.Status,
+                ParentId = warehouseDto.ParentId,
                 IsDeleted = warehouseDto.IsDeleted,
                 CreatedAt = warehouseDto.CreatedAt,
                 CreatedBy = warehouseDto.CreatedBy
@@ -135,6 +136,9 @@ public class WarehouseController : ControllerBase
 
         if (request.Location != null)
             warehouse.Location = request.Location;
+
+        if (request.ParentId != null)
+            warehouse.ParentId = request.ParentId;
 
         try
         {

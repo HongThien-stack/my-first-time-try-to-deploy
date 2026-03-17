@@ -10,5 +10,6 @@ namespace InventoryService.Application.DTOs
     {
         public string? Name { get; set; }
         public string? Location { get; set; }
+        public Guid? ParentId { get; set; }
     }
 }

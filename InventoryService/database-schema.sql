@@ -27,15 +27,20 @@ BEGIN
         id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
         name NVARCHAR(255) NOT NULL,
         location NVARCHAR(500),
+        capacity INT NOT NULL DEFAULT 0,
+        status NVARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE | INACTIVE
+        parent_id UNIQUEIDENTIFIER, -- Self-reference: sub-warehouse points to parent warehouse
         is_deleted BIT NOT NULL DEFAULT 0, -- Soft delete flag
         created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         updated_at DATETIME2,
         created_by UNIQUEIDENTIFIER, -- Reference to IdentityDB.users.id
-        updated_by UNIQUEIDENTIFIER
+        updated_by UNIQUEIDENTIFIER,
+        CONSTRAINT FK_warehouses_parent FOREIGN KEY (parent_id) REFERENCES warehouses(id)
     );
     
     CREATE INDEX IX_warehouses_name ON warehouses(name);
     CREATE INDEX IX_warehouses_is_deleted ON warehouses(is_deleted);
+    CREATE INDEX IX_warehouses_parent_id ON warehouses(parent_id);
 END
 GO
 
