@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using PosService.Application.Interfaces;
+using PosService.Application.Services;
+using PosService.Infrastructure.Data;
 using PosService.Infrastructure.Repositories;
 using PosService.API.Services;
 
@@ -47,6 +50,17 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Register repositories and services
+// Register DbContexts for cross-database queries
+builder.Services.AddDbContext<ProductDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("ProductDB")));
+
+builder.Services.AddDbContext<InventoryDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("InventoryDB")));
+
+builder.Services.AddDbContext<PosReceiptDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("PosDB")));
+
+// Register repositories
 builder.Services.AddScoped<ISaleRepository, SaleRepository>();
 
 // Register HttpClient for InventoryServiceClient
@@ -83,6 +97,13 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
+builder.Services.AddScoped<IProductSearchRepository, ProductSearchRepository>();
+builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
+
+// Register services
+builder.Services.AddScoped<IProductSearchService, ProductSearchService>();
+builder.Services.AddScoped<IReceiptService, ReceiptService>();
+builder.Services.AddScoped<IPdfReceiptService, PdfReceiptService>();
 
 // Add CORS
 builder.Services.AddCors(options =>

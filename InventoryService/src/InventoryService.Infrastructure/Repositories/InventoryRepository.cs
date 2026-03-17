@@ -69,10 +69,42 @@ public class InventoryRepository : IInventoryRepository
             .ToListAsync();
     }
 
-    public async Task<Inventory?> GetInventoryByLocationIdAndProductIdAsync(Guid deliverWarehouseId, Guid productId)
+    public async Task<(IEnumerable<Inventory> Items, int TotalCount)> GetLowStockAlertsAsync(
+        string? locationType = null,
+        Guid? locationId = null,
+        int pageNumber = 1,
+        int pageSize = 20)
     {
-         return await _context.Inventories
-            .FirstOrDefaultAsync(i => i.LocationId == deliverWarehouseId && i.ProductId == productId);
+        // Build base query: available_quantity <= min_stock_level
+        // Note: available_quantity is computed as (quantity - reserved_quantity)
+        var query = _context.Inventories
+            .Where(i => i.MinStockLevel.HasValue 
+                && (i.Quantity - i.ReservedQuantity) <= i.MinStockLevel.Value);
+
+        // Apply filters
+        if (!string.IsNullOrEmpty(locationType))
+        {
+            query = query.Where(i => i.LocationType == locationType);
+        }
+
+        if (locationId.HasValue)
+        {
+            query = query.Where(i => i.LocationId == locationId.Value);
+        }
+
+        // Get total count before pagination
+        var totalCount = await query.CountAsync();
+
+        // Apply sorting: lowest stock first (critical items at top)
+        // Sort by computed available quantity (quantity - reserved_quantity)
+        var items = await query
+            .OrderBy(i => i.Quantity - i.ReservedQuantity)
+            .ThenBy(i => i.ProductId)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
     }
 
     public async Task<Inventory> AddAsync(Inventory inventory)
