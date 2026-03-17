@@ -8,7 +8,7 @@ namespace InventoryService.API.Controllers;
 
 [ApiController]
 [Route("api/restock-requests")]
-[Authorize]
+[Authorize(Roles = "Admin,Manager,Warehouse Manager,Warehouse Admin")]
 public class RestockRequestsController : ControllerBase
 {
     private readonly IRestockRequestService _restockRequestService;
