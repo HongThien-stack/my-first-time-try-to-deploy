@@ -8,13 +8,16 @@ namespace InventoryService.Application.Services;
 public class InventoryManagementService : IInventoryService
 {
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly IProductServiceClient _productServiceClient;
     private readonly ILogger<InventoryManagementService> _logger;
 
     public InventoryManagementService(
         IInventoryRepository inventoryRepository,
+        IProductServiceClient productServiceClient,
         ILogger<InventoryManagementService> logger)
     {
         _inventoryRepository = inventoryRepository;
+        _productServiceClient = productServiceClient;
         _logger = logger;
     }
 
@@ -63,9 +66,61 @@ public class InventoryManagementService : IInventoryService
         return inventories.Select(MapToDto);
     }
 
-    public async Task<Inventory?> GetInventoryByLocationIdAndProductIdAsync(Guid deliverWarehouseId, Guid productId)
+    public async Task<LowStockAlertResponse> GetLowStockAlertsAsync(
+        string? locationType = null,
+        Guid? locationId = null,
+        int pageNumber = 1,
+        int pageSize = 20)
     {
-        return await _inventoryRepository.GetInventoryByLocationIdAndProductIdAsync(deliverWarehouseId, productId);
+        _logger.LogInformation(
+            "Getting low stock alerts with filters - LocationType: {LocationType}, LocationId: {LocationId}, Page: {PageNumber}, PageSize: {PageSize}",
+            locationType, locationId, pageNumber, pageSize);
+
+        // Get paginated low stock inventory items
+        var (inventories, totalCount) = await _inventoryRepository.GetLowStockAlertsAsync(
+            locationType, locationId, pageNumber, pageSize);
+
+        var inventoryList = inventories.ToList();
+
+        // Fetch product details in batch
+        var productIds = inventoryList.Select(i => i.ProductId).Distinct().ToList();
+        var productInfoMap = await _productServiceClient.GetProductsByIdsAsync(productIds);
+
+        // Map to DTOs with enriched product information
+        var alertItems = inventoryList.Select(inv =>
+        {
+            var productInfo = productInfoMap.GetValueOrDefault(inv.ProductId);
+            // Calculate available quantity (since AvailableQuantity is a computed column not mapped by EF)
+            var availableQty = inv.Quantity - inv.ReservedQuantity;
+
+            return new LowStockAlertDto
+            {
+                ProductId = inv.ProductId,
+                ProductName = productInfo?.Name ?? "Unknown Product",
+                Sku = $"SKU-{inv.ProductId.ToString().Substring(0, 8).ToUpper()}", // Generate SKU if not available
+                Unit = productInfo?.Unit ?? "unit",
+                LocationType = inv.LocationType,
+                LocationId = inv.LocationId,
+                AvailableQuantity = availableQty,
+                MinStockLevel = inv.MinStockLevel ?? 0,
+                MaxStockLevel = inv.MaxStockLevel ?? 0,
+                StockStatus = availableQty == 0 ? "OUT_OF_STOCK" : "LOW",
+                LastStockCheck = inv.LastStockCheck,
+                UpdatedAt = inv.UpdatedAt
+            };
+        }).ToList();
+
+        // Calculate total pages
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+        return new LowStockAlertResponse
+        {
+            Items = alertItems,
+            TotalItems = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalPages = totalPages
+        };
     }
 
     public async Task<InventoryDto> UpdateInventoryAsync(Guid id, int quantity, Guid performedBy, string reason)
@@ -97,7 +152,7 @@ public class InventoryManagementService : IInventoryService
             dto.ProductId, dto.LocationType, dto.LocationId);
 
         // Check if inventory already exists
-        var existingInventory = await _inventoryRepository.GetInventoryByLocationIdAndProductIdAsync(dto.LocationId, dto.ProductId);
+        var existingInventory = await _inventoryRepository.GetByLocationAndProductAsync(dto.LocationType, dto.LocationId, dto.ProductId);
         
         if (existingInventory != null)
         {

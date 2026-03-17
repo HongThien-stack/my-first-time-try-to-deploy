@@ -51,8 +51,26 @@ namespace InventoryService.API.Controllers
         [HttpPost("transfer")]
         public async Task<ActionResult<TransferDto>> CreateTransfer([FromBody] CreateTransferDto createTransferDto)
         {
-            var result = await _transferService.CreateTransferAsync(createTransferDto);
-            return Ok(result);
+            try
+            {
+                var result = await _transferService.CreateTransferAsync(createTransferDto);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Create transfer failed: {Message}", ex.Message);
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating transfer");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "An error occurred while creating transfer",
+                    error = ex.Message
+                });
+            }
         }
 
         [HttpPut("transfer/{id}/status")]
@@ -71,7 +89,10 @@ namespace InventoryService.API.Controllers
         [HttpDelete("transfer/{id}")]
         public async Task<ActionResult> DeleteTransfer([FromRoute] Guid id)
         {
-            await _transferService.DeleteTransferAsync(id);
+            var deleted = await _transferService.DeleteTransferAsync(id);
+            if (!deleted)
+                return NotFound("No transfer is found with this id.");
+
             return Ok("Transfer deleted successfully.");
         }
 

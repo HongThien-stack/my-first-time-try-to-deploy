@@ -9,7 +9,7 @@ Internal Supply Chain Management System với E-wallet Payments
 - **Primary (90%):** Internal Supply Chain Management (Warehouse-to-Store Distribution)
 - **Secondary (10%):** Point of Sale với Modern Payment Methods
 
-### **Phạm Vi:**
+### **Phạm V:**
 - ✅ Quản lý kho hàng (warehouses)
 - ✅ Quản lý tồn kho (inventory tracking)
 - ✅ Chuyển hàng (warehouse → stores)
