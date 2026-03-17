@@ -164,8 +164,17 @@ public class TransferService : ITransferService
         var transfer = await _transferRepository.GetByIdAsync(transferId)
             ?? throw new KeyNotFoundException($"Transfer {transferId} not found");
 
-        if (transfer.Status == "COMPLETED" || transfer.Status == "CANCELLED")
-            throw new InvalidOperationException($"Transfer is already {transfer.Status} and cannot be received");
+        //if (transfer.Status == "COMPLETED" || transfer.Status == "CANCELLED")
+        //    throw new InvalidOperationException($"Transfer is already {transfer.Status} and cannot be received");
+
+        if (transfer.RestockRequestId.HasValue)
+        {
+            var restockRequest = await _restockRequestRepository.GetByIdAsync(transfer.RestockRequestId.Value);
+            if (restockRequest != null && restockRequest.Status != "PROCESSING")
+            {
+                throw new InvalidOperationException($"Cannot receive transfer because associated Restock Request {restockRequest.Id} is not in PROCESSING status (current: {restockRequest.Status}).");
+            }
+        }
 
         //2. Update transfer item
         var itemLookup = dto.Items.ToDictionary(i => i.TransferItemId);
