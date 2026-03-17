@@ -33,6 +33,7 @@ public class WarehouseService : IWarehouseService
                 Location = w.Location,
                 Capacity = w.Capacity,
                 Status = w.Status,
+                ParentId = w.ParentId,
                 IsDeleted = w.IsDeleted,
                 CreatedAt = w.CreatedAt,
                 CreatedBy = w.CreatedBy
@@ -57,6 +58,7 @@ public class WarehouseService : IWarehouseService
             Location = warehouse.Location,
             Capacity = warehouse.Capacity,
             Status = warehouse.Status,
+            ParentId = warehouse.ParentId,
             IsDeleted = warehouse.IsDeleted,
             CreatedAt = warehouse.CreatedAt,
             CreatedBy = warehouse.CreatedBy
