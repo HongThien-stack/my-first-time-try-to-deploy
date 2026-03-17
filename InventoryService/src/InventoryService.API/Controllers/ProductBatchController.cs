@@ -138,4 +138,54 @@ public class ProductBatchController : ControllerBase
             return StatusCode(500, new { success = false, message = "An internal error occurred." });
         }
     }
+
+    /// <summary>
+    /// Create outbound stock movement for all expired batches at a warehouse
+    /// Only Admin, Manager, Warehouse Manager, and Warehouse Admin can process expired batches
+    /// </summary>
+    [HttpPost("expired-batches/create-outbound")]
+    [Authorize(Roles = "Admin,Manager,Warehouse Manager,Warehouse Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateOutboundFromExpiredBatches([FromBody] CreateOutboundFromExpiredBatchesDto request)
+    {
+        try
+        {
+            _logger.LogInformation("Creating outbound stock movement for expired batches at warehouse {WarehouseId}", request.WarehouseId);
+
+            // Validate input
+            if (request.WarehouseId == Guid.Empty)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "WarehouseId must be a valid non-empty GUID"
+                });
+            }
+
+            var result = await _productBatchService.CreateOutboundFromExpiredBatchesAsync(request);
+            return Ok(new
+            {
+                success = true,
+                message = "Outbound stock movement created for expired batches",
+                data = result
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Cannot create outbound movement: {Message}", ex.Message);
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating outbound for expired batches at warehouse {WarehouseId}", request.WarehouseId);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while creating outbound stock movement",
+                error = ex.Message
+            });
+        }
+    }
 }

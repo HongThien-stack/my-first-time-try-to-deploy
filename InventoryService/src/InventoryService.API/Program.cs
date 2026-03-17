@@ -102,6 +102,9 @@ builder.Services.AddScoped<IDamageReportService, DamageReportService>();
 builder.Services.AddScoped<IInventoryCheckService, InventoryCheckService>();
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
+// Register Background Services
+builder.Services.AddHostedService<ExpiredBatchUpdateService>();
+
 // HTTP client for inter-service calls
 builder.Services.AddHttpClient<IProductServiceClient, ProductServiceClient>(client =>
 {
