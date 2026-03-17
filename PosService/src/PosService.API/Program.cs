@@ -4,14 +4,31 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PosService.Application.Interfaces;
 using PosService.Application.Services;
-using PosService.Infrastructure.Data;
 using PosService.Infrastructure.Repositories;
-using PosService.API.Services;
+using PosService.Application.Interfaces.Http;
+using PosService.Infrastructure.HttpClients;
+using PosService.Infrastructure.Data;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add services to the container.
+builder.Services.AddHttpContextAccessor();
+
+// Add EF Core DbContext
+var connectionString = builder.Configuration.GetConnectionString("PosDbConnection");
+builder.Services.AddDbContext<PosDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+// Register repositories
+builder.Services.AddScoped<ISaleRepository, SaleRepository>();
+
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -47,30 +64,38 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+
+    // Enable XML comments for Swagger (optional but recommended)
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
 });
+
+// Register HttpClient for MomoPaymentService
+builder.Services.AddHttpClient<IMomoPaymentService, MomoPaymentService>();
+
+// Register typed HttpClients for external services
+builder.Services.AddHttpClient<IProductServiceClient, ProductServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:ProductService:Url"] ?? "http://localhost:5001");
+});
+
+builder.Services.AddHttpClient<IPromotionServiceClient, PromotionServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:PromotionService:Url"] ?? "http://localhost:5007");
+});
+
+builder.Services.AddHttpClient<IInventoryServiceClient, InventoryServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:InventoryService:Url"] ?? "http://localhost:5002");
+});
+
 
 // Register repositories and services
-// Register DbContexts for cross-database queries
-builder.Services.AddDbContext<ProductDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("ProductDB")));
-
-builder.Services.AddDbContext<InventoryDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("InventoryDB")));
-
-builder.Services.AddDbContext<PosReceiptDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("PosDB")));
-
-// Register repositories
 builder.Services.AddScoped<ISaleRepository, SaleRepository>();
-
-// Register HttpClient for InventoryServiceClient
-builder.Services.AddHttpClient<InventoryServiceClient>((provider, client) =>
-{
-    // Configure the HttpClient for Inventory Service
-    var configuration = builder.Configuration;
-    var inventoryServiceUrl = configuration["Services:InventoryService:Url"] ?? "http://localhost:5002";
-    client.BaseAddress = new Uri(inventoryServiceUrl);
-});
 
 // Add JWT Authentication
 var jwtSecret = builder.Configuration["JwtSettings:Secret"];

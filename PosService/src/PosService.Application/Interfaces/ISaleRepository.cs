@@ -13,5 +13,9 @@ public interface ISaleRepository
         string? status = null,
         DateTime? dateFrom = null,
         DateTime? dateTo = null);
+    
+    Task<Sale?> GetByIdAsync(Guid id);
+    Task<Sale> CreateAsync(Sale sale);
+    Task<Sale> UpdateAsync(Sale sale);
 }
 

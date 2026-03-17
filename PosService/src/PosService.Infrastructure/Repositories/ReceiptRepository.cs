@@ -9,10 +9,10 @@ namespace PosService.Infrastructure.Repositories;
 
 public class ReceiptRepository : IReceiptRepository
 {
-    private readonly PosReceiptDbContext _posDbContext;
+    private readonly PosDbContext _posDbContext;
     private readonly ILogger<ReceiptRepository> _logger;
 
-    public ReceiptRepository(PosReceiptDbContext posDbContext, ILogger<ReceiptRepository> logger)
+    public ReceiptRepository(PosDbContext posDbContext, ILogger<ReceiptRepository> logger)
     {
         _posDbContext = posDbContext;
         _logger = logger;

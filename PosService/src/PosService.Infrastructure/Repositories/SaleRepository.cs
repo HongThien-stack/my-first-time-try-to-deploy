@@ -1,247 +1,61 @@
 using PosService.Domain.Entities;
 using PosService.Application.Interfaces;
+using Microsoft.Extensions.Logging;
+using PosService.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace PosService.Infrastructure.Repositories;
 
 public class SaleRepository : ISaleRepository
 {
-    private readonly List<Sale> _sales;
-    private readonly List<(Guid ProductId, string ProductName, string Sku, string Barcode, decimal UnitPrice)> _mockProducts;
-    private int _saleCounter = 11; // Starting from SALE-2024-011
+    private readonly PosDbContext _context;
+    private readonly ILogger<SaleRepository> _logger;
 
-    public SaleRepository()
+    public SaleRepository(PosDbContext context, ILogger<SaleRepository> logger)
     {
-        // Mock product database (simulating ProductDB)
-        _mockProducts = new List<(Guid, string, string, string, decimal)>
-        {
-            (Guid.Parse("F0000001-0001-0001-0001-000000000001"), "Rau Muống", "RAU-001", "8934560001234", 20000m),
-            (Guid.Parse("F0000001-0001-0001-0001-000000000003"), "Cam Sành", "TC-001", "8934560002234", 35000m),
-            (Guid.Parse("F0000001-0001-0001-0001-000000000004"), "Táo Envy", "TC-002", "8934560002241", 150000m),
-            (Guid.Parse("F0000001-0001-0001-0001-000000000005"), "Sữa Tươi Vinamilk 100%", "SUA-001", "8934560003234", 38000m),
-            (Guid.Parse("F0000001-0001-0001-0001-000000000006"), "Sữa TH True Milk", "SUA-002", "8934560003241", 42000m),
-            (Guid.Parse("F0000001-0001-0001-0001-000000000007"), "Gạo ST25", "GAO-001", "8934560004234", 180000m),
-            (Guid.Parse("F0000001-0001-0001-0001-000000000008"), "Gạo Jasmine", "GAO-002", "8934560004241", 140000m),
-        };
-
-        // Sample data for testing
-        var store1 = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        var store2 = Guid.Parse("22222222-2222-2222-2222-222222222222");
-        var cashier1 = Guid.Parse("33333333-3333-3333-3333-333333333333");
-        var cashier2 = Guid.Parse("44444444-4444-4444-4444-444444444444");
-        var customer1 = Guid.Parse("55555555-5555-5555-5555-555555555555");
-
-        _sales = new List<Sale>
-        {
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-001",
-                StoreId = store1,
-                CashierId = cashier1,
-                CustomerId = customer1,
-                SaleDate = DateTime.UtcNow.AddDays(-5),
-                Subtotal = 100.00m,
-                TaxAmount = 10.00m,
-                DiscountAmount = 5.00m,
-                TotalAmount = 105.00m,
-                PaymentMethod = "CASH",
-                PaymentStatus = "COMPLETED",
-                Status = "COMPLETED",
-                PointsUsed = 0,
-                PointsEarned = 10,
-                CreatedAt = DateTime.UtcNow.AddDays(-5),
-                SaleItems = new List<SaleItem>()
-            },
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-002",
-                StoreId = store1,
-                CashierId = cashier1,
-                CustomerId = null,
-                SaleDate = DateTime.UtcNow.AddDays(-4),
-                Subtotal = 250.00m,
-                TaxAmount = 25.00m,
-                DiscountAmount = 0.00m,
-                TotalAmount = 275.00m,
-                PaymentMethod = "CARD",
-                PaymentStatus = "COMPLETED",
-                Status = "COMPLETED",
-                PointsUsed = 0,
-                PointsEarned = 27,
-                CreatedAt = DateTime.UtcNow.AddDays(-4),
-                SaleItems = new List<SaleItem>()
-            },
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-003",
-                StoreId = store2,
-                CashierId = cashier2,
-                CustomerId = customer1,
-                SaleDate = DateTime.UtcNow.AddDays(-3),
-                Subtotal = 450.00m,
-                TaxAmount = 45.00m,
-                DiscountAmount = 50.00m,
-                TotalAmount = 445.00m,
-                PaymentMethod = "VNPAY",
-                PaymentStatus = "COMPLETED",
-                Status = "COMPLETED",
-                PromotionId = Guid.NewGuid(),
-                VoucherCode = "DISCOUNT50",
-                PointsUsed = 100,
-                PointsEarned = 44,
-                CreatedAt = DateTime.UtcNow.AddDays(-3),
-                SaleItems = new List<SaleItem>()
-            },
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-004",
-                StoreId = store1,
-                CashierId = cashier2,
-                CustomerId = null,
-                SaleDate = DateTime.UtcNow.AddDays(-2),
-                Subtotal = 75.00m,
-                TaxAmount = 7.50m,
-                DiscountAmount = 0.00m,
-                TotalAmount = 82.50m,
-                PaymentMethod = "MOMO",
-                PaymentStatus = "COMPLETED",
-                Status = "COMPLETED",
-                PointsUsed = 0,
-                PointsEarned = 8,
-                CreatedAt = DateTime.UtcNow.AddDays(-2),
-                SaleItems = new List<SaleItem>()
-            },
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-005",
-                StoreId = store2,
-                CashierId = cashier1,
-                CustomerId = customer1,
-                SaleDate = DateTime.UtcNow.AddDays(-1),
-                Subtotal = 300.00m,
-                TaxAmount = 30.00m,
-                DiscountAmount = 15.00m,
-                TotalAmount = 315.00m,
-                PaymentMethod = "CASH",
-                PaymentStatus = "COMPLETED",
-                Status = "COMPLETED",
-                PointsUsed = 50,
-                PointsEarned = 31,
-                CreatedAt = DateTime.UtcNow.AddDays(-1),
-                SaleItems = new List<SaleItem>()
-            },
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-006",
-                StoreId = store1,
-                CashierId = cashier1,
-                CustomerId = null,
-                SaleDate = DateTime.UtcNow,
-                Subtotal = 150.00m,
-                TaxAmount = 15.00m,
-                DiscountAmount = 0.00m,
-                TotalAmount = 165.00m,
-                PaymentMethod = "CARD",
-                PaymentStatus = "PENDING",
-                Status = "PENDING",
-                PointsUsed = 0,
-                PointsEarned = 0,
-                CreatedAt = DateTime.UtcNow,
-                SaleItems = new List<SaleItem>()
-            },
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-007",
-                StoreId = store2,
-                CashierId = cashier2,
-                CustomerId = customer1,
-                SaleDate = DateTime.UtcNow.AddHours(-6),
-                Subtotal = 500.00m,
-                TaxAmount = 50.00m,
-                DiscountAmount = 100.00m,
-                TotalAmount = 450.00m,
-                PaymentMethod = "VNPAY",
-                PaymentStatus = "COMPLETED",
-                Status = "COMPLETED",
-                PromotionId = Guid.NewGuid(),
-                VoucherCode = "SAVE100",
-                PointsUsed = 0,
-                PointsEarned = 45,
-                CreatedAt = DateTime.UtcNow.AddHours(-6),
-                SaleItems = new List<SaleItem>()
-            },
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-008",
-                StoreId = store1,
-                CashierId = cashier1,
-                CustomerId = null,
-                SaleDate = DateTime.UtcNow.AddHours(-2),
-                Subtotal = 80.00m,
-                TaxAmount = 8.00m,
-                DiscountAmount = 0.00m,
-                TotalAmount = 88.00m,
-                PaymentMethod = "CASH",
-                PaymentStatus = "COMPLETED",
-                Status = "COMPLETED",
-                PointsUsed = 0,
-                PointsEarned = 8,
-                CreatedAt = DateTime.UtcNow.AddHours(-2),
-                SaleItems = new List<SaleItem>()
-            },
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-009",
-                StoreId = store2,
-                CashierId = cashier2,
-                CustomerId = customer1,
-                SaleDate = DateTime.UtcNow.AddDays(-7),
-                Subtotal = 1200.00m,
-                TaxAmount = 120.00m,
-                DiscountAmount = 200.00m,
-                TotalAmount = 1120.00m,
-                PaymentMethod = "CARD",
-                PaymentStatus = "COMPLETED",
-                Status = "COMPLETED",
-                PromotionId = Guid.NewGuid(),
-                VoucherCode = "BIG200",
-                PointsUsed = 500,
-                PointsEarned = 112,
-                CreatedAt = DateTime.UtcNow.AddDays(-7),
-                SaleItems = new List<SaleItem>()
-            },
-            new Sale
-            {
-                Id = Guid.NewGuid(),
-                SaleNumber = "SALE-2024-010",
-                StoreId = store1,
-                CashierId = cashier2,
-                CustomerId = null,
-                SaleDate = DateTime.UtcNow.AddDays(-10),
-                Subtotal = 35.00m,
-                TaxAmount = 3.50m,
-                DiscountAmount = 0.00m,
-                TotalAmount = 38.50m,
-                PaymentMethod = "MOMO",
-                PaymentStatus = "COMPLETED",
-                Status = "COMPLETED",
-                PointsUsed = 0,
-                PointsEarned = 3,
-                CreatedAt = DateTime.UtcNow.AddDays(-10),
-                SaleItems = new List<SaleItem>()
-            }
-        };
+        _context = context;
+        _logger = logger;
     }
 
-    public Task<(IEnumerable<Sale> Items, int TotalCount)> GetAllAsync(
+    public async Task<Sale> CreateAsync(Sale sale)
+    {
+        if (sale.Id == Guid.Empty)
+        {
+            sale.Id = Guid.NewGuid();
+        }
+        if (sale.CreatedAt == default)
+        {
+            sale.CreatedAt = DateTime.UtcNow;
+        }
+        
+        if (string.IsNullOrEmpty(sale.SaleNumber))
+        {
+            sale.SaleNumber = await GenerateNextSaleNumberAsync();
+        }
+
+        await _context.Sales.AddAsync(sale);
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Created and saved new sale with ID {SaleId} and Number {SaleNumber} to the database.", sale.Id, sale.SaleNumber);
+        return sale;
+    }
+
+    public async Task<Sale?> GetByIdAsync(Guid id)
+    {
+        _logger.LogInformation("Fetching sale by ID from database: {SaleId}", id);
+        var sale = await _context.Sales
+            .Include(s => s.SaleItems)
+            .Include(s => s.Payments)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == id);
+        
+        if (sale == null)
+        {
+            _logger.LogWarning("Sale with ID {SaleId} not found in database.", id);
+        }
+        return sale;
+    }
+
+    public async Task<(IEnumerable<Sale> Items, int TotalCount)> GetAllAsync(
         int page = 1,
         int pageSize = 10,
         Guid? storeId = null,
@@ -251,37 +65,47 @@ public class SaleRepository : ISaleRepository
         DateTime? dateFrom = null,
         DateTime? dateTo = null)
     {
-        var query = _sales.AsQueryable();
+        var query = _context.Sales
+            .Include(s => s.SaleItems)
+            .Include(s => s.Payments)
+            .AsNoTracking();
 
-        // Apply filters
         if (storeId.HasValue)
             query = query.Where(s => s.StoreId == storeId.Value);
-
         if (cashierId.HasValue)
             query = query.Where(s => s.CashierId == cashierId.Value);
-
-        if (!string.IsNullOrWhiteSpace(paymentMethod))
-            query = query.Where(s => s.PaymentMethod.Equals(paymentMethod, StringComparison.OrdinalIgnoreCase));
-
-        if (!string.IsNullOrWhiteSpace(status))
-            query = query.Where(s => s.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
-
+        if (!string.IsNullOrEmpty(paymentMethod))
+            query = query.Where(s => s.PaymentMethod == paymentMethod);
+        if (!string.IsNullOrEmpty(status))
+            query = query.Where(s => s.Status == status);
         if (dateFrom.HasValue)
             query = query.Where(s => s.SaleDate >= dateFrom.Value);
-
         if (dateTo.HasValue)
             query = query.Where(s => s.SaleDate <= dateTo.Value);
 
-        // Get total count before pagination
-        var totalCount = query.Count();
+        var totalCount = await query.CountAsync();
 
-        // Apply pagination and order by date descending
-        var items = query
-            .OrderByDescending(s => s.SaleDate)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
+        var items = await query.OrderByDescending(s => s.SaleDate)
+                               .Skip((page - 1) * pageSize)
+                               .Take(pageSize)
+                               .ToListAsync();
 
-        return Task.FromResult((items.AsEnumerable(), totalCount));
+        return (items, totalCount);
+    }
+
+    public async Task<Sale> UpdateAsync(Sale sale)
+    {
+        sale.UpdatedAt = DateTime.UtcNow;
+        _context.Sales.Update(sale);
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Updated sale with ID {SaleId} in the database.", sale.Id);
+        return sale;
+    }
+    
+    private async Task<string> GenerateNextSaleNumberAsync()
+    {
+        var today = DateTime.UtcNow.ToString("yyyyMMdd");
+        var count = await _context.Sales.CountAsync(s => s.SaleNumber.StartsWith($"SALE-{today}-"));
+        return $"SALE-{today}-{count + 1:D4}";
     }
 }

@@ -280,4 +280,33 @@ public class ProductController : ControllerBase
             });
         }
     }
+
+    [HttpPost("details-batch")]
+    public async Task<IActionResult> GetProductDetailsBatch([FromBody] ProductDetailsBatchRequestDto request)
+    {
+        if (request == null || !request.ProductIds.Any())
+        {
+            return BadRequest(new { success = false, message = "Product IDs cannot be empty." });
+        }
+
+        try
+        {
+            var products = await _productService.GetProductDetailsBatchAsync(request.ProductIds);
+            return Ok(new
+            {
+                success = true,
+                message = "Products retrieved successfully",
+                data = products
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving product details for batch.");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while retrieving product details."
+            });
+        }
+    }
 }
