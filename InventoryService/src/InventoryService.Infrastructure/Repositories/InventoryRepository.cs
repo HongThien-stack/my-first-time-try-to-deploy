@@ -122,6 +122,12 @@ public class InventoryRepository : IInventoryRepository
         await _context.SaveChangesAsync();
     }
 
+    public async Task UpdateReservedQuantityAsync(Inventory inventory)
+    {
+        _context.Inventories.Update(inventory);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task DeleteAsync(Guid id)
     {
         var inventory = await _context.Inventories.FindAsync(id);

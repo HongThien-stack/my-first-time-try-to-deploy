@@ -7,9 +7,12 @@ public interface ITransferService
 {
     Task<IEnumerable<TransferDto>> GetAllTransfersAsync();
     Task<TransferDto?> GetTransferByIdAsync(Guid id);
+    Task<Transfer?> GetByTransferIdWithoutTransferItemAsync(Guid transferId);
     Task<TransferDto?> GetTransferByNumberAsync(string transferNumber);
     Task<IEnumerable<TransferDto>> GetTransfersByStatusAsync(string status);
     Task<TransferDto> CreateTransferAsync(CreateTransferDto dto);
     Task UpdateTransferStatusAsync(Guid id, string status, Guid? userId = null);
     Task<bool> DeleteTransferAsync(Guid id);
+    Task<TransferDto> ReceiveTransferAsync(Guid transferId, ReceiveTransferDto dto, Guid receivedBy);
+    Task<bool> CreateOutboundStockMovementAsync(Guid transferId, Guid shippedBy);
 }

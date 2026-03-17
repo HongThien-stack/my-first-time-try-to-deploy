@@ -1,0 +1,90 @@
+using InventoryService.Application.DTOs;
+using InventoryService.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+
+namespace InventoryService.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class ProductBatchController : ControllerBase
+{
+    private readonly IProductBatchService _productBatchService;
+    private readonly ILogger<ProductBatchController> _logger;
+
+    public ProductBatchController(IProductBatchService productBatchService, ILogger<ProductBatchController> logger)
+    {
+        _productBatchService = productBatchService;
+        _logger = logger;
+    }
+
+    [HttpGet("batches")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<ProductBatchDto>>> GetAllBatches()
+    {
+        _logger.LogInformation("Getting all product batches");
+        var batches = await _productBatchService.GetAllAsync();
+        return Ok(batches);
+    }
+
+    [HttpGet("batch/{id}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductBatchDto>> GetBatchById([FromRoute] Guid id)
+    {
+        _logger.LogInformation("Getting batch {BatchId}", id);
+        var batch = await _productBatchService.GetByIdAsync(id);
+        if (batch == null)
+            return NotFound(new { success = false, message = "Batch not found" });
+        return Ok(batch);
+    }
+
+    /// <summary>
+    /// Allocate/split a product batch: create a new batch from an existing batch
+    /// with the specified quantity. The source batch quantity is reduced by the allocated amount.
+    /// </summary>
+    [HttpPost("batch/allocate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<ProductBatchDto>> AllocateBatch([FromBody] CreateAllocatedBatchDto dto)
+    {
+        try
+        {
+            _logger.LogInformation("Allocating batch: source {SourceBatchId}, qty {Qty}", dto.SourceBatchId, dto.AllocatedQuantity);
+
+            if (dto.AllocatedQuantity <= 0)
+                return BadRequest(new { success = false, message = "Allocated quantity must be greater than 0" });
+
+            var result = await _productBatchService.AllocateBatchAsync(dto);
+            return Ok(new
+            {
+                success = true,
+                message = "Batch allocated successfully",
+                data = result
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Allocate batch failed: {Message}", ex.Message);
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error allocating batch");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while allocating batch",
+                error = ex.Message
+            });
+        }
+    }
+}

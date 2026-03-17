@@ -195,14 +195,14 @@ public class RestockRequestsController : ControllerBase
     }
 
     /// <summary>
-    /// Approve a restock request. Creates a Transfer and one OUTBOUND StockMovement (status: PENDING) for the store.
+    /// Approve a restock request (sets status to APPROVED).
     /// </summary>
     [HttpPut("{id:guid}/approve")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Approve(Guid id, [FromBody] ApproveRestockRequestDto dto)
+    public async Task<IActionResult> Approve(Guid id)
     {
         try
         {
@@ -211,11 +211,11 @@ public class RestockRequestsController : ControllerBase
             if (userIdClaim == null || !Guid.TryParse(userIdClaim, out var approvedBy))
                 return Unauthorized(new { success = false, message = "Invalid or missing user identity in token" });
 
-            var result = await _restockRequestService.ApproveRequestAsync(id, approvedBy, dto);
+            var result = await _restockRequestService.ApproveRequestAsync(id, approvedBy);
             return Ok(new
             {
                 success = true,
-                message = "Restock request approved. Transfer created and OUTBOUND stock movement (PENDING) recorded for store.",
+                message = "Restock request approved successfully",
                 data = result
             });
         }

@@ -190,6 +190,7 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.Notes).HasColumnName("notes");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETUTCDATE()");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(e => e.RestockRequestId).HasColumnName("restock_request_id");
 
             entity.HasIndex(e => e.TransferNumber).IsUnique().HasDatabaseName("IX_transfers_transfer_number");
             entity.HasIndex(e => new { e.FromLocationType, e.FromLocationId }).HasDatabaseName("IX_transfers_from_location");

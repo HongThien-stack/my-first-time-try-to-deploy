@@ -11,6 +11,9 @@ public interface IStockMovementRepository
     Task<IEnumerable<StockMovement>> GetByMovementTypeAsync(string movementType);
     Task<int> CountByDateAsync(DateTime date);
     Task<StockMovement> AddAsync(StockMovement movement);
+    Task AddNewStockMovementAsync(StockMovement stockMovement);
+    Task AddNewStockMovementItemAsync(StockMovementItem stockMovementItem);
+    Task<int> CountStockMovementAsync();
     Task UpdateAsync(StockMovement movement);
     Task DeleteAsync(Guid id);
 }

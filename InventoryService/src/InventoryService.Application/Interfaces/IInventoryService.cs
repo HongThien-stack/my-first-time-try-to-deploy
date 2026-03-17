@@ -1,4 +1,5 @@
 using InventoryService.Application.DTOs;
+using InventoryService.Domain.Entities;
 
 namespace InventoryService.Application.Interfaces;
 
@@ -15,4 +16,5 @@ public interface IInventoryService
         int pageNumber = 1,
         int pageSize = 20);
     Task<InventoryDto> UpdateInventoryAsync(Guid id, int quantity, Guid performedBy, string reason);
+    Task UpdateReservedQuantityAsync(Inventory inventory);
 }

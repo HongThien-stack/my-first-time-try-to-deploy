@@ -17,5 +17,6 @@ public interface IInventoryRepository
         int pageSize = 20);
     Task<Inventory> AddAsync(Inventory inventory);
     Task UpdateAsync(Inventory inventory);
+    Task UpdateReservedQuantityAsync(Inventory inventory);
     Task DeleteAsync(Guid id);
 }

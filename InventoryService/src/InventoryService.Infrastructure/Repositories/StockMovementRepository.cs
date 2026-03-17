@@ -68,6 +68,23 @@ public class StockMovementRepository : IStockMovementRepository
         return movement;
     }
 
+    public async Task AddNewStockMovementAsync(StockMovement stockMovement)
+    {
+        _context.StockMovements.Add(stockMovement);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task AddNewStockMovementItemAsync(StockMovementItem stockMovementItem)
+    {
+        _context.StockMovementItems.Add(stockMovementItem);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<int> CountStockMovementAsync()
+    {
+        return await _context.StockMovements.CountAsync();
+    }
+
     public async Task UpdateAsync(StockMovement movement)
     {
         _context.StockMovements.Update(movement);

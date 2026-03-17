@@ -141,6 +141,11 @@ public class InventoryManagementService : IInventoryService
         return MapToDto(inventory);
     }
 
+    public async Task UpdateReservedQuantityAsync(Inventory inventory)
+    {
+        await _inventoryRepository.UpdateReservedQuantityAsync(inventory);
+    }
+
     private InventoryDto MapToDto(Inventory inventory)
     {
         return new InventoryDto
