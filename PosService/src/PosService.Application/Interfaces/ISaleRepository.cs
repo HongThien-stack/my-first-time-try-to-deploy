@@ -14,3 +14,4 @@ public interface ISaleRepository
         DateTime? dateFrom = null,
         DateTime? dateTo = null);
 }
+

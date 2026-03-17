@@ -1,3 +1,4 @@
+using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -148,6 +149,61 @@ public class InventoryController : ControllerBase
             {
                 success = false,
                 message = "An error occurred while retrieving inventories",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Check if inventory exists for a product at a location. If not, create a new one.
+    /// </summary>
+    /// <param name="dto">Inventory creation details</param>
+    /// <returns>Existing or newly created inventory</returns>
+    [HttpPost("check-or-create")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> CheckOrCreateInventory([FromBody] CreateInventoryDto dto)
+    {
+        try
+        {
+            // Validate input
+            if (dto == null || dto.ProductId == Guid.Empty || dto.LocationId == Guid.Empty)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Product ID and Location ID are required",
+                    errors = new
+                    {
+                        productId = dto?.ProductId == Guid.Empty ? "Product ID is required" : null,
+                        locationId = dto?.LocationId == Guid.Empty ? "Location ID is required" : null
+                    }
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(dto.LocationType))
+                dto.LocationType = "WAREHOUSE";
+
+            _logger.LogInformation("Checking or creating inventory for product {ProductId} at {LocationType}:{LocationId}", 
+                dto.ProductId, dto.LocationType, dto.LocationId);
+
+            var inventory = await _inventoryService.CheckOrCreateInventoryAsync(dto);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Inventory checked/created successfully",
+                data = inventory
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking or creating inventory");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while checking or creating inventory",
                 error = ex.Message
             });
         }

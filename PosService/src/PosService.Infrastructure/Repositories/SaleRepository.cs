@@ -6,9 +6,23 @@ namespace PosService.Infrastructure.Repositories;
 public class SaleRepository : ISaleRepository
 {
     private readonly List<Sale> _sales;
+    private readonly List<(Guid ProductId, string ProductName, string Sku, string Barcode, decimal UnitPrice)> _mockProducts;
+    private int _saleCounter = 11; // Starting from SALE-2024-011
 
     public SaleRepository()
     {
+        // Mock product database (simulating ProductDB)
+        _mockProducts = new List<(Guid, string, string, string, decimal)>
+        {
+            (Guid.Parse("F0000001-0001-0001-0001-000000000001"), "Rau Muống", "RAU-001", "8934560001234", 20000m),
+            (Guid.Parse("F0000001-0001-0001-0001-000000000003"), "Cam Sành", "TC-001", "8934560002234", 35000m),
+            (Guid.Parse("F0000001-0001-0001-0001-000000000004"), "Táo Envy", "TC-002", "8934560002241", 150000m),
+            (Guid.Parse("F0000001-0001-0001-0001-000000000005"), "Sữa Tươi Vinamilk 100%", "SUA-001", "8934560003234", 38000m),
+            (Guid.Parse("F0000001-0001-0001-0001-000000000006"), "Sữa TH True Milk", "SUA-002", "8934560003241", 42000m),
+            (Guid.Parse("F0000001-0001-0001-0001-000000000007"), "Gạo ST25", "GAO-001", "8934560004234", 180000m),
+            (Guid.Parse("F0000001-0001-0001-0001-000000000008"), "Gạo Jasmine", "GAO-002", "8934560004241", 140000m),
+        };
+
         // Sample data for testing
         var store1 = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var store2 = Guid.Parse("22222222-2222-2222-2222-222222222222");
