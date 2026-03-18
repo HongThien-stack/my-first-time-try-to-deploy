@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PromotionService.Application.DTOs;
 using PromotionService.Application.Interfaces;
+using PromotionService.Application.Mappings;
 using PromotionService.Domain.Entities;
 using System.Text.Json;
 
@@ -9,10 +10,101 @@ namespace PromotionService.Application.Services
     public class PromotionEngineService : IPromotionEngineService
     {
         private readonly IPromotionDbContext _context;
+        private readonly IPromotionRepository _promotionRepository;
 
-        public PromotionEngineService(IPromotionDbContext context)
+        public PromotionEngineService(IPromotionDbContext context, IPromotionRepository promotionRepository)
         {
             _context = context;
+            _promotionRepository = promotionRepository;
+        }
+
+        public async Task<IReadOnlyList<PromotionListItemDto>> GetPromotionsAsync(GetPromotionsQueryDto query, CancellationToken cancellationToken = default)
+        {
+            query ??= new GetPromotionsQueryDto();
+
+            var promotions = await _promotionRepository.GetPromotionsAsync(query.PromotionType, cancellationToken);
+
+            if (query.IsActive.HasValue)
+            {
+                var now = DateTime.UtcNow;
+                promotions = query.IsActive.Value
+                    ? promotions.Where(p => p.IsActive && p.StartDate <= now && p.EndDate >= now).ToList()
+                    : promotions.Where(p => !p.IsActive || now < p.StartDate || now > p.EndDate).ToList();
+            }
+
+            return promotions.Select(p => p.ToPromotionListItemDto()).ToList();
+        }
+
+        public async Task<PromotionResponseDto> CreatePromotionAsync(CreatePromotionRequestDto request, CancellationToken cancellationToken = default)
+        {
+            ValidateCreateRequest(request);
+
+            var normalizedPromotionCode = request.PromotionCode.Trim().ToUpperInvariant();
+            var isCodeExists = await _promotionRepository.PromotionCodeExistsAsync(normalizedPromotionCode, cancellationToken);
+            if (isCodeExists)
+            {
+                throw new ArgumentException($"Promotion code '{request.PromotionCode}' already exists.");
+            }
+
+            var promotion = request.ToPromotionEntity();
+            promotion.PromotionCode = normalizedPromotionCode;
+
+            var rules = (request.Rules ?? new List<CreatePromotionRuleRequestDto>()).ToPromotionRuleEntities();
+            var createdPromotion = await _promotionRepository.CreatePromotionWithRulesAsync(
+                promotion,
+                rules,
+                cancellationToken);
+
+            return createdPromotion.ToPromotionResponseDto();
+        }
+
+        public async Task<PromotionResponseDto> UpdatePromotionAsync(Guid id, UpdatePromotionRequestDto request, CancellationToken cancellationToken = default)
+        {
+            ValidateUpdateRequest(request);
+
+            var existingPromotion = await _promotionRepository.GetByIdWithRulesAsync(id, cancellationToken);
+            if (existingPromotion == null || existingPromotion.IsDeleted)
+            {
+                throw new KeyNotFoundException($"Promotion '{id}' was not found.");
+            }
+
+            var normalizedPromotionCode = request.PromotionCode.Trim().ToUpperInvariant();
+            var isDuplicateCode = await _promotionRepository.PromotionCodeExistsExceptIdAsync(normalizedPromotionCode, id, cancellationToken);
+            if (isDuplicateCode)
+            {
+                throw new ArgumentException($"Promotion code '{request.PromotionCode}' already exists.");
+            }
+
+            existingPromotion.ApplyUpdate(request);
+            var rules = (request.Rules ?? new List<UpdatePromotionRuleRequestDto>()).ToPromotionRuleEntities();
+
+            var updatedPromotion = await _promotionRepository.UpdatePromotionWithRulesAsync(
+                existingPromotion,
+                rules,
+                cancellationToken);
+
+            return updatedPromotion.ToPromotionResponseDto();
+        }
+
+        public async Task<DeletePromotionResponseDto> DeletePromotionAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            var existingPromotion = await _promotionRepository.GetByIdWithRulesAsync(id, cancellationToken);
+            if (existingPromotion == null)
+            {
+                throw new KeyNotFoundException($"Promotion '{id}' was not found.");
+            }
+
+            if (existingPromotion.IsDeleted)
+            {
+                throw new ArgumentException($"Promotion '{id}' is already deleted.");
+            }
+
+            existingPromotion.IsDeleted = true;
+            existingPromotion.IsActive = false;
+            existingPromotion.UpdatedAt = DateTime.UtcNow;
+
+            var deletedPromotion = await _promotionRepository.SoftDeleteAsync(existingPromotion, cancellationToken);
+            return deletedPromotion.ToDeletePromotionResponseDto();
         }
 
         public async Task<CalculationResultDto> CalculateDiscountsAsync(CartDto cart)
@@ -105,6 +197,202 @@ namespace PromotionService.Application.Services
             }
 
             return applicablePromotions;
+        }
+
+        private static void ValidateCreateRequest(CreatePromotionRequestDto request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentException("Request body is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PromotionCode))
+            {
+                throw new ArgumentException("PromotionCode is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                throw new ArgumentException("Name is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PromotionType))
+            {
+                throw new ArgumentException("PromotionType is required.");
+            }
+
+            if (request.StartDate >= request.EndDate)
+            {
+                throw new ArgumentException("StartDate must be earlier than EndDate.");
+            }
+
+            if (request.UsageLimit.HasValue && request.UsageLimit.Value <= 0)
+            {
+                throw new ArgumentException("UsageLimit must be greater than 0 when provided.");
+            }
+
+            if (request.UsageLimitPerCustomer <= 0)
+            {
+                throw new ArgumentException("UsageLimitPerCustomer must be greater than 0.");
+            }
+
+            if (request.MinPurchaseAmount.HasValue && request.MinPurchaseAmount.Value < 0)
+            {
+                throw new ArgumentException("MinPurchaseAmount cannot be negative.");
+            }
+
+            if (request.MaxDiscountAmount.HasValue && request.MaxDiscountAmount.Value < 0)
+            {
+                throw new ArgumentException("MaxDiscountAmount cannot be negative.");
+            }
+
+            if (request.Rules != null && request.Rules.Any(r => string.IsNullOrWhiteSpace(r.RuleType)))
+            {
+                throw new ArgumentException("Each rule must have RuleType.");
+            }
+
+            ValidatePromotionTypeFields(request);
+        }
+
+        private static void ValidatePromotionTypeFields(CreatePromotionRequestDto request)
+        {
+            var promotionType = request.PromotionType.Trim().ToUpperInvariant();
+
+            switch (promotionType)
+            {
+                case "PERCENTAGE":
+                    if (!request.DiscountPercentage.HasValue || request.DiscountPercentage <= 0 || request.DiscountPercentage > 100)
+                    {
+                        throw new ArgumentException("DiscountPercentage must be in range (0, 100] for PERCENTAGE promotions.");
+                    }
+
+                    if (request.DiscountAmount.HasValue)
+                    {
+                        throw new ArgumentException("DiscountAmount must be null for PERCENTAGE promotions.");
+                    }
+                    break;
+
+                case "FIXED":
+                    if (!request.DiscountAmount.HasValue || request.DiscountAmount <= 0)
+                    {
+                        throw new ArgumentException("DiscountAmount must be greater than 0 for FIXED promotions.");
+                    }
+
+                    if (request.DiscountPercentage.HasValue)
+                    {
+                        throw new ArgumentException("DiscountPercentage must be null for FIXED promotions.");
+                    }
+                    break;
+
+                case "BUY_X_GET_Y":
+                case "FREE_SHIPPING":
+                    if (request.DiscountPercentage.HasValue || request.DiscountAmount.HasValue)
+                    {
+                        throw new ArgumentException("DiscountPercentage and DiscountAmount must be null for BUY_X_GET_Y or FREE_SHIPPING promotions.");
+                    }
+                    break;
+
+                default:
+                    throw new ArgumentException("PromotionType is invalid. Supported values: PERCENTAGE, FIXED, BUY_X_GET_Y, FREE_SHIPPING.");
+            }
+        }
+
+        private static void ValidateUpdateRequest(UpdatePromotionRequestDto request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentException("Request body is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PromotionCode))
+            {
+                throw new ArgumentException("PromotionCode is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                throw new ArgumentException("Name is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PromotionType))
+            {
+                throw new ArgumentException("PromotionType is required.");
+            }
+
+            if (request.StartDate >= request.EndDate)
+            {
+                throw new ArgumentException("StartDate must be earlier than EndDate.");
+            }
+
+            if (request.UsageLimit.HasValue && request.UsageLimit.Value <= 0)
+            {
+                throw new ArgumentException("UsageLimit must be greater than 0 when provided.");
+            }
+
+            if (request.UsageLimitPerCustomer <= 0)
+            {
+                throw new ArgumentException("UsageLimitPerCustomer must be greater than 0.");
+            }
+
+            if (request.MinPurchaseAmount.HasValue && request.MinPurchaseAmount.Value < 0)
+            {
+                throw new ArgumentException("MinPurchaseAmount cannot be negative.");
+            }
+
+            if (request.MaxDiscountAmount.HasValue && request.MaxDiscountAmount.Value < 0)
+            {
+                throw new ArgumentException("MaxDiscountAmount cannot be negative.");
+            }
+
+            if (request.Rules != null && request.Rules.Any(r => string.IsNullOrWhiteSpace(r.RuleType)))
+            {
+                throw new ArgumentException("Each rule must have RuleType.");
+            }
+
+            ValidatePromotionTypeFields(request.PromotionType, request.DiscountPercentage, request.DiscountAmount);
+        }
+
+        private static void ValidatePromotionTypeFields(string promotionTypeInput, decimal? discountPercentage, decimal? discountAmount)
+        {
+            var promotionType = promotionTypeInput.Trim().ToUpperInvariant();
+
+            switch (promotionType)
+            {
+                case "PERCENTAGE":
+                    if (!discountPercentage.HasValue || discountPercentage <= 0 || discountPercentage > 100)
+                    {
+                        throw new ArgumentException("DiscountPercentage must be in range (0, 100] for PERCENTAGE promotions.");
+                    }
+
+                    if (discountAmount.HasValue)
+                    {
+                        throw new ArgumentException("DiscountAmount must be null for PERCENTAGE promotions.");
+                    }
+                    break;
+
+                case "FIXED":
+                    if (!discountAmount.HasValue || discountAmount <= 0)
+                    {
+                        throw new ArgumentException("DiscountAmount must be greater than 0 for FIXED promotions.");
+                    }
+
+                    if (discountPercentage.HasValue)
+                    {
+                        throw new ArgumentException("DiscountPercentage must be null for FIXED promotions.");
+                    }
+                    break;
+
+                case "BUY_X_GET_Y":
+                case "FREE_SHIPPING":
+                    if (discountPercentage.HasValue || discountAmount.HasValue)
+                    {
+                        throw new ArgumentException("DiscountPercentage and DiscountAmount must be null for BUY_X_GET_Y or FREE_SHIPPING promotions.");
+                    }
+                    break;
+
+                default:
+                    throw new ArgumentException("PromotionType is invalid. Supported values: PERCENTAGE, FIXED, BUY_X_GET_Y, FREE_SHIPPING.");
+            }
         }
 
         private class CategoryRuleCondition

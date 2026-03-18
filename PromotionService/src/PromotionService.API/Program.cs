@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using PromotionService.Application.Interfaces;
 using PromotionService.Application.Services;
 using PromotionService.Infrastructure.Persistence;
+using PromotionService.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,7 @@ builder.Services.AddScoped<IPromotionDbContext>(provider => provider.GetRequired
 
 // 2. Add Application Services
 builder.Services.AddScoped<IPromotionEngineService, PromotionEngineService>();
+builder.Services.AddScoped<IPromotionRepository, PromotionRepository>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
