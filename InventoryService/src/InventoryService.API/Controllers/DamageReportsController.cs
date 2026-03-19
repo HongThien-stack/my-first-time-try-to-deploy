@@ -7,7 +7,7 @@ namespace InventoryService.API.Controllers;
 
 [ApiController]
 [Route("api/damage-reports")]
-[Authorize(Roles = "Admin,Manager,Warehouse Manager,Store Staff,Warehouse Staff")]
+[Authorize(Roles = "Admin,Warehouse Manager,Warehouse Admin,Warehouse Staff")]
 public class DamageReportsController : ControllerBase
 {
     private readonly IDamageReportService _damageReportService;
@@ -23,7 +23,7 @@ public class DamageReportsController : ControllerBase
 
     /// <summary>
     /// GET /api/damage-reports - Get all damage reports
-    /// Roles: Admin, Manager, Warehouse Manager, Store Staff, Warehouse Staff
+    /// Roles: Admin, Warehouse Manager, Warehouse Admin, Warehouse Staff
     /// </summary>
     /// <returns>List of all damage reports</returns>
     [HttpGet("Get-All-Damage-Reports")]
@@ -56,7 +56,7 @@ public class DamageReportsController : ControllerBase
 
     /// <summary>
     /// GET /api/damage-reports/{id} - Get damage report by ID
-    /// Roles: Admin, Manager, Warehouse Manager, Store Staff, Warehouse Staff
+    /// Roles: Admin, Warehouse Manager, Warehouse Admin, Warehouse Staff
     /// </summary>
     /// <param name="id">Damage report ID</param>
     /// <returns>Damage report details</returns>
@@ -101,7 +101,7 @@ public class DamageReportsController : ControllerBase
 
     /// <summary>
     /// POST /api/damage-reports - Create new damage report with photo upload
-    /// Roles: Admin, Manager, Warehouse Manager, Store Staff, Warehouse Staff
+    /// Roles: Admin, Warehouse Manager, Warehouse Admin, Warehouse Staff
     /// </summary>
     /// <param name="request">Damage report creation data with photo files</param>
     /// <returns>Created damage report</returns>
@@ -161,13 +161,13 @@ public class DamageReportsController : ControllerBase
 
     /// <summary>
     /// PUT /api/damage-reports/{id}/approve - Approve damage report
-    /// Roles: Admin, Manager, Warehouse Manager
+    /// Roles: Admin, Warehouse Manager, Warehouse Admin
     /// </summary>
     /// <param name="id">Damage report ID</param>
     /// <param name="request">Approval details</param>
     /// <returns>Updated damage report</returns>
     [HttpPut("{id}/approve")]
-    [Authorize(Roles = "Admin,Manager,Warehouse Manager")]
+    [Authorize(Roles = "Admin,Warehouse Manager,Warehouse Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
