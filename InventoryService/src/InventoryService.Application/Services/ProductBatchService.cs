@@ -46,7 +46,13 @@ public class ProductBatchService : IProductBatchService
     {
         _logger.LogInformation("Retrieving product batches for warehouse {WarehouseId}", warehouseId);
         var batches = await _repository.GetByWarehouseIdAsync(warehouseId);
-        return batches.Select(MapToDto);
+        
+        // Sort by expiry date: products about to expire first (ascending), then products with long shelf life
+        var sortedBatches = batches
+            .OrderBy(b => b.ExpiryDate == null ? DateTime.MaxValue : b.ExpiryDate) // Null expiry dates go to bottom
+            .Select(MapToDto);
+        
+        return sortedBatches;
     }
 
     /// <summary>
