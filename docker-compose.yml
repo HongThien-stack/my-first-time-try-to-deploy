@@ -38,11 +38,56 @@ services:
       Cors__AllowedOrigins__1: "${CORS_ORIGIN_2:-http://localhost:4200}"
       Cors__AllowedOrigins__2: "${CORS_ORIGIN_3:-http://localhost:5173}"
     ports:
-      - "8080:8080"
+      - "5000:8080"
     networks:
       - identity-network
+    restart: unless-stopped
+
+  product-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: product-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "${PRODUCT_DB_PASSWORD:-YourStrong!Passw0rd}"
+    networks:
+      - product-network
+    restart: unless-stopped
+    volumes:
+      - product-sql-data:/var/opt/mssql
+
+  product-api:
+    build:
+      context: ./ProductService
+      dockerfile: Dockerfile
+    container_name: product-api
+    depends_on:
+      - product-db
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Server=product-db,1433;Database=${PRODUCT_DB_NAME:-ProductDB};User Id=sa;Password=${PRODUCT_DB_PASSWORD:-YourStrong!Passw0rd};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=true"
+      JwtSettings__SecretKey: "${PRODUCT_JWT_SECRET_KEY:-YourSuperSecretKeyThatIsAtLeast32CharactersLongForHS256Algorithm}"
+      JwtSettings__Issuer: "${PRODUCT_JWT_ISSUER:-IdentityService}"
+      JwtSettings__Audience: "${PRODUCT_JWT_AUDIENCE:-IdentityServiceClient}"
+      JwtSettings__ExpiryInMinutes: "${PRODUCT_JWT_EXPIRY_MINUTES:-60}"
+      CloudinarySettings__CloudName: "${PRODUCT_CLOUDINARY_CLOUD_NAME:-dwuir1s4w}"
+      CloudinarySettings__ApiKey: "${PRODUCT_CLOUDINARY_API_KEY:-change-me}"
+      CloudinarySettings__ApiSecret: "${PRODUCT_CLOUDINARY_API_SECRET:-change-me}"
+      Cors__AllowedOrigins__0: "${PRODUCT_CORS_ORIGIN_1:-http://localhost:3000}"
+      Cors__AllowedOrigins__1: "${PRODUCT_CORS_ORIGIN_2:-http://localhost:4200}"
+      Cors__AllowedOrigins__2: "${PRODUCT_CORS_ORIGIN_3:-http://localhost:5173}"
+    ports:
+      - "5001:8080"
+    networks:
+      - product-network
     restart: unless-stopped
 
 networks:
   identity-network:
     driver: bridge
+  product-network:
+    driver: bridge
+
+volumes:
+  product-sql-data:
