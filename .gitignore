@@ -41,9 +41,28 @@ Thumbs.db
 *.db
 *.sqlite
 
-# Secrets
+# Secrets and Environment
+.env
+.env.local
+.env.*.local
 appsettings.Development.json
 appsettings.Local.json
+appsettings.*.json
+!appsettings.Docker.json
 *.secrets.json
+token.txt
+secrets/
+credentials/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Logs and Output
+logs/
+*.log
+docker-logs/
+
+# IDE
 /IdentityService/README.md
 /.gitignore

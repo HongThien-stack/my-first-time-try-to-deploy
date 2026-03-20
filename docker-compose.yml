@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # Identity Service API - connects to local Windows SQL Server
+  identity-api:
+    build:
+      context: ./IdentityService
+      dockerfile: Dockerfile
+    container_name: identity-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__IdentityDB: "Server=host.docker.internal,1433;Database=IdentityDB;User Id=sa;Password=12345;TrustServerCertificate=True;"
+      Jwt__SecretKey: "${JWT_SECRET_KEY:-YourSuperSecretKeyThatIsAtLeast32CharactersLongForHS256Algorithm}"
+      Jwt__Issuer: "${JWT_ISSUER:-IdentityService}"
+      Jwt__Audience: "${JWT_AUDIENCE:-IdentityServiceClient}"
+      Jwt__ExpiryMinutes: "${JWT_EXPIRY_MINUTES:-60}"
+      Jwt__RefreshTokenExpiryDays: "${JWT_REFRESH_TOKEN_EXPIRY_DAYS:-7}"
+      EmailSettings__FromEmail: "${EMAIL_FROM:-noreply@bachhoxanh.com}"
+      EmailSettings__FromName: "${EMAIL_FROM_NAME:-Bach Hoa Xanh}"
+      EmailSettings__SmtpHost: "${SMTP_HOST:-smtp.gmail.com}"
+      EmailSettings__SmtpPort: "${SMTP_PORT:-587}"
+      EmailSettings__SmtpUser: "${SMTP_USER:-your-email@gmail.com}"
+      EmailSettings__SmtpPassword: "${SMTP_PASSWORD:-your-app-password}"
+      Cors__AllowedOrigins__0: "${CORS_ORIGIN_1:-http://localhost:3000}"
+      Cors__AllowedOrigins__1: "${CORS_ORIGIN_2:-http://localhost:4200}"
+      Cors__AllowedOrigins__2: "${CORS_ORIGIN_3:-http://localhost:5173}"
+    ports:
+      - "8080:8080"
+    networks:
+      - identity-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  identity-network:
+    driver: bridge
