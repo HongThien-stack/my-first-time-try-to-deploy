@@ -22,7 +22,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__IdentityDB: "Server=identity-db,1433;Database=IdentityDB;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=False"
+      ConnectionStrings__IdentityDB: "Server=identity-db,1433;Database=IdentityDB;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=True"
       Jwt__SecretKey: "${JWT_SECRET_KEY:-YourSuperSecretKeyThatIsAtLeast32CharactersLongForHS256Algorithm}"
       Jwt__Issuer: "${JWT_ISSUER:-IdentityService}"
       Jwt__Audience: "${JWT_AUDIENCE:-IdentityServiceClient}"
