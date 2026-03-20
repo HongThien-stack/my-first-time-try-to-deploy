@@ -1,16 +1,28 @@
-version: '3.8'
-
 services:
-  # Identity Service API - connects to local Windows SQL Server
+  identity-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: identity-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
+    ports:
+      - "14333:1433"
+    networks:
+      - identity-network
+    restart: unless-stopped
+
   identity-api:
     build:
       context: ./IdentityService
       dockerfile: Dockerfile
     container_name: identity-api
+    depends_on:
+      - identity-db
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__IdentityDB: "Server=host.docker.internal,1433;Database=IdentityDB;User Id=sa;Password=12345;TrustServerCertificate=True;"
+      ConnectionStrings__IdentityDB: "Server=identity-db,1433;Database=IdentityDB;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=False"
       Jwt__SecretKey: "${JWT_SECRET_KEY:-YourSuperSecretKeyThatIsAtLeast32CharactersLongForHS256Algorithm}"
       Jwt__Issuer: "${JWT_ISSUER:-IdentityService}"
       Jwt__Audience: "${JWT_AUDIENCE:-IdentityServiceClient}"
@@ -30,12 +42,6 @@ services:
     networks:
       - identity-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
 networks:
   identity-network:
