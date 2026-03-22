@@ -8,6 +8,32 @@ namespace IdentityService.API.Controllers;
 [Route("api/[controller]")]
 public class UtilityController : ControllerBase
 {
+    private static readonly HashSet<string> SampleUserEmails = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "admin@company.com",
+        "admin2@company.com",
+        "whadmin1@company.com",
+        "whadmin2@company.com",
+        "whmanager1@company.com",
+        "whmanager2@company.com",
+        "whmanager3@company.com",
+        "whstaff1@company.com",
+        "whstaff2@company.com",
+        "whstaff3@company.com",
+        "manager1@company.com",
+        "manager2@company.com",
+        "storestaff1@company.com",
+        "storestaff2@company.com",
+        "storestaff3@company.com",
+        "storestaff4@company.com",
+        "customer1@gmail.com",
+        "customer2@gmail.com",
+        "customer3@gmail.com",
+        "customer4@gmail.com",
+        "inactive@company.com",
+        "suspended@company.com"
+    };
+
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<UtilityController> _logger;
@@ -23,7 +49,7 @@ public class UtilityController : ControllerBase
     }
 
     /// <summary>
-    /// Update all user passwords with new hash (for migration from old hash format)
+    /// Update sample user passwords only (for migration from old hash format)
     /// </summary>
     [HttpPost("update-passwords")]
     public async Task<IActionResult> UpdateAllPasswords()
@@ -32,22 +58,31 @@ public class UtilityController : ControllerBase
         {
             var users = await _userRepository.GetAllAsync();
             int updatedCount = 0;
+            int skippedCount = 0;
 
             foreach (var user in users)
             {
+                if (!SampleUserEmails.Contains(user.Email))
+                {
+                    skippedCount++;
+                    continue;
+                }
+
                 // Re-hash with new format using password "Password123!"
                 user.PasswordHash = _passwordHasher.HashPassword("Password123!");
                 await _userRepository.UpdateAsync(user);
                 updatedCount++;
             }
 
-            _logger.LogInformation("Updated passwords for {Count} users", updatedCount);
+            _logger.LogInformation("Updated passwords for {UpdatedCount} sample users, skipped {SkippedCount} non-sample users",
+                updatedCount, skippedCount);
 
             return Ok(new
             {
                 success = true,
-                message = $"Successfully updated passwords for {updatedCount} users",
-                count = updatedCount
+                message = $"Successfully updated passwords for {updatedCount} sample users",
+                updatedCount,
+                skippedCount
             });
         }
         catch (Exception ex)

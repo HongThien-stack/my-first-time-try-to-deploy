@@ -5,6 +5,7 @@ namespace InventoryService.Application.Interfaces;
 public interface IWarehouseRepository
 {
     Task<IEnumerable<Warehouse>> GetAllAsync();
+    Task<List<Warehouse>> GetAllWarehouseByParentIdAsync(Guid parentId);
     Task<Warehouse?> GetByIdAsync(Guid id);
     Task AddWarehouseAsync(Warehouse warehouse);
     Task UpdateWarehouseAsync(Warehouse warehouse);

@@ -6,6 +6,7 @@ namespace InventoryService.Application.Interfaces;
 public interface IWarehouseService
 {
     Task<IEnumerable<WarehouseDto>> GetAllWarehousesAsync();
+    Task<List<Warehouse>> GetAllWarehouseByParentIdAsync(Guid parentId);
     Task<WarehouseDto?> GetWarehouseByIdAsync(Guid id);
     Task<Warehouse?> GetWarehouseAsync(Guid id);
     Task AddWarehouseAsync(Warehouse warehouse);

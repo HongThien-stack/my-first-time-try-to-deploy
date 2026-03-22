@@ -109,7 +109,7 @@ public class InventoryDbContext : DbContext
             entity.HasIndex(e => e.WarehouseId).HasDatabaseName("IX_batches_warehouse_id");
             entity.HasIndex(e => e.ExpiryDate).HasDatabaseName("IX_batches_expiry_date");
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_batches_status");
-            entity.HasIndex(e => e.BatchNumber).IsUnique().HasDatabaseName("UQ_batch_number");
+            entity.HasIndex(e => e.BatchNumber).HasDatabaseName("IX_batches_batch_number");
         });
 
         // =====================================================
@@ -302,10 +302,11 @@ public class InventoryDbContext : DbContext
             entity.Property(e => e.ReportNumber).HasColumnName("report_number").IsRequired().HasMaxLength(50);
             entity.Property(e => e.LocationType).HasColumnName("location_type").IsRequired().HasMaxLength(50);
             entity.Property(e => e.LocationId).HasColumnName("location_id");
+            entity.Property(e => e.ProductId).HasColumnName("product_id");
             entity.Property(e => e.DamageType).HasColumnName("damage_type").IsRequired().HasMaxLength(50);
             entity.Property(e => e.ReportedBy).HasColumnName("reported_by");
             entity.Property(e => e.ReportedDate).HasColumnName("reported_date").HasDefaultValueSql("GETUTCDATE()");
-            entity.Property(e => e.TotalValue).HasColumnName("total_value").HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Quality).HasColumnName("quality");
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.Photos).HasColumnName("photos");
             entity.Property(e => e.Status).HasColumnName("status").IsRequired().HasMaxLength(50).HasDefaultValue("PENDING");
@@ -315,6 +316,7 @@ public class InventoryDbContext : DbContext
 
             entity.HasIndex(e => e.ReportNumber).IsUnique().HasDatabaseName("IX_damage_report_number");
             entity.HasIndex(e => new { e.LocationType, e.LocationId }).HasDatabaseName("IX_damage_location");
+            entity.HasIndex(e => e.ProductId).HasDatabaseName("IX_damage_product_id");
             entity.HasIndex(e => e.DamageType).HasDatabaseName("IX_damage_type");
             entity.HasIndex(e => e.Status).HasDatabaseName("IX_damage_status");
         });

@@ -115,7 +115,7 @@ builder.Services.AddScoped<IUserAuditLogRepository, UserAuditLogRepository>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
+if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
@@ -125,59 +125,8 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
     });
 }
 
-// Apply Migrations and create database if it doesn't exist
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-    int maxRetries = 5;
-    int delay = 3000; // 3 seconds
-    
-    for (int i = 0; i < maxRetries; i++)
-    {
-        try
-        {
-            app.Logger.LogInformation("Checking database migrations... (Attempt {Attempt}/{MaxRetries})", i + 1, maxRetries);
-            dbContext.Database.Migrate();
-            app.Logger.LogInformation("Database migrations applied successfully");
-            break;
-        }
-        catch (Exception ex) when (i < maxRetries - 1)
-        {
-            app.Logger.LogWarning(ex, "Failed to apply migrations, retrying in {DelayMs}ms... ({Attempt}/{MaxRetries})", delay, i + 1, maxRetries);
-            System.Threading.Thread.Sleep(delay);
-        }
-        catch (Exception ex)
-        {
-            app.Logger.LogWarning(ex, "Could not apply migrations after {MaxRetries} attempts. Database may need manual setup.", maxRetries);
-            // Don't throw - allow app to start and manually run migrations later
-            break;
-        }
-    }
-}
 
-// Add Health Check Endpoint
-app.MapGet("/health", (IdentityDbContext dbContext) =>
-{
-    try
-    {
-        var canConnect = dbContext.Database.CanConnect();
-        if (canConnect)
-        {
-            return Results.Ok(new { status = "Healthy", database = "Connected" });
-        }
-        else
-        {
-            return Results.StatusCode(503);
-        }
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "Health check failed");
-        return Results.StatusCode(503);
-    }
-})
-.WithName("HealthCheck")
-.AllowAnonymous();
+
 
 app.UseCors("AllowAll");
 
@@ -190,7 +139,6 @@ app.MapControllers();
 app.Logger.LogInformation("========================================");
 app.Logger.LogInformation("Identity Service Started Successfully");
 app.Logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
-app.Logger.LogInformation("Database: Identity Service");
 app.Logger.LogInformation("========================================");
 
 app.Run();

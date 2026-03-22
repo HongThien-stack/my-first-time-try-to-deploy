@@ -82,7 +82,8 @@ public class UserContext
     public Guid UserId { get; set; }
     public string Role { get; set; } = string.Empty; // STAFF | MANAGER
     
-    public bool IsManager => Role.Equals("Manager", StringComparison.OrdinalIgnoreCase) 
+    public bool IsManager => Role.Equals("Manager", StringComparison.OrdinalIgnoreCase)
+        || Role.Equals("Store Manager", StringComparison.OrdinalIgnoreCase)
         || Role.Equals("Warehouse Manager", StringComparison.OrdinalIgnoreCase)
         || Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
     

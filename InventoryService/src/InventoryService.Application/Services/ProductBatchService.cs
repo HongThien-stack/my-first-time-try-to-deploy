@@ -76,7 +76,7 @@ public class ProductBatchService : IProductBatchService
             Id = Guid.NewGuid(),
             ProductId = sourceBatch.ProductId,
             WarehouseId = dto.TargetWarehouseId ?? sourceBatch.WarehouseId,
-            BatchNumber = $"{sourceBatch.BatchNumber}-ALLOC-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            BatchNumber = sourceBatch.BatchNumber,
             Quantity = dto.AllocatedQuantity,
             ManufacturingDate = sourceBatch.ManufacturingDate,
             ExpiryDate = sourceBatch.ExpiryDate,

@@ -2,12 +2,13 @@ using InventoryService.Application.Interfaces;
 using InventoryService.Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace InventoryService.API.Controllers;
 
 [ApiController]
 [Route("api/damage-reports")]
-[Authorize(Roles = "Admin,Warehouse Manager,Warehouse Admin,Warehouse Staff")]
+[Authorize(Roles = "Admin,Warehouse Manager,Warehouse Admin,Warehouse Staff,Store Manager,Store Staff")]
 public class DamageReportsController : ControllerBase
 {
     private readonly IDamageReportService _damageReportService;
@@ -19,6 +20,19 @@ public class DamageReportsController : ControllerBase
     {
         _damageReportService = damageReportService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Get current user ID from JWT token claims
+    /// </summary>
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst("sub") ?? User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            throw new UnauthorizedAccessException("Unable to extract user ID from token");
+        }
+        return userId;
     }
 
     /// <summary>
@@ -61,6 +75,7 @@ public class DamageReportsController : ControllerBase
     /// <param name="id">Damage report ID</param>
     /// <returns>Damage report details</returns>
     [HttpGet("Get-Damage-Report-By-Id")]
+    [Authorize(Roles = "Admin,Warehouse Manager,Store Manager,Warehouse Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -101,7 +116,7 @@ public class DamageReportsController : ControllerBase
 
     /// <summary>
     /// POST /api/damage-reports - Create new damage report with photo upload
-    /// Roles: Admin, Warehouse Manager, Warehouse Admin, Warehouse Staff
+    /// ReportedBy is automatically set from current user
     /// </summary>
     /// <param name="request">Damage report creation data with photo files</param>
     /// <returns>Created damage report</returns>
@@ -125,7 +140,8 @@ public class DamageReportsController : ControllerBase
                 });
             }
 
-            var damageReport = await _damageReportService.CreateDamageReportAsync(request);
+            var currentUserId = GetCurrentUserId();
+            var damageReport = await _damageReportService.CreateDamageReportAsync(request, currentUserId);
 
             return CreatedAtAction(
                 nameof(GetDamageReportById),
@@ -161,33 +177,24 @@ public class DamageReportsController : ControllerBase
 
     /// <summary>
     /// PUT /api/damage-reports/{id}/approve - Approve damage report
-    /// Roles: Admin, Warehouse Manager, Warehouse Admin
+    /// ApprovedBy is automatically set from current user
+    /// Requires role: Admin, Warehouse Manager, Store Manager, or Warehouse Admin
     /// </summary>
     /// <param name="id">Damage report ID</param>
-    /// <param name="request">Approval details</param>
     /// <returns>Updated damage report</returns>
     [HttpPut("{id}/approve")]
-    [Authorize(Roles = "Admin,Warehouse Manager,Warehouse Admin")]
+    [Authorize(Roles = "Admin,Warehouse Manager,Store Manager,Warehouse Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> ApproveDamageReport(Guid id, [FromBody] ApproveDamageReportRequest request)
+    public async Task<IActionResult> ApproveDamageReport(Guid id)
     {
         try
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    message = "Invalid request data",
-                    errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage))
-                });
-            }
-
-            var damageReport = await _damageReportService.ApproveDamageReportAsync(id, request);
+            var currentUserId = GetCurrentUserId();
+            var damageReport = await _damageReportService.ApproveDamageReportAsync(id, currentUserId);
 
             return Ok(new
             {

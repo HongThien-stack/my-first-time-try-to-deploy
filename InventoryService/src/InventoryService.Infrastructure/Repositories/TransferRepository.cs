@@ -20,6 +20,20 @@ public class TransferRepository : ITransferRepository
             .ToListAsync();
     }
 
+    public async Task<List<Transfer>> GetAllTransfersByFromLocationIdAsync(Guid fromLocationId)
+    {
+        return await _context.Transfers
+            .Where(t => t.FromLocationId == fromLocationId)
+            .ToListAsync();
+    }
+
+    public async Task<List<TransferItem>> GetAllTransferItemsByTransferIdAsync(Guid transferId)
+    {
+        return await _context.TransferItems
+            .Where(ti => ti.TransferId == transferId)
+            .ToListAsync();
+    }
+
     public async Task<Transfer?> GetByIdAsync(Guid id)
     {
         return await _context.Transfers

@@ -50,6 +50,15 @@ public class WarehouseController : ControllerBase
         }
     }
 
+    [HttpGet("warehouses/{parentId}")]
+    public async Task<ActionResult<List<Warehouse>>> GetAllWarehousesByParentId([FromRoute] Guid parentId)
+    {
+        var warehouses = await _warehouseService.GetAllWarehouseByParentIdAsync(parentId);
+        if (warehouses == null || warehouses.Count == 0)
+            return NotFound("No warehouse is found with this parent id");
+        return Ok(warehouses);
+    }
+
     /// <summary>
     /// Get warehouse by ID
     /// </summary>

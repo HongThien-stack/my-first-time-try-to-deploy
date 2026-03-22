@@ -8,10 +8,11 @@ public class DamageReportDto
     public string? ReportNumber { get; set; }
     public string LocationType { get; set; } = string.Empty; // WAREHOUSE | STORE
     public Guid LocationId { get; set; }
+    public Guid ProductId { get; set; }
     public string DamageType { get; set; } = string.Empty; // EXPIRED | PHYSICAL_DAMAGE | QUALITY_ISSUE | THEFT | OTHER
     public Guid ReportedBy { get; set; }
     public DateTime ReportedDate { get; set; }
-    public decimal? TotalValue { get; set; }
+    public int? Quality { get; set; } // Quality rating or condition (0-100 scale)
     public string? Description { get; set; }
     public List<string>? Photos { get; set; } // List of URLs (output only)
     public string? Status { get; set; } // PENDING | APPROVED | REJECTED
@@ -24,17 +25,18 @@ public class CreateDamageReportRequest
 {
     public string LocationType { get; set; } = string.Empty; // WAREHOUSE | STORE
     public Guid LocationId { get; set; }
+    public Guid ProductId { get; set; }
     public string DamageType { get; set; } = string.Empty; // EXPIRED | PHYSICAL_DAMAGE | QUALITY_ISSUE | THEFT | OTHER
-    public Guid ReportedBy { get; set; }
     public DateTime ReportedDate { get; set; }
-    public decimal? TotalValue { get; set; }
+    public int? Quality { get; set; } // Quality rating or condition (0-100 scale)
     public string? Description { get; set; }
     public List<IFormFile>? Photos { get; set; } // Upload photos
+    // ReportedBy will be automatically set from current user JWT token
 }
 
 public class ApproveDamageReportRequest
 {
-    public Guid ApprovedBy { get; set; }
+    // ApprovedBy will be automatically set from current user JWT token
 }
 
 public class DamageReportListDto
@@ -43,10 +45,11 @@ public class DamageReportListDto
     public string ReportNumber { get; set; } = string.Empty;
     public string LocationType { get; set; } = string.Empty;
     public Guid LocationId { get; set; }
+    public Guid ProductId { get; set; }
     public string DamageType { get; set; } = string.Empty;
     public Guid ReportedBy { get; set; }
     public DateTime ReportedDate { get; set; }
-    public decimal? TotalValue { get; set; }
+    public int? Quality { get; set; }
     public string Status { get; set; } = "PENDING";
     public DateTime CreatedAt { get; set; }
 }

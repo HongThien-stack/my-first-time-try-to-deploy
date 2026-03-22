@@ -6,6 +6,8 @@ namespace InventoryService.Application.Interfaces;
 public interface ITransferService
 {
     Task<IEnumerable<TransferDto>> GetAllTransfersAsync();
+    Task<List<Transfer>> GetAllTransfersByFromLocationIdAsync(Guid fromLocationId);
+    Task<List<TransferItem>> GetAllTransferItemsByTransferIdAsync(Guid transferId);
     Task<TransferDto?> GetTransferByIdAsync(Guid id);
     Task<Transfer?> GetByTransferIdWithoutTransferItemAsync(Guid transferId);
     Task<TransferDto?> GetTransferByNumberAsync(string transferNumber);

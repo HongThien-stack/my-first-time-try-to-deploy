@@ -9,7 +9,7 @@ namespace InventoryService.API.Controllers;
 
 [ApiController]
 [Route("api/inventory-checks")]
-[Authorize(Roles = "Admin,Manager,Warehouse Manager,Store Staff,Warehouse Staff")]
+[Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager,Store Staff,Warehouse Staff")]
 public class InventoryChecksController : ControllerBase
 {
     private readonly IInventoryCheckService _inventoryCheckService;
@@ -108,7 +108,7 @@ public class InventoryChecksController : ControllerBase
     /// <param name="dto">Inventory check creation data</param>
     /// <returns>Created inventory check</returns>
     [HttpPost]
-    [Authorize(Roles = "Admin,Manager,Warehouse Manager,Store Staff,Warehouse Staff")]
+    [Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager,Store Staff,Warehouse Staff")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -196,7 +196,7 @@ public class InventoryChecksController : ControllerBase
     /// <param name="dto">Inventory check submission data</param>
     /// <returns>Updated inventory check</returns>
     [HttpPut("{id:guid}/submit")]
-    [Authorize(Roles = "Admin,Manager,Warehouse Manager,Store Staff")]
+    [Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager,Store Staff,Warehouse Staff")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -272,7 +272,7 @@ public class InventoryChecksController : ControllerBase
     /// <param name="id">Inventory check ID</param>
     /// <returns>List of discrepancies</returns>
     [HttpPost("{id:guid}/reconcile")]
-    [Authorize(Roles = "Admin,Manager,Warehouse Manager")]
+    [Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -339,7 +339,7 @@ public class InventoryChecksController : ControllerBase
     /// <param name="dto">Approval data</param>
     /// <returns>Approved inventory check</returns>
     [HttpPut("{id:guid}/approve")]
-    [Authorize(Roles = "Admin,Manager,Warehouse Manager")]
+    [Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -416,7 +416,7 @@ public class InventoryChecksController : ControllerBase
     /// <param name="dto">Adjustment data</param>
     /// <returns>Updated inventory check</returns>
     [HttpPut("{id:guid}/adjust")]
-    [Authorize(Roles = "Admin,Manager,Warehouse Manager")]
+    [Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -6,6 +6,6 @@ public interface IDamageReportService
 {
     Task<IEnumerable<DamageReportListDto>> GetAllDamageReportsAsync();
     Task<DamageReportDto?> GetDamageReportByIdAsync(Guid id);
-    Task<DamageReportDto> CreateDamageReportAsync(CreateDamageReportRequest request);
-    Task<DamageReportDto> ApproveDamageReportAsync(Guid id, ApproveDamageReportRequest request);
+    Task<DamageReportDto> CreateDamageReportAsync(CreateDamageReportRequest request, Guid currentUserId);
+    Task<DamageReportDto> ApproveDamageReportAsync(Guid id, Guid currentUserId);
 }

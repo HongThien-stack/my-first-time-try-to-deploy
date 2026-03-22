@@ -6,10 +6,11 @@ public class DamageReport
     public string ReportNumber { get; set; } = string.Empty; // DMG-2024-001
     public string LocationType { get; set; } = string.Empty; // WAREHOUSE | STORE
     public Guid LocationId { get; set; }
+    public Guid ProductId { get; set; } // Reference to ProductDB.products.id
     public string DamageType { get; set; } = string.Empty; // EXPIRED | PHYSICAL_DAMAGE | QUALITY_ISSUE | THEFT | OTHER
     public Guid ReportedBy { get; set; } // IdentityDB.users.id
     public DateTime ReportedDate { get; set; }
-    public decimal? TotalValue { get; set; }
+    public int? Quality { get; set; } // Quality rating or condition (0-100 scale)
     public string? Description { get; set; }
     public string? Photos { get; set; } // JSON array of image URLs
     public string Status { get; set; } = "PENDING"; // PENDING | APPROVED | REJECTED

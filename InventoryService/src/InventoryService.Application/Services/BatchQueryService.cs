@@ -28,4 +28,10 @@ public class BatchQueryService : IBatchQueryService
         _logger.LogInformation("Getting expiring soon batches");
         return await _productBatchQueryRepository.GetExpiringSoonBatchesAsync();
     }
+
+    public async Task<IEnumerable<BatchDetailDto>> GetBatchesByWarehouseIdAsync(Guid warehouseId)
+    {
+        _logger.LogInformation("Getting batches by warehouse ID: {WarehouseId}", warehouseId);
+        return await _productBatchQueryRepository.GetBatchesByWarehouseIdAsync(warehouseId);
+    }
 }

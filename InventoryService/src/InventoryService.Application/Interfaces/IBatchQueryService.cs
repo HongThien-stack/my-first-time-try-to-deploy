@@ -6,4 +6,5 @@ public interface IBatchQueryService
 {
     Task<BatchDetailDto?> GetBatchByIdAsync(Guid id);
     Task<IEnumerable<ExpiringSoonBatchDto>> GetExpiringSoonBatchesAsync();
+    Task<IEnumerable<BatchDetailDto>> GetBatchesByWarehouseIdAsync(Guid warehouseId);
 }

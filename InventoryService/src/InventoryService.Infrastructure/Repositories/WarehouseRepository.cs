@@ -22,6 +22,14 @@ public class WarehouseRepository : IWarehouseRepository
             .ToListAsync();
     }
 
+    public async Task<List<Warehouse>> GetAllWarehouseByParentIdAsync(Guid parentId)
+    {
+        return await _context.Warehouses
+            .Where(w => w.ParentId == parentId && !w.IsDeleted)
+            .OrderBy(w => w.Name)
+            .ToListAsync();
+    }
+
     public async Task<Warehouse?> GetByIdAsync(Guid id)
     {
         return await _context.Warehouses

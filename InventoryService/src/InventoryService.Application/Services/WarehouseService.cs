@@ -40,6 +40,12 @@ public class WarehouseService : IWarehouseService
             });
     }
 
+    public async Task<List<Warehouse>> GetAllWarehouseByParentIdAsync(Guid parentId)
+    {
+        _logger.LogInformation("Getting all warehouses by parent ID: {ParentId}", parentId);
+        return await _warehouseRepository.GetAllWarehouseByParentIdAsync(parentId);
+    }
+
     public async Task<WarehouseDto?> GetWarehouseByIdAsync(Guid id)
     {
         _logger.LogInformation("Getting warehouse by ID: {WarehouseId}", id);

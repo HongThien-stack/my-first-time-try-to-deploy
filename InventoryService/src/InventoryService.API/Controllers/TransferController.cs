@@ -4,6 +4,7 @@ using InventoryService.Application.Interfaces;
 using InventoryService.Application.Services;
 using InventoryService.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
+using InventoryService.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
@@ -37,6 +38,52 @@ namespace InventoryService.API.Controllers
         {
             var transfers = await _transferService.GetAllTransfersAsync();
             return Ok(transfers);
+        }
+
+        [HttpGet("transfers/location/{fromLocationId}")]
+        public async Task<ActionResult<List<Transfer>>> GetAllTransferByFromLocationId([FromRoute] Guid fromLocationId)
+        {
+            var transfers = await _transferService.GetAllTransfersByFromLocationIdAsync(fromLocationId);
+            if (transfers == null)
+                return NotFound("No transfer is found with this from location id");
+            List<TransferDto> combineTransfer = new List<TransferDto>();
+            foreach (var transfer in transfers)
+            {
+                var transferItems = await _transferService.GetAllTransferItemsByTransferIdAsync(transfer.Id);
+                List<TransferItemDto> items = new List<TransferItemDto>();
+                foreach (var item in transferItems)
+                {
+                    items.Add(new TransferItemDto
+                    {
+                        Id = item.Id,
+                        ProductId = item.ProductId,
+                        BatchId = item.BatchId,
+                        RequestedQuantity = item.RequestedQuantity,
+                        ShippedQuantity = item.ShippedQuantity,
+                        ReceivedQuantity = item.ReceivedQuantity,
+                        DamagedQuantity = item.DamagedQuantity,
+                        Notes = item.Notes
+                    });
+                }
+                combineTransfer.Add(new TransferDto
+                {
+                    Id = transfer.Id,
+                    TransferNumber = transfer.TransferNumber,
+                    FromLocationType = transfer.FromLocationType,
+                    FromLocationId = transfer.FromLocationId,
+                    ToLocationType = transfer.ToLocationType,
+                    ToLocationId = transfer.ToLocationId,
+                    TransferDate = transfer.TransferDate,
+                    ExpectedDelivery = transfer.ExpectedDelivery,
+                    ActualDelivery = transfer.ActualDelivery,
+                    Status = transfer.Status,
+                    ShippedBy = transfer.ShippedBy,
+                    ReceivedBy = transfer.ReceivedBy,
+                    Notes = transfer.Notes,
+                    Items = items
+                });
+            }
+            return Ok(combineTransfer);
         }
 
         [HttpGet("transfer/{id}")]

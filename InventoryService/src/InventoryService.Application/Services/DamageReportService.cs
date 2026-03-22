@@ -33,10 +33,11 @@ public class DamageReportService : IDamageReportService
                 ReportNumber = r.ReportNumber,
                 LocationType = r.LocationType,
                 LocationId = r.LocationId,
+                ProductId = r.ProductId,
                 DamageType = r.DamageType,
                 ReportedBy = r.ReportedBy,
                 ReportedDate = r.ReportedDate,
-                TotalValue = r.TotalValue,
+                Quality = r.Quality,
                 Status = r.Status,
                 CreatedAt = r.CreatedAt
             });
@@ -62,10 +63,11 @@ public class DamageReportService : IDamageReportService
                 ReportNumber = report.ReportNumber,
                 LocationType = report.LocationType,
                 LocationId = report.LocationId,
+                ProductId = report.ProductId,
                 DamageType = report.DamageType,
                 ReportedBy = report.ReportedBy,
                 ReportedDate = report.ReportedDate,
-                TotalValue = report.TotalValue,
+                Quality = report.Quality,
                 Description = report.Description,
                 Photos = !string.IsNullOrEmpty(report.Photos) 
                     ? JsonSerializer.Deserialize<List<string>>(report.Photos) 
@@ -83,7 +85,7 @@ public class DamageReportService : IDamageReportService
         }
     }
 
-    public async Task<DamageReportDto> CreateDamageReportAsync(CreateDamageReportRequest request)
+    public async Task<DamageReportDto> CreateDamageReportAsync(CreateDamageReportRequest request, Guid currentUserId)
     {
         try
         {
@@ -94,11 +96,14 @@ public class DamageReportService : IDamageReportService
             if (request.LocationId == Guid.Empty)
                 throw new ArgumentException("LocationId is required");
             
+            if (request.ProductId == Guid.Empty)
+                throw new ArgumentException("ProductId is required");
+            
             if (string.IsNullOrWhiteSpace(request.DamageType))
                 throw new ArgumentException("DamageType is required");
             
-            if (request.ReportedBy == Guid.Empty)
-                throw new ArgumentException("ReportedBy is required");
+            if (currentUserId == Guid.Empty)
+                throw new ArgumentException("Current user ID is required");
 
             // Upload photos to Cloudinary if provided
             List<string>? photoUrls = null;
@@ -113,16 +118,18 @@ public class DamageReportService : IDamageReportService
             var reportNumber = $"DMG-{year}-{Guid.NewGuid().ToString().Substring(0, 5).ToUpper()}";
 
             // Create damage report entity
+            // ReportedBy is automatically set from current user
             var damageReport = new DamageReport
             {
                 Id = Guid.NewGuid(),
                 ReportNumber = reportNumber,
                 LocationType = request.LocationType.ToUpper(),
                 LocationId = request.LocationId,
+                ProductId = request.ProductId,
                 DamageType = request.DamageType.ToUpper(),
-                ReportedBy = request.ReportedBy,
+                ReportedBy = currentUserId,  // Auto-set from current user
                 ReportedDate = request.ReportedDate,
-                TotalValue = request.TotalValue,
+                Quality = request.Quality,
                 Description = request.Description,
                 Photos = photoUrls != null && photoUrls.Any() ? JsonSerializer.Serialize(photoUrls) : null,
                 Status = "PENDING",
@@ -132,7 +139,7 @@ public class DamageReportService : IDamageReportService
             // Save to database
             var savedReport = await _damageReportRepository.AddAsync(damageReport);
 
-            _logger.LogInformation("Damage report created successfully: {ReportNumber}", reportNumber);
+            _logger.LogInformation("Damage report created successfully: {ReportNumber} by user {UserId}", reportNumber, currentUserId);
 
             // Return DTO
             return new DamageReportDto
@@ -141,10 +148,11 @@ public class DamageReportService : IDamageReportService
                 ReportNumber = savedReport.ReportNumber,
                 LocationType = savedReport.LocationType,
                 LocationId = savedReport.LocationId,
+                ProductId = savedReport.ProductId,
                 DamageType = savedReport.DamageType,
                 ReportedBy = savedReport.ReportedBy,
                 ReportedDate = savedReport.ReportedDate,
-                TotalValue = savedReport.TotalValue,
+                Quality = savedReport.Quality,
                 Description = savedReport.Description,
                 Photos = photoUrls,
                 Status = savedReport.Status,
@@ -160,13 +168,13 @@ public class DamageReportService : IDamageReportService
         }
     }
 
-    public async Task<DamageReportDto> ApproveDamageReportAsync(Guid id, ApproveDamageReportRequest request)
+    public async Task<DamageReportDto> ApproveDamageReportAsync(Guid id, Guid currentUserId)
     {
         try
         {
             // Validate approver
-            if (request.ApprovedBy == Guid.Empty)
-                throw new ArgumentException("ApprovedBy is required");
+            if (currentUserId == Guid.Empty)
+                throw new ArgumentException("Current user ID is required");
 
             // Get damage report
             var damageReport = await _damageReportRepository.GetByIdAsync(id);
@@ -179,14 +187,14 @@ public class DamageReportService : IDamageReportService
 
             // Update status to APPROVED
             damageReport.Status = "APPROVED";
-            damageReport.ApprovedBy = request.ApprovedBy;
+            damageReport.ApprovedBy = currentUserId;  // Auto-set from current user
             damageReport.ApprovedDate = DateTime.UtcNow;
 
             // Save changes
             await _damageReportRepository.UpdateAsync(damageReport);
 
-            _logger.LogInformation("Damage report {ReportNumber} approved by {ApprovedBy}", 
-                damageReport.ReportNumber, request.ApprovedBy);
+            _logger.LogInformation("Damage report {ReportNumber} approved by user {ApprovedBy}", 
+                damageReport.ReportNumber, currentUserId);
 
             // Return updated DTO
             return new DamageReportDto
@@ -195,10 +203,11 @@ public class DamageReportService : IDamageReportService
                 ReportNumber = damageReport.ReportNumber,
                 LocationType = damageReport.LocationType,
                 LocationId = damageReport.LocationId,
+                ProductId = damageReport.ProductId,
                 DamageType = damageReport.DamageType,
                 ReportedBy = damageReport.ReportedBy,
                 ReportedDate = damageReport.ReportedDate,
-                TotalValue = damageReport.TotalValue,
+                Quality = damageReport.Quality,
                 Description = damageReport.Description,
                 Photos = !string.IsNullOrEmpty(damageReport.Photos) 
                     ? JsonSerializer.Deserialize<List<string>>(damageReport.Photos) 

@@ -97,4 +97,11 @@ public class BatchesController : ControllerBase
             });
         }
     }
+
+    [HttpGet("Batch-By-WarehouseId")]
+    public async Task<IActionResult> GetBatchesByWarehouseId(Guid warehouseId)
+    {
+        var batches = await _batchQueryService.GetBatchesByWarehouseIdAsync(warehouseId);
+        return Ok(batches);
+    }
 }

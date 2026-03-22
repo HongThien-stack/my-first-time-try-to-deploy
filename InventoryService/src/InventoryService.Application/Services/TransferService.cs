@@ -1,4 +1,4 @@
-﻿using InventoryService.Application.DTOs;
+using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
 using InventoryService.Domain.Entities;
 using Microsoft.Extensions.Logging;
@@ -39,6 +39,18 @@ public class TransferService : ITransferService
         _logger.LogInformation("Getting all transfers");
         var transfers = await _transferRepository.GetAllAsync();
         return transfers.Select(MapToDto);
+    }
+
+    public async Task<List<Transfer>> GetAllTransfersByFromLocationIdAsync(Guid fromLocationId)
+    {
+        _logger.LogInformation("Getting all transfers from location ID: {FromLocationId}", fromLocationId);
+        return await _transferRepository.GetAllTransfersByFromLocationIdAsync(fromLocationId);
+    }
+
+    public async Task<List<TransferItem>> GetAllTransferItemsByTransferIdAsync(Guid transferId)
+    {
+        _logger.LogInformation("Getting all transfer items for transfer ID: {TransferId}", transferId);
+        return await _transferRepository.GetAllTransferItemsByTransferIdAsync(transferId);
     }
 
     public async Task<TransferDto?> GetTransferByIdAsync(Guid id)
@@ -102,7 +114,7 @@ public class TransferService : ITransferService
 
         var created = await _transferRepository.AddAsync(transfer);
 
-        // Cập nhật reserved_quantity tại kho nguồn cho từng sản phẩm
+        // C?p nh?t reserved_quantity t?i kho ngu?n cho t?ng s?n ph?m
         foreach (var item in created.TransferItems)
         {
             var inventory = await _inventoryRepository.GetByLocationAndProductAsync(
@@ -119,7 +131,7 @@ public class TransferService : ITransferService
             else
             {
                 _logger.LogWarning(
-                    "Inventory not found for product {ProductId} at {Type}:{LocationId} — reserved_quantity not updated",
+                    "Inventory not found for product {ProductId} at {Type}:{LocationId} � reserved_quantity not updated",
                     item.ProductId, dto.FromLocationType, dto.FromLocationId);
             }
         }
@@ -184,6 +196,8 @@ public class TransferService : ITransferService
                 throw new InvalidOperationException($"Cannot receive transfer because associated Restock Request {restockRequest.Id} is not in PROCESSING status (current: {restockRequest.Status}).");
             }
         }
+        if (transfer.Status != "IN_TRANSIT")
+            throw new InvalidOperationException($"Transfer must be in IN_TRANSIT status to be received. Current status: {transfer.Status}");
 
         //2. Update transfer item
         var itemLookup = dto.Items.ToDictionary(i => i.TransferItemId);
@@ -202,14 +216,14 @@ public class TransferService : ITransferService
 
             int receivedQuantity = incoming.ShippedQuantity - incoming.DamagedQuantity;
 
-            // 2a. Ghi nhận số lượng thực nhận lên TransferItem
+            // 2a. Ghi nh?n s? lu?ng th?c nh?n l�n TransferItem
             transferItem.ShippedQuantity = incoming.ShippedQuantity;
-            transferItem.ReceivedQuantity = receivedQuantity;  // ← Tự tính
+            transferItem.ReceivedQuantity = receivedQuantity;  // ? T? t�nh
             transferItem.DamagedQuantity = incoming.DamagedQuantity;
             transferItem.Notes = incoming.Notes ?? transferItem.Notes;
 
-            // 3. Cộng hàng tốt vào inventories kho đích (ToLocation)
-            //    netReceived = received - damaged (hàng thực sự nhập kho)
+            // 3. C?ng h�ng t?t v�o inventories kho d�ch (ToLocation)
+            //    netReceived = received - damaged (h�ng th?c s? nh?p kho)
             if (receivedQuantity > 0)
             {
                 var destInventory = await _inventoryRepository
@@ -219,14 +233,14 @@ public class TransferService : ITransferService
                     transferItem.ProductId);
                 if (destInventory != null)
                 {
-                    // Cộng vào quantity — AvailableQuantity tự tính (computed = quantity - reserved)
+                    // C?ng v�o quantity � AvailableQuantity t? t�nh (computed = quantity - reserved)
                     destInventory.Quantity += receivedQuantity;
                     destInventory.UpdatedAt = DateTime.UtcNow;
                     await _inventoryRepository.UpdateAsync(destInventory);
                 }
                 else
                 {
-                    // Tạo mới bản ghi tồn kho nếu sản phẩm chưa có tại kho đích
+                    // T?o m?i b?n ghi t?n kho n?u s?n ph?m chua c� t?i kho d�ch
                     await _inventoryRepository.AddAsync(new Inventory()
                     {
                         Id = Guid.NewGuid(),
@@ -238,7 +252,7 @@ public class TransferService : ITransferService
                     });
                 }
             }
-            // 4. Cập nhật ProductBatch.WarehouseId sang kho đích nếu có BatchId
+            // 4. C?p nh?t ProductBatch.WarehouseId sang kho d�ch n?u c� BatchId
             if (transferItem.BatchId.HasValue)
             {
                 var batch = await _productBatchRepository.GetByIdAsync(transferItem.BatchId.Value);
@@ -251,11 +265,11 @@ public class TransferService : ITransferService
                 }
             }
 
-            // Lấy unitPrice từ ProductService
+            // L?y unitPrice t? ProductService
             var product = await _productServiceClient.GetProductByIdAsync(transferItem.ProductId);
             var unitPrice = product?.OriginalPrice ?? 0;
 
-            // 5. Gom StockMovementItem — quantity = netReceived (đã trừ hàng hư)
+            // 5. Gom StockMovementItem � quantity = netReceived (d� tr? h�ng hu)
             stockMovementItems.Add(new StockMovementItem
             {
                 Id = Guid.NewGuid(),
@@ -264,9 +278,9 @@ public class TransferService : ITransferService
                 Quantity = receivedQuantity,
                 UnitPrice = unitPrice
             });
-        } // kết thúc foreach
+        } // k?t th�c foreach
 
-        // 5. Tạo StockMovement INBOUND ghi nhận tại kho đích
+        // 5. T?o StockMovement INBOUND ghi nh?n t?i kho d�ch
         var movementCount = await _stockMovementRepository.CountByDateAsync(DateTime.UtcNow);
         var stockMovement = new StockMovement
         {
@@ -286,14 +300,14 @@ public class TransferService : ITransferService
         };
         await _stockMovementRepository.AddAsync(stockMovement);
 
-        // 6. Cập nhật Transfer → COMPLETED
+        // 6. C?p nh?t Transfer ? COMPLETED
         transfer.Status = "COMPLETED";
         transfer.ReceivedBy = receivedBy;
         transfer.UpdatedAt = DateTime.UtcNow;
         transfer.ActualDelivery = DateTime.UtcNow;
         await _transferRepository.UpdateAsync(transfer);
 
-        // 7. Cập nhật RestockRequest → COMPLETED nếu có liên kết
+        // 7. C?p nh?t RestockRequest ? COMPLETED n?u c� li�n k?t
         if (transfer.RestockRequestId.HasValue)
         {
             var restockRequest = await _restockRequestRepository.GetByIdAsync(transfer.RestockRequestId.Value);
@@ -311,7 +325,7 @@ public class TransferService : ITransferService
     }
 
     /// <summary>
-    /// Xuất kho (outbound): giảm quantity từ kho nguồn, tạo StockMovement OUTBOUND
+    /// Xu?t kho (outbound): gi?m quantity t? kho ngu?n, t?o StockMovement OUTBOUND
     /// </summary>
     public async Task<bool> CreateOutboundStockMovementAsync(Guid transferId, Guid shippedBy)
     {
@@ -324,7 +338,7 @@ public class TransferService : ITransferService
         var transferItems = transfer.TransferItems;
         var stockMovementItems = new List<StockMovementItem>();
 
-        // 2. Giảm quantity và reserved_quantity tại kho nguồn
+        // 2. Gi?m quantity v� reserved_quantity t?i kho ngu?n
         foreach (var item in transferItems)
         {
             var sourceInventory = await _inventoryRepository
@@ -336,11 +350,11 @@ public class TransferService : ITransferService
                 sourceInventory.UpdatedAt = DateTime.UtcNow;
                 await _inventoryRepository.UpdateAsync(sourceInventory);
 
-                // Lấy unitPrice từ ProductService
+                // L?y unitPrice t? ProductService
                 var product = await _productServiceClient.GetProductByIdAsync(item.ProductId);
                 var unitPrice = product?.OriginalPrice ?? 0;
 
-                // 3. Tạo StockMovementItem với UnitPrice từ product.originalPrice
+                // 3. T?o StockMovementItem v?i UnitPrice t? product.originalPrice
                 stockMovementItems.Add(new StockMovementItem
                 {
                     Id = Guid.NewGuid(),
@@ -352,7 +366,7 @@ public class TransferService : ITransferService
             }
         }
 
-        // 4. Tạo StockMovement OUTBOUND
+        // 4. T?o StockMovement OUTBOUND
         var movementCount = await _stockMovementRepository.CountByDateAsync(DateTime.UtcNow);
         var stockMovement = new StockMovement
         {
@@ -364,7 +378,7 @@ public class TransferService : ITransferService
             MovementDate = transfer.TransferDate,
             TransferId = transfer.Id,
             RestockRequestId = transfer.RestockRequestId,
-            ReceivedBy = shippedBy, // Người giao hàng (outbound)
+            ReceivedBy = shippedBy, // Ngu?i giao h�ng (outbound)
             Status = "COMPLETED",
             Notes = null,
             CreatedAt = DateTime.UtcNow,
@@ -372,7 +386,7 @@ public class TransferService : ITransferService
         };
         await _stockMovementRepository.AddAsync(stockMovement);
 
-        // 5. Cập nhật transfer status sang IN_TRANSIT
+        // 5. C?p nh?t transfer status sang IN_TRANSIT
         transfer.Status = "IN_TRANSIT";
         transfer.ShippedBy = shippedBy;
         transfer.UpdatedAt = DateTime.UtcNow;
