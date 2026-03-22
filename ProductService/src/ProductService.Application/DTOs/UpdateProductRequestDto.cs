@@ -16,6 +16,8 @@ public class UpdateProductRequestDto
     // Phân loại
     public Guid? CategoryId { get; set; }
 
+    public Guid? SupplierId { get; set; }
+
     [StringLength(100, ErrorMessage = "Thương hiệu không được vượt quá 100 ký tự")]
     public string? Brand { get; set; }
 

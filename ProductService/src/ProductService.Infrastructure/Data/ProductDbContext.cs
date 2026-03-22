@@ -11,6 +11,7 @@ public class ProductDbContext : DbContext
 
     public DbSet<Product> Products { get; set; }
     public DbSet<Category> Categories { get; set; }
+    public DbSet<Supplier> Suppliers { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,7 @@ public class ProductDbContext : DbContext
             
             // Phân loại
             entity.Property(e => e.CategoryId).HasColumnName("category_id").IsRequired();
+            entity.Property(e => e.SupplierId).HasColumnName("supplier_id");
             entity.Property(e => e.Brand).HasColumnName("brand").HasMaxLength(100);
             entity.Property(e => e.Origin).HasColumnName("origin").HasMaxLength(100);
             
@@ -101,12 +103,19 @@ public class ProductDbContext : DbContext
                 .HasForeignKey(e => e.CategoryId)
                 .HasConstraintName("FK_products_categories");
 
+            entity.HasOne(e => e.Supplier)
+                .WithMany(s => s.Products)
+                .HasForeignKey(e => e.SupplierId)
+                .HasConstraintName("FK_products_suppliers")
+                .IsRequired(false);
+
             // Indexes
             entity.HasIndex(e => e.Sku).IsUnique().HasDatabaseName("IX_products_sku");
             entity.HasIndex(e => e.Barcode).IsUnique().HasDatabaseName("IX_products_barcode");
             entity.HasIndex(e => e.Name).HasDatabaseName("IX_products_name");
             entity.HasIndex(e => e.Slug).IsUnique().HasDatabaseName("IX_products_slug");
             entity.HasIndex(e => e.CategoryId).HasDatabaseName("IX_products_category_id");
+            entity.HasIndex(e => e.SupplierId).HasDatabaseName("IX_products_supplier_id");
             entity.HasIndex(e => e.Brand).HasDatabaseName("IX_products_brand");
             entity.HasIndex(e => e.IsAvailable).HasDatabaseName("IX_products_is_available");
             entity.HasIndex(e => e.IsFeatured).HasDatabaseName("IX_products_is_featured");
@@ -114,6 +123,26 @@ public class ProductDbContext : DbContext
             entity.HasIndex(e => e.Price).HasDatabaseName("IX_products_price");
             entity.HasIndex(e => e.CreatedAt).HasDatabaseName("IX_products_created_at");
             entity.HasIndex(e => e.IsDeleted).HasDatabaseName("IX_products_is_deleted");
+        });
+
+        // Configure Supplier
+        modelBuilder.Entity<Supplier>(entity =>
+        {
+            entity.ToTable("suppliers");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255).IsRequired();
+            entity.Property(e => e.Phone).HasColumnName("phone").HasMaxLength(20);
+            entity.Property(e => e.Email).HasColumnName("email").HasMaxLength(255);
+            entity.Property(e => e.ContactPerson).HasColumnName("contact_person").HasMaxLength(255);
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(50).IsRequired().HasDefaultValue("ACTIVE");
+            entity.Property(e => e.IsDeleted).HasColumnName("is_deleted").IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at").IsRequired();
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+
+            entity.HasIndex(e => e.Name).HasDatabaseName("IX_suppliers_name");
+            entity.HasIndex(e => e.Status).HasDatabaseName("IX_suppliers_status");
+            entity.HasIndex(e => e.IsDeleted).HasDatabaseName("IX_suppliers_is_deleted");
         });
     }
 }

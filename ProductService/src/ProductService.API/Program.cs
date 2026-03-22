@@ -57,10 +57,12 @@ builder.Services.Configure<CloudinarySettings>(
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
 
 // Add services
 builder.Services.AddScoped<IProductService, ProductApplicationService>();
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+builder.Services.AddScoped<ISupplierService, SupplierApplicationService>();
 
 // Add JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -109,8 +111,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Enable Swagger in development and Docker deployments.
-if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();

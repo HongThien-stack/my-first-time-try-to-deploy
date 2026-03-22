@@ -8,6 +8,7 @@ public class CreateProductResponseDto
     public string? Barcode { get; set; }
     public Guid CategoryId { get; set; }
     public string? CategoryName { get; set; }
+    public Guid? SupplierId { get; set; }
     public decimal Price { get; set; }
     public string Unit { get; set; } = string.Empty;
     public string? Brand { get; set; }

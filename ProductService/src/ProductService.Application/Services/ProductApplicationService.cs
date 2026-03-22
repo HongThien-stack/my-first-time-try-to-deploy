@@ -38,7 +38,8 @@ public class ProductApplicationService : IProductService
             Name = p.Name,
             Price = p.Price,
             CategoryId = p.CategoryId,
-            CategoryName = p.Category?.Name ?? string.Empty
+            CategoryName = p.Category?.Name ?? string.Empty,
+            SupplierId = p.SupplierId
         });
     }
 
@@ -55,6 +56,7 @@ public class ProductApplicationService : IProductService
             Description = p.Description,
             CategoryId = p.CategoryId,
             CategoryName = p.Category?.Name,
+            SupplierId = p.SupplierId,
             Brand = p.Brand,
             Origin = p.Origin,
             Price = p.Price,
@@ -140,6 +142,7 @@ public class ProductApplicationService : IProductService
                 Name = request.Name,
                 Description = request.Description,
                 CategoryId = request.CategoryId,
+                SupplierId = request.SupplierId,
                 Brand = request.Brand,
                 Origin = request.Origin,
                 Price = request.Price,
@@ -187,6 +190,7 @@ public class ProductApplicationService : IProductService
                 Barcode = createdProduct.Barcode,
                 CategoryId = createdProduct.CategoryId,
                 CategoryName = createdProduct.Category?.Name,
+                SupplierId = createdProduct.SupplierId,
                 Price = createdProduct.Price,
                 Unit = createdProduct.Unit,
                 Brand = createdProduct.Brand,
@@ -409,6 +413,7 @@ public class ProductApplicationService : IProductService
         if (request.Barcode is not null)             product.Barcode = request.Barcode.Trim();
         if (request.Description is not null)         product.Description = request.Description.Trim();
         if (request.CategoryId.HasValue)             product.CategoryId = request.CategoryId.Value;
+        if (request.SupplierId.HasValue)             product.SupplierId = request.SupplierId.Value;
         if (request.Brand is not null)               product.Brand = request.Brand.Trim();
         if (request.Origin is not null)              product.Origin = request.Origin.Trim();
         if (request.Price.HasValue)                  product.Price = request.Price.Value;
@@ -449,6 +454,7 @@ public class ProductApplicationService : IProductService
             Description = updated.Description,
             CategoryId = updated.CategoryId,
             CategoryName = updated.Category?.Name,
+            SupplierId = updated.SupplierId,
             Brand = updated.Brand,
             Origin = updated.Origin,
             Price = updated.Price,

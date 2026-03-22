@@ -12,6 +12,7 @@ public class Product
     
     // Phân loại
     public Guid CategoryId { get; set; }
+    public Guid? SupplierId { get; set; }
     public string? Brand { get; set; }
     public string? Origin { get; set; }
     
@@ -59,6 +60,7 @@ public class Product
     public Guid? CreatedBy { get; set; }
     public Guid? UpdatedBy { get; set; }
     
-    // Navigation property
+    // Navigation properties
     public Category Category { get; set; } = null!;
+    public Supplier? Supplier { get; set; }
 }

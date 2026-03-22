@@ -10,6 +10,7 @@ public class ProductDto
     
     public Guid CategoryId { get; set; }
     public string? CategoryName { get; set; }
+    public Guid? SupplierId { get; set; }
     public string? Brand { get; set; }
     public string? Origin { get; set; }
     

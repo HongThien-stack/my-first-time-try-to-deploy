@@ -21,6 +21,8 @@ public class CreateProductRequestDto
     [Required(ErrorMessage = "Danh mục là bắt buộc")]
     public Guid CategoryId { get; set; }
 
+    public Guid? SupplierId { get; set; }
+
     [StringLength(100, ErrorMessage = "Thương hiệu không được vượt quá 100 ký tự")]
     public string? Brand { get; set; }
 
