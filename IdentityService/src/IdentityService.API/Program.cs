@@ -119,6 +119,17 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    
+    // Redirect root URL to Swagger UI
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path == "/")
+        {
+            context.Response.Redirect("/swagger/index.html");
+            return;
+        }
+        await next();
+    });
 }
 
 app.UseCors("AllowAll");
