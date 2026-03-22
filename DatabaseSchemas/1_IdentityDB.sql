@@ -248,7 +248,7 @@ BEGIN
     -- Warehouse Staff Users (role_id = 5) - Kho Chi Nhánh
     ('44444444-4444-4444-4444-444444444441', 'whstaff1@company.com', @TempPasswordHash, N'Đỗ Văn Nhân Viên Kho', '0904000001', 5, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000002'),
     ('44444444-4444-4444-4444-444444444442', 'whstaff2@company.com', @TempPasswordHash, N'Bùi Thị Nhân Viên Kho', '0904000002', 5, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000003'),
-
+    ('44444444-4444-4444-4444-444444444443', 'whstaff3@company.com', @TempPasswordHash, N'Vũ Văn Nhân Viên Kho', '0904000003', 5, 'ACTIVE', 1, 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001'),
     -- Store Manager Users (role_id = 2) - Cửa Hàng
     ('22222222-2222-2222-2222-222222222221', 'manager1@company.com', @TempPasswordHash, N'Trần Thị Quản Lý Cửa Hàng', '0902000001', 2, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000001'),
     ('22222222-2222-2222-2222-222222222222', 'manager2@company.com', @TempPasswordHash, N'Lê Văn Quản Lý Cửa Hàng', '0902000002', 2, 'ACTIVE', 1, 'STORE', 'B0000001-0001-0001-0001-000000000002'),

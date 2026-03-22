@@ -87,14 +87,14 @@ BEGIN
         supplier_id UNIQUEIDENTIFIER, -- ProductDB.suppliers.id (logical ref)
         received_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         status NVARCHAR(50) NOT NULL DEFAULT 'AVAILABLE', -- AVAILABLE | SOLD | EXPIRED | DAMAGED
-        CONSTRAINT FK_batches_warehouses FOREIGN KEY (warehouse_id) REFERENCES warehouses(id),
-        CONSTRAINT UQ_batch_number UNIQUE (batch_number)
+        CONSTRAINT FK_batches_warehouses FOREIGN KEY (warehouse_id) REFERENCES warehouses(id)
     );
     
     CREATE INDEX IX_batches_product_id ON product_batches(product_id);
     CREATE INDEX IX_batches_warehouse_id ON product_batches(warehouse_id);
     CREATE INDEX IX_batches_expiry_date ON product_batches(expiry_date);
     CREATE INDEX IX_batches_status ON product_batches(status);
+    CREATE INDEX IX_batches_batch_number ON product_batches(batch_number);
 END
 ELSE
 BEGIN
@@ -358,10 +358,11 @@ BEGIN
         report_number NVARCHAR(50) NOT NULL UNIQUE, -- DMG-2024-001
         location_type NVARCHAR(50) NOT NULL, -- WAREHOUSE | STORE
         location_id UNIQUEIDENTIFIER NOT NULL,
+        product_id UNIQUEIDENTIFIER NOT NULL, -- Reference to ProductDB.products.id
         damage_type NVARCHAR(50) NOT NULL, -- EXPIRED | PHYSICAL_DAMAGE | QUALITY_ISSUE | THEFT | OTHER
         reported_by UNIQUEIDENTIFIER NOT NULL, -- IdentityDB.users.id
         reported_date DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        total_value DECIMAL(18,2),
+        quality INT, -- Quality rating or condition (0-100 scale)
         description NVARCHAR(MAX),
         photos NVARCHAR(MAX), -- JSON array of image URLs
         status NVARCHAR(50) NOT NULL DEFAULT 'PENDING', -- PENDING | APPROVED | REJECTED
@@ -372,6 +373,7 @@ BEGIN
     
     CREATE INDEX IX_damage_report_number ON damage_reports(report_number);
     CREATE INDEX IX_damage_location ON damage_reports(location_type, location_id);
+    CREATE INDEX IX_damage_product_id ON damage_reports(product_id);
     CREATE INDEX IX_damage_type ON damage_reports(damage_type);
     CREATE INDEX IX_damage_status ON damage_reports(status);
 END
@@ -522,7 +524,7 @@ BEGIN
     (NEWID(), 'F0000001-0001-0001-0001-000000000002', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 300, 0, 30, 800), -- Cải Thảo
     (NEWID(), 'F0000001-0001-0001-0001-000000000003', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 800, 0, 100, 2000), -- Cam Sành
     (NEWID(), 'F0000001-0001-0001-0001-000000000005', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 1000, 0, 200, 3000), -- Sữa Vinamilk
-    (NEWID(), 'F0000001-0001-0001-0001-000000000007', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 200, 0, 20, 500), -- Gạo ST25
+    (NEWID(), 'F0000001-0001-0001-0001-000000000007', 'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 280, 0, 20, 500), -- Gạo ST25
     
     -- Store inventory (Cửa Hàng Thủ Đức)
     (NEWID(), 'F0000001-0001-0001-0001-000000000001', 'STORE', 'B0000001-0001-0001-0001-000000000001', 50, 0, 10, 100), -- Rau Muống
@@ -616,13 +618,13 @@ BEGIN
     ('EA000001-0001-0001-0001-000000000001', 'RST-2024-001',
      'A0000001-0001-0001-0001-000000000002', 'WAREHOUSE',
      'B0000001-0001-0001-0001-000000000001', 'STORE',
-     '33333333-3333-3333-3333-333333333331', '2024-03-01', 'NORMAL', 'COMPLETED',
+     '22222222-2222-2222-2222-222222222221', '2024-03-01', 'NORMAL', 'COMPLETED',
      NULL, N'Weekly restock'),
     -- RST-2024-002: Store Manager (Thủ Đức) → Warehouse Manager (urgent)
     ('EA000001-0001-0001-0001-000000000002', 'RST-2024-002',
      'A0000001-0001-0001-0001-000000000002', 'WAREHOUSE',
      'B0000001-0001-0001-0001-000000000001', 'STORE',
-     '33333333-3333-3333-3333-333333333331', '2024-03-03', 'HIGH', 'PENDING',
+     '22222222-2222-2222-2222-222222222221', '2024-03-03', 'HIGH', 'PENDING',
      NULL, N'Urgent: Low stock on milk');
 END
 GO
@@ -804,7 +806,7 @@ BEGIN
      N'Đà Lạt Suppliers', '50000001-0001-0001-0001-000000000005', '2024-02-03', 'AVAILABLE'),
     -- BA010: Cam Sành lô 1  →  800 Kg  (khớp inventory A001.F003=800) (FUTURE)
     ('BA000001-0001-0001-0001-000000000010',
-     'F0000001-0001-0001-0001-000000000003', 'A0000001-0001-0001-0001-000000000001',q
+     'F0000001-0001-0001-0001-000000000003', 'A0000001-0001-0001-0001-000000000001',
      'CAM-2024-001', 800, '2024-02-05', '2026-06-01',
      N'Cao Phong Fruit', '50000001-0001-0001-0001-000000000006', '2024-02-05', 'AVAILABLE'),
     -- BA011: Sữa Vinamilk bổ sung  →  BA001(500)+BA007(150)+BA011(350)=1000  (khớp A001.F005=1000) (FUTURE)
@@ -1128,7 +1130,7 @@ BEGIN
     -- Goods come FROM Kho Tổng HCM (A...001) TO Cửa Hàng Thủ Đức (B...001)
     ('EA000001-0001-0001-0001-000000000003', 'RST-2024-003',
      'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
-     'B0000001-0001-0001-0001-000000000001', 'STORE',
+     'A0000001-0001-0001-0001-000000000002', 'STORE',
      '33333333-3333-3333-3333-333333333331', '2024-03-28', 'URGENT', 'APPROVED',
      NULL,
      N'TH True Milk dưới ngưỡng tối thiểu, cần bổ sung gấp'),
@@ -1136,7 +1138,7 @@ BEGIN
     -- Quận 1 bổ sung định kỳ: FROM Kho Tổng HCM TO CH Quận 1
     ('EA000001-0001-0001-0001-000000000004', 'RST-2024-004',
      'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
-     'B0000001-0001-0001-0001-000000000002', 'STORE',
+     'A0000001-0001-0001-0001-000000000002', 'STORE',
      '33333333-3333-3333-3333-333333333331', '2024-03-29', 'NORMAL', 'PENDING',
      NULL,
      N'Bổ sung định kỳ tuần 2 cho CH Quận 1'),
@@ -1144,7 +1146,7 @@ BEGIN
     -- Quận 1 rau củ mùa vụ (đang xử lý): FROM Kho Tổng HCM TO CH Quận 1
     ('EA000001-0001-0001-0001-000000000005', 'RST-2024-005',
      'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
-     'B0000001-0001-0001-0001-000000000002', 'STORE',
+     'A0000001-0001-0001-0001-000000000002', 'STORE',
      '33333333-3333-3333-3333-333333333331', '2024-03-30', 'HIGH', 'PROCESSING',
      'DA000001-0001-0001-0001-000000000005',
      N'Rau củ tuần tới tăng tiêu thụ - mùa lễ'),
@@ -1152,7 +1154,7 @@ BEGIN
     -- Thủ Đức bị từ chối (yêu cầu quá nhiều): FROM Kho Tổng HCM TO CH Thủ Đức
     ('EA000001-0001-0001-0001-000000000006', 'RST-2024-006',
      'A0000001-0001-0001-0001-000000000001', 'WAREHOUSE',
-     'B0000001-0001-0001-0001-000000000001', 'STORE',
+     'A0000001-0001-0001-0001-000000000002', 'STORE',
      '33333333-3333-3333-3333-333333333331', '2024-03-27', 'NORMAL', 'REJECTED',
      NULL,
      N'Yêu cầu không hợp lệ - số lượng vượt giới hạn tháng');
@@ -1192,24 +1194,24 @@ GO
 IF NOT EXISTS (SELECT * FROM damage_reports)
 BEGIN
     INSERT INTO damage_reports
-        (id, report_number, location_type, location_id, damage_type,
-         reported_by, reported_date, total_value, description, status, approved_by, approved_date)
+       (id, report_number, location_type, location_id, product_id, damage_type,
+         reported_by, reported_date, quality, description, status, approved_by, approved_date)
     VALUES
     ('FA000001-0001-0001-0001-000000000001', 'DMG-2024-001',
-     'STORE', 'B0000001-0001-0001-0001-000000000001', 'EXPIRED',
-     '33333333-3333-3333-3333-333333333331', '2024-03-15', 320000,
+    'STORE', 'B0000001-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000005', 'EXPIRED',
+     '33333333-3333-3333-3333-333333333331', '2024-03-15', 35,
      N'2 hộp sữa Vinamilk hết hạn tại Cửa Hàng Thủ Đức',
      'APPROVED', '22222222-2222-2222-2222-222222222221', '2024-03-16'),
 
     ('FA000001-0001-0001-0001-000000000002', 'DMG-2024-002',
-     'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 'PHYSICAL_DAMAGE',
-     '44444444-4444-4444-4444-444444444441', '2024-03-20', 750000,
+    'WAREHOUSE', 'A0000001-0001-0001-0001-000000000001', 'F0000001-0001-0001-0001-000000000001', 'PHYSICAL_DAMAGE',
+     '44444444-4444-4444-4444-444444444441', '2024-03-20', 40,
      N'5 kg rau muống hỏng trong quá trình vận chuyển',
      'APPROVED', '11111111-1111-1111-1111-111111111111', '2024-03-21'),
 
     ('FA000001-0001-0001-0001-000000000003', 'DMG-2024-003',
-     'STORE', 'B0000001-0001-0001-0001-000000000002', 'QUALITY_ISSUE',
-     '33333333-3333-3333-3333-333333333331', '2024-03-29', 192000,
+    'STORE', 'B0000001-0001-0001-0001-000000000002', 'F0000001-0001-0001-0001-000000000007', 'QUALITY_ISSUE',
+     '33333333-3333-3333-3333-333333333331', '2024-03-29', 55,
      N'1 túi gạo ST25 bị ẩm khi nhận hàng tại CH Quận 1',
      'PENDING', NULL, NULL);
 END
