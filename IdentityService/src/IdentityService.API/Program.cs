@@ -117,19 +117,12 @@ var app = builder.Build();
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
 {
-    // Redirect root URL to Swagger UI
-    app.Use(async (context, next) =>
-    {
-        if (context.Request.Path == "/")
-        {
-            context.Response.Redirect("/swagger", permanent: false);
-            return;
-        }
-        await next();
-    });
-    
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Identity Service API v1");
+        options.RoutePrefix = string.Empty;
+    });
 }
 
 app.UseCors("AllowAll");
