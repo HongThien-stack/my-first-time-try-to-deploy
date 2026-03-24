@@ -4,6 +4,7 @@ using PosService.Application.DTOs.External;
 using PosService.Application.Interfaces;
 using PosService.Application.Interfaces.Http;
 using PosService.Domain.Entities;
+using PosService.Infrastructure.Data;
 
 namespace PosService.API.Controllers;
 
@@ -14,18 +15,24 @@ public class SalesController : ControllerBase
     private readonly ISaleRepository _saleRepository;
     private readonly IProductServiceClient _productServiceClient;
     private readonly IPromotionServiceClient _promotionServiceClient;
+    private readonly IMomoPaymentService _momoService;
     private readonly ILogger<SalesController> _logger;
+    private readonly PosDbContext _dbContext;
 
     public SalesController(
         ISaleRepository saleRepository,
         IProductServiceClient productServiceClient,
         IPromotionServiceClient promotionServiceClient,
-        ILogger<SalesController> logger)
+        IMomoPaymentService momoService,
+        ILogger<SalesController> logger,
+        PosDbContext dbContext)
     {
         _saleRepository = saleRepository;
         _productServiceClient = productServiceClient;
         _promotionServiceClient = promotionServiceClient;
+        _momoService = momoService;
         _logger = logger;
+        _dbContext = dbContext;
     }
 
     [HttpPost]
@@ -52,13 +59,13 @@ public class SalesController : ControllerBase
                 return BadRequest("Could not validate the cart.");
             }
             
-            // 2. Check for significant price differences
-            const decimal tolerance = 0.01m; // Allow for minor rounding differences
+            // 2. Check for price differences and prefer server-calculated totals.
+            // This avoids blocking checkout when client-side totals are stale.
+            const decimal tolerance = 0.01m; // Allow minor rounding differences
             if (Math.Abs(validatedCart.TotalAmount - request.TotalAmountFromClient) > tolerance)
             {
-                _logger.LogWarning("Client total amount {ClientTotal} does not match server-calculated total {ServerTotal}. Rejecting sale.", 
+                _logger.LogWarning("Client total amount {ClientTotal} does not match server-calculated total {ServerTotal}. Proceeding with server total.",
                     request.TotalAmountFromClient, validatedCart.TotalAmount);
-                return BadRequest("The final price has changed. Please review your cart and try again.");
             }
 
             // 3. Determine payment status based on payment method
@@ -158,12 +165,18 @@ public class SalesController : ControllerBase
                 Items = request.Items.Select(item =>
                 {
                     var product = productDetailsMap[item.ProductId];
+                    var categoryId = product.CategoryId.ToString();
+                    _logger.LogInformation("CalculateCart - Product: {ProductName}, CategoryId: {CategoryId}", product.Name, categoryId);
                     return new PromotionCartItemDto
                     {
                         ProductId = item.ProductId,
+                        ProductName = product.Name,
                         Quantity = item.Quantity,
                         UnitPrice = product.Price,
-                        CategoryId = product.CategoryId
+                        CategoryId = product.CategoryId,
+                        Categories = string.IsNullOrEmpty(categoryId) 
+                            ? new List<string>() 
+                            : new List<string> { categoryId }
                     };
                 }).ToList()
             };
@@ -224,6 +237,209 @@ public class SalesController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Create a simple sale without promotions, vouchers, or discounts
+    /// Just basic cart calculation with CASH or MOMO payment
+    /// </summary>
+    [HttpPost("simple")]
+    public async Task<IActionResult> CreateSimpleSale([FromBody] SimpleSaleRequestDto request)
+    {
+        if (request == null || !request.Items.Any())
+        {
+            return BadRequest("Sale items cannot be empty.");
+        }
+
+        try
+        {
+            // 1. Validate payment method
+            if (!new[] { "CASH", "MOMO" }.Contains(request.PaymentMethod?.ToUpper()))
+            {
+                return BadRequest("Payment method must be CASH or MOMO.");
+            }
+
+            // 2. Get product details
+            var productIds = request.Items.Select(i => i.ProductId).ToList();
+            var productDetails = await _productServiceClient.GetProductDetailsBatchAsync(productIds);
+
+            if (productDetails.Count != productIds.Count)
+            {
+                var foundIds = productDetails.Select(p => p.Id).ToList();
+                var notFoundIds = productIds.Except(foundIds);
+                return BadRequest($"Could not find products: {string.Join(", ", notFoundIds)}");
+            }
+
+            var productDetailsMap = productDetails.ToDictionary(p => p.Id);
+
+            // 3. Calculate totals (no promotions)
+            decimal subtotal = 0;
+            var saleItems = new List<SaleItem>();
+
+            foreach (var item in request.Items)
+            {
+                var product = productDetailsMap[item.ProductId];
+                var lineTotal = product.Price * item.Quantity;
+                subtotal += lineTotal;
+
+                saleItems.Add(new SaleItem
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = item.ProductId,
+                    ProductName = product.Name,
+                    Sku = product.Sku ?? string.Empty,
+                    Quantity = item.Quantity,
+                    UnitPrice = product.Price,
+                    DiscountAmount = 0,
+                    LineTotal = lineTotal,
+                    PromotionApplied = false
+                });
+            }
+
+            // 4. Generate sale number
+            var saleNumber = $"SALE-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}";
+
+            // 5. Create Sale
+            var paymentMethod = request.PaymentMethod?.ToUpper() ?? "CASH";
+            var paymentStatus = paymentMethod == "MOMO" ? "PENDING" : "PAID";
+            var saleStatus = paymentMethod == "MOMO" ? "PENDING" : "COMPLETED";
+
+            var sale = new Sale
+            {
+                Id = Guid.NewGuid(),
+                SaleNumber = saleNumber,
+                StoreId = request.StoreId,
+                CashierId = request.CashierId,
+                CustomerId = request.CustomerId,
+                SaleDate = DateTime.UtcNow,
+                Subtotal = subtotal,
+                DiscountAmount = 0,
+                TaxAmount = 0,
+                TotalAmount = subtotal,
+                PaymentMethod = paymentMethod,
+                PaymentStatus = paymentStatus,
+                Status = saleStatus,
+                PointsEarned = 0,
+                PointsUsed = 0,
+                Notes = request.Notes,
+                SaleItems = saleItems,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            // 6. Save Sale
+            var createdSale = await _saleRepository.CreateAsync(sale);
+
+            // 7. Create Payment record
+            var payment = new Payment
+            {
+                Id = Guid.NewGuid(),
+                SaleId = createdSale.Id,
+                PaymentMethod = paymentMethod,
+                Amount = subtotal,
+                Status = paymentStatus,
+                PaymentDate = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _dbContext.Payments.Add(payment);
+            await _dbContext.SaveChangesAsync();
+
+            // 8. If MOMO, call Momo API to generate payment link
+            if (paymentMethod == "MOMO")
+            {
+                try
+                {
+                    // Call Momo API to create payment
+                    var momoResponse = await _momoService.CreatePaymentAsync(
+                        saleNumber: createdSale.SaleNumber,
+                        amount: subtotal,
+                        saleId: createdSale.Id,
+                        paymentType: "WALLET"  // QR Code payment
+                    );
+
+                    if (momoResponse.IsSuccess)
+                    {
+                        // Update payment with Momo transaction info
+                        payment.TransactionReference = momoResponse.RequestId;
+                        _dbContext.Payments.Update(payment);
+                        await _dbContext.SaveChangesAsync();
+
+                        var response = new SimpleSaleResponseDto
+                        {
+                            SaleId = createdSale.Id,
+                            SaleNumber = createdSale.SaleNumber,
+                            Subtotal = subtotal,
+                            TotalAmount = subtotal,
+                            PaymentMethod = paymentMethod,
+                            Status = saleStatus,
+                            PaymentStatus = paymentStatus,
+                            SaleDate = createdSale.SaleDate,
+                            PaymentId = payment.Id,
+                            MomoPayUrl = momoResponse.PayUrl,          // Real Momo URL
+                            MomoQrUrl = momoResponse.QrCodeUrl,        // Real QR URL  
+                            Items = request.Items.Select(item =>
+                            {
+                                var product = productDetailsMap[item.ProductId];
+                                return new SimpleSaleItemResponseDto
+                                {
+                                    ProductId = item.ProductId,
+                                    ProductName = product.Name,
+                                    Quantity = item.Quantity,
+                                    UnitPrice = product.Price,
+                                    LineTotal = product.Price * item.Quantity
+                                };
+                            }).ToList()
+                        };
+
+                        _logger.LogInformation("SimpleSale Momo created: {SaleNumber}, RequestId: {RequestId}", 
+                            createdSale.SaleNumber, momoResponse.RequestId);
+
+                        return Accepted(response);
+                    }
+                    else
+                    {
+                        _logger.LogError("Momo API call failed: {Message} (Code: {Code})", 
+                            momoResponse.Message, momoResponse.ResultCode);
+                        return BadRequest(new { message = $"Momo payment creation failed: {momoResponse.Message}" });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error calling Momo API for sale {SaleNumber}", createdSale.SaleNumber);
+                    return StatusCode(500, "Error creating Momo payment. Please try again.");
+                }
+            }
+
+            // 9. Return response for CASH payment
+            return Ok(new SimpleSaleResponseDto
+            {
+                SaleId = createdSale.Id,
+                SaleNumber = createdSale.SaleNumber,
+                Subtotal = subtotal,
+                TotalAmount = subtotal,
+                PaymentMethod = paymentMethod,
+                Status = saleStatus,
+                PaymentStatus = paymentStatus,
+                SaleDate = createdSale.SaleDate,
+                Items = request.Items.Select(item =>
+                {
+                    var product = productDetailsMap[item.ProductId];
+                    return new SimpleSaleItemResponseDto
+                    {
+                        ProductId = item.ProductId,
+                        ProductName = product.Name,
+                        Quantity = item.Quantity,
+                        UnitPrice = product.Price,
+                        LineTotal = product.Price * item.Quantity
+                    };
+                }).ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while creating a simple sale.");
+            return StatusCode(500, "An internal server error occurred.");
+        }
+    }
+
     private async Task<(bool IsValid, string ErrorMessage, CalculatedCartResponseDto? ValidatedCart)> RevalidateCart(CreateSaleRequestDto request)
     {
         var productIds = request.Items.Select(i => i.ProductId).ToList();
@@ -246,14 +462,21 @@ public class SalesController : ControllerBase
                 return new PromotionCartItemDto
                 {
                     ProductId = item.ProductId,
+                    ProductName = product.Name,
                     Quantity = item.Quantity,
-                    UnitPrice = product.Price, // Always use the price from the ProductService
-                    CategoryId = product.CategoryId
+                    UnitPrice = product.Price,
+                    CategoryId = product.CategoryId,
+                    Categories = string.IsNullOrEmpty(product.CategoryId.ToString()) 
+                        ? new List<string>() 
+                        : new List<string> { product.CategoryId.ToString() }
                 };
             }).ToList()
         };
 
         var promotionResult = await _promotionServiceClient.CalculatePromotionsAsync(promotionRequest);
+
+        _logger.LogInformation("PromotionService returned - Subtotal: {Subtotal}, Discount: {Discount}, Total: {Total}", 
+            promotionResult.Subtotal, promotionResult.TotalDiscountAmount, promotionResult.TotalAmount);
 
         var validatedCart = new CalculatedCartResponseDto
         {

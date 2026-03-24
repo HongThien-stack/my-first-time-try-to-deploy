@@ -65,7 +65,7 @@ public class MomoPaymentService : IMomoPaymentService
                           $"&requestId={requestId}" +
                           $"&requestType={requestType}";
 
-        var signature = ComputeHmacSha256(rawSignature, SecretKey);
+        var signature = ComputeHmacSha256Private(rawSignature, SecretKey);
 
         var requestBody = new
         {
@@ -129,14 +129,22 @@ public class MomoPaymentService : IMomoPaymentService
                           $"&resultCode={request.ResultCode}" +
                           $"&transId={request.TransId}";
 
-        var expectedSignature = ComputeHmacSha256(rawSignature, SecretKey);
+        var expectedSignature = ComputeHmacSha256(rawSignature);
         return expectedSignature.Equals(request.Signature, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
-    /// Tính toán HMAC SHA256 signature
+    /// Tính toán HMAC SHA256 signature (public để dùng từ controller)
     /// </summary>
-    private string ComputeHmacSha256(string message, string key)
+    public string ComputeHmacSha256(string message)
+    {
+        return ComputeHmacSha256Private(message, SecretKey);
+    }
+
+    /// <summary>
+    /// Tính toán HMAC SHA256 signature (internal)
+    /// </summary>
+    private string ComputeHmacSha256Private(string message, string key)
     {
         var keyBytes = Encoding.UTF8.GetBytes(key);
         var messageBytes = Encoding.UTF8.GetBytes(message);

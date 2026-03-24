@@ -81,10 +81,49 @@ public class ProductSearchRepository : IProductSearchRepository
     // For now, it will return a simplified object or throw NotImplementedException.
     public Task<ProductDetailDto?> GetProductByIdAsync(Guid productId)
     {
-        _logger.LogWarning("GetProductByIdAsync is not fully implemented in the new architecture. Use ProductServiceClient instead.");
-        // Ideally, you would call ProductServiceClient and InventoryServiceClient here as well.
-        // Returning null for now to avoid breaking changes.
-        return Task.FromResult<ProductDetailDto?>(null);
+        return GetProductByIdInternalAsync(productId);
+    }
+
+    private async Task<ProductDetailDto?> GetProductByIdInternalAsync(Guid productId)
+    {
+        try
+        {
+            var products = await _productServiceClient.GetProductDetailsBatchAsync(new[] { productId });
+            var product = products.FirstOrDefault();
+
+            if (product == null)
+            {
+                return null;
+            }
+
+            var stockMap = await _inventoryServiceClient.GetStockLevelsBatchAsync(new[] { productId });
+            var availableStock = stockMap.TryGetValue(productId, out var stock) ? stock : 0;
+
+            return new ProductDetailDto
+            {
+                ProductId = product.Id,
+                Name = product.Name,
+                Sku = product.Sku,
+                Barcode = product.Barcode,
+                Description = null,
+                Brand = product.Brand,
+                Origin = null,
+                Price = product.Price,
+                OriginalPrice = null,
+                DiscountPercent = null,
+                Unit = product.Unit,
+                Weight = null,
+                ImageUrl = product.ImageUrl,
+                AvailableStock = availableStock,
+                StockStatus = availableStock <= 0 ? "OUT_OF_STOCK" : availableStock <= 10 ? "LOW_STOCK" : "IN_STOCK",
+                IsOnSale = product.IsOnSale
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get product detail for ID: {ProductId}", productId);
+            return null;
+        }
     }
 }
 

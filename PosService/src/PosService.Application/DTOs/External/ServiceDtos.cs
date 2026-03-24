@@ -30,7 +30,9 @@ namespace PosService.Application.DTOs.External
     public class PromotionCartItemDto
     {
         public Guid ProductId { get; set; }
+        public string ProductName { get; set; } = string.Empty;
         public Guid CategoryId { get; set; }
+        public List<string> Categories { get; set; } = new(); // For category-based promotions
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
     }

@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using PosService.Application.DTOs;
 using PosService.Application.Interfaces;
 using PosService.Domain.Entities;
+using PosService.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace PosService.API.Controllers;
 
@@ -14,16 +17,20 @@ namespace PosService.API.Controllers;
 public class PaymentController : ControllerBase
 {
     private readonly IMomoPaymentService _momoService;
-    private readonly ISaleRepository _saleRepository;
-    private readonly List<Payment> _payments; // In-memory storage for demo
+    private readonly PosDbContext _dbContext;
+    private readonly IConfiguration _config;
+    private readonly ILogger<PaymentController> _logger;
 
     public PaymentController(
         IMomoPaymentService momoService,
-        ISaleRepository saleRepository)
+        PosDbContext dbContext,
+        IConfiguration config,
+        ILogger<PaymentController> logger)
     {
         _momoService = momoService;
-        _saleRepository = saleRepository;
-        _payments = new List<Payment>(); // Initialize in-memory storage
+        _dbContext = dbContext;
+        _config = config;
+        _logger = logger;
     }
 
     /// <summary>
@@ -44,7 +51,7 @@ public class PaymentController : ControllerBase
         [FromQuery] string paymentType = "WALLET")
     {
         // Tìm sale
-        var sale = await _saleRepository.GetByIdAsync(saleId);
+        var sale = await _dbContext.Sales.FirstOrDefaultAsync(s => s.Id == saleId);
         if (sale == null)
         {
             return NotFound(new { message = "Sale not found" });
@@ -79,11 +86,15 @@ public class PaymentController : ControllerBase
                 PaymentDate = DateTime.UtcNow
             };
 
-            _payments.Add(payment);
+            await _dbContext.Payments.AddAsync(payment);
+            await _dbContext.SaveChangesAsync();
 
             // Update sale status
             sale.PaymentStatus = "PENDING";
             sale.PaymentMethod = "MOMO";
+            sale.UpdatedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
 
             return Ok(new CreateMomoPaymentResponseDto
             {
@@ -130,7 +141,7 @@ public class PaymentController : ControllerBase
             var saleId = Guid.Parse(saleIdString);
 
             // Tìm sale
-            var sale = await _saleRepository.GetByIdAsync(saleId);
+            var sale = await _dbContext.Sales.FirstOrDefaultAsync(s => s.Id == saleId);
 
             if (sale != null)
             {
@@ -139,29 +150,48 @@ public class PaymentController : ControllerBase
                 {
                     sale.PaymentStatus = "COMPLETED";
                     sale.Status = "COMPLETED"; // Mark sale as completed when Momo payment succeeds
-                    await _saleRepository.UpdateAsync(sale);
+                    sale.UpdatedAt = DateTime.UtcNow;
                     
-                    // Lưu payment record
-                    var payment = new Payment
+                    // Update payment record if exists, otherwise create one
+                    var payment = await _dbContext.Payments
+                        .Where(p => p.SaleId == sale.Id && p.PaymentMethod == "MOMO")
+                        .OrderByDescending(p => p.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (payment == null)
                     {
-                        Id = Guid.NewGuid(),
-                        SaleId = sale.Id,
-                        PaymentMethod = "MOMO",
-                        Amount = (decimal)request.Amount,
-                        Status = "COMPLETED",
-                        TransactionReference = request.TransId.ToString(),
-                        CreatedAt = DateTime.UtcNow,
-                        PaymentDate = DateTime.UtcNow
-                    };
-                    _payments.Add(payment);
+                        payment = new Payment
+                        {
+                            Id = Guid.NewGuid(),
+                            SaleId = sale.Id,
+                            PaymentMethod = "MOMO",
+                            Amount = (decimal)request.Amount,
+                            Status = "COMPLETED",
+                            TransactionReference = request.TransId.ToString(),
+                            CreatedAt = DateTime.UtcNow,
+                            PaymentDate = DateTime.UtcNow
+                        };
+                        await _dbContext.Payments.AddAsync(payment);
+                    }
+                    else
+                    {
+                        payment.Status = "COMPLETED";
+                        payment.Amount = (decimal)request.Amount;
+                        payment.TransactionReference = request.TransId.ToString();
+                        payment.PaymentDate = DateTime.UtcNow;
+                    }
+
+                    await _dbContext.SaveChangesAsync();
                 }
                 else
                 {
                     // Thanh toán thất bại
                     sale.PaymentStatus = "FAILED";
                     sale.Status = "FAILED";
-                    await _saleRepository.UpdateAsync(sale);
+                    sale.UpdatedAt = DateTime.UtcNow;
                 }
+
+                await _dbContext.SaveChangesAsync();
 
                 return Ok(new { message = "Success" });
             }
@@ -179,26 +209,52 @@ public class PaymentController : ControllerBase
     /// </summary>
     /// <param name="orderId">Mã đơn hàng</param>
     /// <param name="resultCode">Mã kết quả (0 = thành công)</param>
-    /// <returns>Redirect đến trang kết quả</returns>
+    /// <param name="signature">Chữ ký từ Momo để xác thực</param>
+    /// <returns>Redirect đến trang kết quả FE</returns>
     [HttpGet("momo/return")]
-    public IActionResult MomoReturn([FromQuery] string orderId, [FromQuery] int resultCode)
+    public IActionResult MomoReturn(
+        [FromQuery] string orderId, 
+        [FromQuery] int resultCode, 
+        [FromQuery] string signature = "")
     {
-        if (resultCode == 0)
+        var frontendSuccessUrl = _config["Momo:FrontendSuccessUrl"] ?? "http://localhost:3000/payment-success";
+        var frontendFailureUrl = _config["Momo:FrontendFailureUrl"] ?? "http://localhost:3000/payment-failure";
+
+        // ✅ Verify signature nếu có (bảo mật)
+        if (!string.IsNullOrEmpty(signature))
         {
-            return Ok(new
+            try
             {
-                success = true,
-                orderId = orderId,
-                message = "Thanh toán thành công!"
-            });
+                var rawSignature = $"orderId={orderId}&resultCode={resultCode}";
+                var expectedSignature = _momoService.ComputeHmacSha256(rawSignature);
+                
+                if (!expectedSignature.Equals(signature, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Signature không hợp lệ - có thể bị tấn công
+                    _logger.LogWarning($"Invalid Momo signature for orderId: {orderId}");
+                    return Redirect($"{frontendFailureUrl}?error=invalid_signature&orderId={orderId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error verifying Momo signature: {ex.Message}");
+                return Redirect($"{frontendFailureUrl}?error=verification_error&orderId={orderId}");
+            }
         }
 
-        return Ok(new
+        // ✅ Redirect đến FE thay vì trả JSON
+        if (resultCode == 0)
         {
-            success = false,
-            orderId = orderId,
-            message = "Thanh toán thất bại hoặc bị hủy"
-        });
+            // Thanh toán thành công
+            _logger.LogInformation($"Momo payment success for orderId: {orderId}");
+            return Redirect($"{frontendSuccessUrl}?orderId={orderId}&resultCode={resultCode}");
+        }
+        else
+        {
+            // Thanh toán thất bại hoặc bị hủy
+            _logger.LogWarning($"Momo payment failed for orderId: {orderId}. ResultCode: {resultCode}");
+            return Redirect($"{frontendFailureUrl}?orderId={orderId}&resultCode={resultCode}");
+        }
     }
 
     /// <summary>
@@ -207,9 +263,14 @@ public class PaymentController : ControllerBase
     /// <returns>Danh sách tất cả payments</returns>
     [HttpGet("list")]
     [ProducesResponseType(typeof(List<Payment>), StatusCodes.Status200OK)]
-    public IActionResult GetPayments()
+    public async Task<IActionResult> GetPayments()
     {
-        return Ok(_payments);
+        var payments = await _dbContext.Payments
+            .AsNoTracking()
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+
+        return Ok(payments);
     }
 
     /// <summary>
@@ -220,9 +281,12 @@ public class PaymentController : ControllerBase
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(Payment), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetPaymentById(Guid id)
+    public async Task<IActionResult> GetPaymentById(Guid id)
     {
-        var payment = _payments.FirstOrDefault(p => p.Id == id);
+        var payment = await _dbContext.Payments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id);
+
         if (payment == null)
         {
             return NotFound(new { message = "Payment not found" });
@@ -241,14 +305,18 @@ public class PaymentController : ControllerBase
     public async Task<IActionResult> SimulateMomoSuccess(Guid saleId)
     {
         // Tìm payment
-        var payment = _payments.FirstOrDefault(p => p.SaleId == saleId && p.PaymentMethod == "MOMO");
+        var payment = await _dbContext.Payments
+            .Where(p => p.SaleId == saleId && p.PaymentMethod == "MOMO")
+            .OrderByDescending(p => p.CreatedAt)
+            .FirstOrDefaultAsync();
+
         if (payment == null)
         {
             return NotFound(new { message = "Payment not found. Please create payment first." });
         }
 
         // Tìm sale
-        var sale = await _saleRepository.GetByIdAsync(saleId);
+        var sale = await _dbContext.Sales.FirstOrDefaultAsync(s => s.Id == saleId);
         if (sale == null)
         {
             return NotFound(new { message = "Sale not found" });
@@ -262,6 +330,9 @@ public class PaymentController : ControllerBase
         // Update sale
         sale.PaymentStatus = "COMPLETED";
         sale.Status = "COMPLETED";
+        sale.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync();
 
         return Ok(new
         {
@@ -294,13 +365,17 @@ public class PaymentController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SimulateMomoFailure(Guid saleId)
     {
-        var payment = _payments.FirstOrDefault(p => p.SaleId == saleId && p.PaymentMethod == "MOMO");
+        var payment = await _dbContext.Payments
+            .Where(p => p.SaleId == saleId && p.PaymentMethod == "MOMO")
+            .OrderByDescending(p => p.CreatedAt)
+            .FirstOrDefaultAsync();
+
         if (payment == null)
         {
             return NotFound(new { message = "Payment not found" });
         }
 
-        var sale = await _saleRepository.GetByIdAsync(saleId);
+        var sale = await _dbContext.Sales.FirstOrDefaultAsync(s => s.Id == saleId);
         if (sale == null)
         {
             return NotFound(new { message = "Sale not found" });
@@ -309,6 +384,10 @@ public class PaymentController : ControllerBase
         // Simulate payment failure
         payment.Status = "FAILED";
         sale.PaymentStatus = "FAILED";
+        sale.Status = "FAILED";
+        sale.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync();
 
         return Ok(new
         {

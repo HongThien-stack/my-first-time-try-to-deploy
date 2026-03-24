@@ -3,7 +3,6 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using PosService.Application.DTOs.External;
 using PosService.Application.Interfaces.Http;
-using System.Net.Http.Json;
 
 namespace PosService.Infrastructure.HttpClients
 {
@@ -49,12 +48,37 @@ namespace PosService.Infrastructure.HttpClients
         {
             try
             {
-                var response = await _httpClient.GetAsync($"/api/products/search?keyword={keyword}&pageNumber={pageNumber}&pageSize={pageSize}");
+                // ProductService currently exposes list endpoint at /api/Product/Get-All-Products.
+                var response = await _httpClient.GetAsync("/api/Product/Get-All-Products");
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<PagedSearchResult<ProductDetailsDto>>();
-                    return (result?.Items ?? new List<ProductDetailsDto>(), result?.TotalCount ?? 0);
+                    var responseStream = await response.Content.ReadAsStreamAsync();
+                    var result = await JsonSerializer.DeserializeAsync<ApiResponse<List<ProductDetailsDto>>>(
+                        responseStream,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                    var products = result?.Data ?? new List<ProductDetailsDto>();
+
+                    if (!string.IsNullOrWhiteSpace(keyword))
+                    {
+                        var normalizedKeyword = keyword.Trim();
+                        products = products
+                            .Where(p =>
+                                p.Name.Contains(normalizedKeyword, StringComparison.OrdinalIgnoreCase) ||
+                                p.Sku.Contains(normalizedKeyword, StringComparison.OrdinalIgnoreCase) ||
+                                (!string.IsNullOrWhiteSpace(p.Barcode) && p.Barcode.Contains(normalizedKeyword, StringComparison.OrdinalIgnoreCase)))
+                            .ToList();
+                    }
+
+                    var totalCount = products.Count;
+
+                    var items = products
+                        .Skip((pageNumber - 1) * pageSize)
+                        .Take(pageSize)
+                        .ToList();
+
+                    return (items, totalCount);
                 }
 
                 _logger.LogError("Failed to search products from ProductService. Status: {StatusCode}, Reason: {ReasonPhrase}", response.StatusCode, response.ReasonPhrase);

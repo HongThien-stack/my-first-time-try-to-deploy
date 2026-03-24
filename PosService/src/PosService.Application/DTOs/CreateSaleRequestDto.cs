@@ -16,6 +16,5 @@ namespace PosService.Application.DTOs
     {
         public Guid ProductId { get; set; }
         public int Quantity { get; set; }
-        public decimal UnitPriceFromClient { get; set; } // The unit price at the time of sale on the client
     }
 }

@@ -27,7 +27,12 @@ namespace PosService.Infrastructure.HttpClients
                 items = request.Items
             };
             
-            var content = new StringContent(JsonSerializer.Serialize(cartPayload), Encoding.UTF8, "application/json");
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+            
+            var content = new StringContent(JsonSerializer.Serialize(cartPayload, options), Encoding.UTF8, "application/json");
 
             try
             {
