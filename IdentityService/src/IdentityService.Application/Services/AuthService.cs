@@ -360,7 +360,7 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Failed to send password reset OTP email to {Email}", user.Email);
-            // Don't rethrow — OTP is stored, user can request again
+            throw new InvalidOperationException("Failed to send password reset OTP email. Please verify SMTP settings and try again.");
         }
 
         return new ForgotPasswordResponseDto
@@ -556,7 +556,7 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Failed to send OTP email to {Email}", user.Email);
-            // Don't rethrow — OTP is stored, user can request resend
+            throw new InvalidOperationException("Failed to send OTP email. Please verify SMTP settings and try again.");
         }
     }
 
