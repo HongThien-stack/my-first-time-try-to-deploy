@@ -130,6 +130,7 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 app.MapControllers();
 
 // Log startup information

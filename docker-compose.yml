@@ -5,12 +5,14 @@ services:
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_PID: "Developer"
-      MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
+      MSSQL_SA_PASSWORD: "${DB_PASSWORD:-YourStrong!Passw0rd}"
     ports:
       - "14333:1433"
     networks:
       - identity-network
     restart: unless-stopped
+    volumes:
+      - identity-sql-data:/var/opt/mssql
 
   identity-api:
     build:
@@ -22,7 +24,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__IdentityDB: "Server=identity-db,1433;Database=IdentityDB;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=True"
+      ConnectionStrings__IdentityDB: "Server=identity-db,1433;Database=IdentityDB;User Id=sa;Password=${DB_PASSWORD:-YourStrong!Passw0rd};TrustServerCertificate=True;Encrypt=True"
       Jwt__SecretKey: "${JWT_SECRET_KEY:-YourSuperSecretKeyThatIsAtLeast32CharactersLongForHS256Algorithm}"
       Jwt__Issuer: "${JWT_ISSUER:-IdentityService}"
       Jwt__Audience: "${JWT_AUDIENCE:-IdentityServiceClient}"
@@ -83,11 +85,106 @@ services:
       - product-network
     restart: unless-stopped
 
+  inventory-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: inventory-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "${INVENTORY_DB_PASSWORD:-YourPassword123!}"
+    networks:
+      - inventory-network
+    restart: unless-stopped
+    volumes:
+      - inventory-sql-data:/var/opt/mssql
+
+  inventory-api:
+    build:
+      context: ./InventoryService
+      dockerfile: Dockerfile
+    container_name: inventory-api
+    depends_on:
+      - inventory-db
+      - product-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Server=inventory-db,1433;Database=${INVENTORY_DB_NAME:-InventoryDB};User Id=sa;Password=${INVENTORY_DB_PASSWORD:-YourPassword123!};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=true"
+      Jwt__SecretKey: "${INVENTORY_JWT_SECRET_KEY:-YourSuperSecretKeyThatIsAtLeast32CharactersLongForHS256Algorithm}"
+      Jwt__Issuer: "${INVENTORY_JWT_ISSUER:-IdentityService}"
+      Jwt__Audience: "${INVENTORY_JWT_AUDIENCE:-IdentityServiceClient}"
+      ServiceUrls__ProductService: "${PRODUCT_SERVICE_URL:-http://product-api:8080}"
+      Cloudinary__CloudName: "${INVENTORY_CLOUDINARY_CLOUD_NAME:-change-me}"
+      Cloudinary__ApiKey: "${INVENTORY_CLOUDINARY_API_KEY:-change-me}"
+      Cloudinary__ApiSecret: "${INVENTORY_CLOUDINARY_API_SECRET:-change-me}"
+      AllowedHosts: "*"
+    ports:
+      - "5003:8080"
+    networks:
+      - inventory-network
+      - product-network
+    restart: unless-stopped
+
+  pos-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pos-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "${POS_DB_PASSWORD:-YourPassword123!}"
+    networks:
+      - pos-network
+    restart: unless-stopped
+    volumes:
+      - pos-sql-data:/var/opt/mssql
+
+  pos-api:
+    build:
+      context: ./PosService
+      dockerfile: Dockerfile
+    container_name: pos-api
+    depends_on:
+      - pos-db
+      - product-api
+      - inventory-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__PosDbConnection: "Server=pos-db,1433;Database=${POS_DB_NAME:-PosDB};User Id=sa;Password=${POS_DB_PASSWORD:-YourPassword123!};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=true"
+      JwtSettings__Secret: "${POS_JWT_SECRET:-YourSuperSecretKeyThatIsAtLeast32CharactersLongForHS256Algorithm}"
+      JwtSettings__Issuer: "${POS_JWT_ISSUER:-IdentityService}"
+      JwtSettings__Audience: "${POS_JWT_AUDIENCE:-IdentityServiceClient}"
+      Services__ProductService__Url: "${POS_PRODUCT_SERVICE_URL:-http://product-api:8080}"
+      Services__InventoryService__Url: "${POS_INVENTORY_SERVICE_URL:-http://inventory-api:8080}"
+      Services__PromotionService__Url: "${POS_PROMOTION_SERVICE_URL:-http://promotion-api:8080}"
+      Momo__PartnerCode: "${POS_MOMO_PARTNER_CODE:-MOMOBKUN20180529}"
+      Momo__AccessKey: "${POS_MOMO_ACCESS_KEY:-change-me}"
+      Momo__SecretKey: "${POS_MOMO_SECRET_KEY:-change-me}"
+      Momo__Endpoint: "${POS_MOMO_ENDPOINT:-https://test-payment.momo.vn/v2/gateway/api/create}"
+      Momo__ReturnUrl: "${POS_MOMO_RETURN_URL:-http://13.229.29.52:5006/api/payment/momo/return}"
+      Momo__NotifyUrl: "${POS_MOMO_NOTIFY_URL:-http://13.229.29.52:5006/api/payment/momo/notify}"
+      Momo__FrontendSuccessUrl: "${POS_FRONTEND_SUCCESS_URL:-http://localhost:3000/payment-success}"
+      Momo__FrontendFailureUrl: "${POS_FRONTEND_FAILURE_URL:-http://localhost:3000/payment-failure}"
+    ports:
+      - "5006:8080"
+    networks:
+      - pos-network
+      - product-network
+      - inventory-network
+    restart: unless-stopped
+
 networks:
   identity-network:
     driver: bridge
   product-network:
     driver: bridge
+  inventory-network:
+    driver: bridge
+  pos-network:
+    driver: bridge
 
 volumes:
+  identity-sql-data:
   product-sql-data:
+  inventory-sql-data:
+  pos-sql-data:

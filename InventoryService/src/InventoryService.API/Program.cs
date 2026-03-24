@@ -71,6 +71,7 @@ builder.Services.AddAuthentication(options =>
         NameClaimType = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
     };
 });
+builder.Services.AddAuthorization();
 
 // Database Configuration
 builder.Services.AddDbContext<InventoryDbContext>(options =>
@@ -126,7 +127,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
@@ -136,13 +137,17 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Docker"))
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 app.MapControllers();
 
 app.Run();

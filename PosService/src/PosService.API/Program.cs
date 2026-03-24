@@ -93,10 +93,6 @@ builder.Services.AddHttpClient<IInventoryServiceClient, InventoryServiceClient>(
     client.BaseAddress = new Uri(builder.Configuration["Services:InventoryService:Url"] ?? "http://localhost:5002");
 });
 
-
-// Register repositories and services
-builder.Services.AddScoped<ISaleRepository, SaleRepository>();
-
 // Add JWT Authentication
 var jwtSecret = builder.Configuration["JwtSettings:Secret"];
 var jwtIssuer = builder.Configuration["JwtSettings:Issuer"];
@@ -144,7 +140,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Docker"))
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
@@ -157,6 +153,7 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 app.MapControllers();
 
 app.Run();

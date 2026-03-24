@@ -56,7 +56,6 @@ builder.Services.Configure<CloudinarySettings>(
 // Add repositories
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
-builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
 
 // Add services
@@ -88,11 +87,8 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+builder.Services.AddScoped<ICategoryService, CategoryApplicationService>();
 builder.Services.AddAuthorization();
-builder.Services.AddScoped<ICategoryService, CategoryApplicationService>();
-
-// Configure CORS
-builder.Services.AddScoped<ICategoryService, CategoryApplicationService>();
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -123,6 +119,7 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
 app.MapControllers();
 
 app.Logger.LogInformation("========================================");
