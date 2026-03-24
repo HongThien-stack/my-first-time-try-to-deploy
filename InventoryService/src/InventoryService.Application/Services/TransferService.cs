@@ -215,7 +215,6 @@ public class TransferService : ITransferService
 
 
             int receivedQuantity = incoming.ShippedQuantity - incoming.DamagedQuantity;
-
             // 2a. Ghi nhận số lượng thực nhận lên TransferItem
             transferItem.ShippedQuantity = incoming.ShippedQuantity;
             transferItem.ReceivedQuantity = receivedQuantity;  // Tự tính
@@ -252,19 +251,18 @@ public class TransferService : ITransferService
                     });
                 }
             }
-            // 4. Cập nhật ProductBatch sang kho đích và số lượng thực nhận nếu có BatchId
+            // 4. Chuyển batch gốc sang nơi nhận và cập nhật số lượng thực nhận nếu có BatchId
             if (transferItem.BatchId.HasValue)
             {
-                var batch = await _productBatchRepository.GetByIdAsync(transferItem.BatchId.Value);
-                if (batch != null)
-                {
-                    batch.Quantity = receivedQuantity;
-                    batch.WarehouseId = transfer.ToLocationId;
-                    await _productBatchRepository.UpdateAsync(batch);
-                    _logger.LogInformation(
-                        "ProductBatch {BatchId} moved to warehouse {WarehouseId} with quantity updated to {Quantity}",
-                        batch.Id, batch.WarehouseId, batch.Quantity);
-                }
+                var batch = await _productBatchRepository.GetByIdAsync(transferItem.BatchId.Value)
+                    ?? throw new KeyNotFoundException($"ProductBatch {transferItem.BatchId.Value} not found");
+
+                batch.Quantity = receivedQuantity;
+                batch.WarehouseId = transfer.ToLocationId;
+                await _productBatchRepository.UpdateAsync(batch);
+                _logger.LogInformation(
+                    "ProductBatch {BatchId} moved to location {LocationId} with quantity updated to {Quantity}",
+                    batch.Id, transfer.ToLocationId, batch.Quantity);
             }
 
             // Lấy unitPrice từ ProductService
