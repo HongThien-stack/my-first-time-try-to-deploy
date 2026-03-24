@@ -123,6 +123,37 @@ public class InventoryManagementService : IInventoryService
         };
     }
 
+    public async Task<InventoryDto> UpdateMinStockLevelAsync(Guid inventoryId, int minStockLevel)
+    {
+        _logger.LogInformation(
+            "Updating min stock level for inventory {InventoryId} to {MinStockLevel}",
+            inventoryId,
+            minStockLevel);
+
+        if (minStockLevel < 0)
+        {
+            throw new ArgumentException("Min stock level must be greater than or equal to 0");
+        }
+
+        var inventory = await _inventoryRepository.GetByIdAsync(inventoryId);
+        if (inventory == null)
+        {
+            throw new KeyNotFoundException($"Inventory {inventoryId} not found");
+        }
+
+        if (inventory.MaxStockLevel.HasValue && minStockLevel > inventory.MaxStockLevel.Value)
+        {
+            throw new ArgumentException("Min stock level cannot be greater than max stock level");
+        }
+
+        inventory.MinStockLevel = minStockLevel;
+        inventory.UpdatedAt = DateTime.UtcNow;
+
+        await _inventoryRepository.UpdateAsync(inventory);
+
+        return MapToDto(inventory);
+    }
+
     public async Task<InventoryDto> UpdateInventoryAsync(Guid id, int quantity, Guid performedBy, string reason)
     {
         _logger.LogInformation("Updating inventory {InventoryId} to quantity {Quantity}", id, quantity);

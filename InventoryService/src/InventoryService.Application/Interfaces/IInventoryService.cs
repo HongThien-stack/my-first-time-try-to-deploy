@@ -15,6 +15,7 @@ public interface IInventoryService
         Guid? locationId = null,
         int pageNumber = 1,
         int pageSize = 20);
+    Task<InventoryDto> UpdateMinStockLevelAsync(Guid inventoryId, int minStockLevel);
     Task<InventoryDto> UpdateInventoryAsync(Guid id, int quantity, Guid performedBy, string reason);
     Task UpdateReservedQuantityAsync(Inventory inventory);
     Task<InventoryDto> CheckOrCreateInventoryAsync(CreateInventoryDto dto);

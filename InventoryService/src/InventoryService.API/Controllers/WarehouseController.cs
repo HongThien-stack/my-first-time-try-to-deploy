@@ -1,6 +1,7 @@
 using InventoryService.Application.DTOs;
 using InventoryService.Application.Interfaces;
 using InventoryService.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InventoryService.API.Controllers;
@@ -102,21 +103,22 @@ public class WarehouseController : ControllerBase
     }
 
     [HttpPost("warehouses")]
-    public async Task<ActionResult> AddWarehouse([FromBody] WarehouseDto warehouseDto)
+    [Authorize(Roles = "Admin,Warehouse Admin")]
+    public async Task<ActionResult> AddWarehouse([FromBody] WarehouseCreateRequest request)
     {
         try
         {
             Warehouse warehouse = new Warehouse
             {
                 Id = Guid.NewGuid(),
-                Name = warehouseDto.Name,
-                Location = warehouseDto.Location,
-                Capacity = warehouseDto.Capacity,
-                Status = warehouseDto.Status,
-                ParentId = warehouseDto.ParentId,
-                IsDeleted = warehouseDto.IsDeleted,
-                CreatedAt = warehouseDto.CreatedAt,
-                CreatedBy = warehouseDto.CreatedBy
+                Name = request.Name,
+                Location = request.Location,
+                Capacity = request.Capacity,
+                Status = request.Status,
+                ParentId = request.ParentId,
+                IsDeleted = false,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = request.CreatedBy
             };
 
             await _warehouseService.AddWarehouseAsync(warehouse);
@@ -130,6 +132,7 @@ public class WarehouseController : ControllerBase
     }
 
     [HttpPatch("warehouses/{id}")]
+    [Authorize(Roles = "Admin,Warehouse Admin")]
     public async Task<IActionResult> UpdateWarehouse(Guid id, [FromBody] WarehouseUpdateRequest request)
     {
         if (request == null)
@@ -152,7 +155,7 @@ public class WarehouseController : ControllerBase
         try
         {
             await _warehouseService.UpdateWarehouseAsync(warehouse);
-            return NoContent();
+            return Ok("Warehouse updated successfully");
         }
         catch (Exception)
         {
@@ -161,9 +164,15 @@ public class WarehouseController : ControllerBase
     }
 
     [HttpDelete("warehouses/{id}")]
+    [Authorize(Roles = "Admin,Warehouse Admin")]
     public async Task<IActionResult> DeleteWarehouse([FromRoute] Guid id)
     {
+        var warehouse = await _warehouseService.GetWarehouseAsync(id);
+
+        if (warehouse == null)
+            return NotFound("Warehouse not found");
+
         await _warehouseService.DeleteWarehouseAsync(id);
-        return Ok("Warehouse deleted successfully");
+        return Ok("Warehouse soft deleted successfully");
     }
 }

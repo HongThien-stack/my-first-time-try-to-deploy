@@ -210,6 +210,66 @@ public class InventoryController : ControllerBase
     }
 
     /// <summary>
+    /// Update minimum stock level for a specific inventory record.
+    /// </summary>
+    /// <param name="inventoryId">Inventory ID</param>
+    /// <param name="dto">New minimum stock level payload</param>
+    /// <returns>Updated inventory</returns>
+    [HttpPut("{inventoryId:guid}/min-stock-level")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateMinStockLevel(Guid inventoryId, [FromBody] UpdateMinStockLevelDto dto)
+    {
+        try
+        {
+            if (dto == null)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Request body is required"
+                });
+            }
+
+            var updatedInventory = await _inventoryService.UpdateMinStockLevelAsync(inventoryId, dto.MinStockLevel);
+
+            return Ok(new
+            {
+                success = true,
+                message = "Minimum stock level updated successfully",
+                data = updatedInventory
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating min stock level for inventory {InventoryId}", inventoryId);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while updating min stock level",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
     /// Get low stock alerts - inventory items where available quantity is at or below minimum stock level
     /// </summary>
     /// <param name="locationType">Optional filter: Location type (WAREHOUSE or STORE)</param>
