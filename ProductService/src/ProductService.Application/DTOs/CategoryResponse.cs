@@ -8,6 +8,7 @@ namespace ProductService.Application.DTOs
 {
     public class CategoryResponse
     {
+        public Guid Id { get; set; }
         public string Name { get; set; } = null!;
         public string Status { get; set; } = "ACTIVE";
         public DateTime CreatedAt { get; set; }

@@ -32,6 +32,7 @@ public class CategoryController : ControllerBase
         {
             categoryResponses.Add(new CategoryResponse
             {
+                Id = category.Id,
                 Name = category.Name,
                 Status = category.Status,
                 CreatedAt = category.CreatedAt,
@@ -66,8 +67,8 @@ public class CategoryController : ControllerBase
     }
 
     // get categories by id 
-    [HttpGet("Get-Category-by-ID")]
-    public async Task<IActionResult> GetById(Guid id)
+    [HttpGet("Get-Category-by-ID/{id:guid}")]
+    public async Task<IActionResult> GetById([FromRoute] Guid id)
     {
         var category = await _categoryService.GetCategoryByIdAsync(id);
 
@@ -78,8 +79,8 @@ public class CategoryController : ControllerBase
     }
 
     // update category by id
-    [HttpPut("Update-Category-by-ID")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCategoryRequest request)
+    [HttpPut("Update-Category-by-ID/{id:guid}")]
+    public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] UpdateCategoryRequest request)
     {
         if (!ModelState.IsValid)
             return BadRequest(new
