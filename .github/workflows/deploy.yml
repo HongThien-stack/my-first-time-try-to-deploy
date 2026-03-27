@@ -10,14 +10,76 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed services
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            files="$(git diff-tree --no-commit-id --name-only -r HEAD)"
+          else
+            files="$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")"
+          fi
+
+          echo "Changed files:"
+          printf '%s\n' "$files"
+
+          services=""
+          full_deploy="false"
+
+          if printf '%s\n' "$files" | grep -Eq '^(docker-compose\.yml|\.env\.example|\.github/workflows/)'; then
+            full_deploy="true"
+          fi
+
+          if printf '%s\n' "$files" | grep -Eq '^IdentityService/'; then
+            services="$services identity-api"
+          fi
+
+          if printf '%s\n' "$files" | grep -Eq '^ProductService/'; then
+            services="$services product-api"
+          fi
+
+          if printf '%s\n' "$files" | grep -Eq '^InventoryService/'; then
+            services="$services inventory-api"
+          fi
+
+          if printf '%s\n' "$files" | grep -Eq '^PosService/'; then
+            services="$services pos-api"
+          fi
+
+          services="$(echo "$services" | xargs)"
+
+          echo "full_deploy=$full_deploy" >> "$GITHUB_OUTPUT"
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          FULL_DEPLOY: ${{ steps.changes.outputs.full_deploy }}
+          CHANGED_SERVICES: ${{ steps.changes.outputs.services }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: FULL_DEPLOY,CHANGED_SERVICES
           script: |
+            set -e
             cd /home/ec2-user/my-first-time-try-to-deploy
             git config pull.rebase true
             git pull origin main
-            docker compose up -d --build
+
+            if [ "$FULL_DEPLOY" = "true" ]; then
+              echo "Full deploy triggered"
+              docker compose up -d --build
+            elif [ -n "$CHANGED_SERVICES" ]; then
+              echo "Deploying changed services: $CHANGED_SERVICES"
+              docker compose up -d --build $CHANGED_SERVICES
+            else
+              echo "No deployable service changes detected"
+            fi
