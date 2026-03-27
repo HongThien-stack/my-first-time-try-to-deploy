@@ -32,6 +32,7 @@ public class CategoryController : ControllerBase
         {
             categoryResponses.Add(new CategoryResponse
             {
+                Id = category.Id,
                 Name = category.Name,
                 Status = category.Status,
                 CreatedAt = category.CreatedAt,
