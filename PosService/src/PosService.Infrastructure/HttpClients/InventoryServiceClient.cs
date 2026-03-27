@@ -43,5 +43,45 @@ namespace PosService.Infrastructure.HttpClients
                 return new Dictionary<Guid, int>();
             }
         }
+
+        /// <summary>
+        /// Trừ tồn kho sau khi sale completed (CASH) hoặc MOMO success
+        /// </summary>
+        public async Task<bool> ReduceInventoryAsync(Guid storeId, List<(Guid ProductId, int Quantity)> items)
+        {
+            if (storeId == Guid.Empty || items == null || !items.Any())
+            {
+                _logger.LogWarning("Invalid reduce inventory request: StoreId={StoreId}, ItemCount={ItemCount}", storeId, items?.Count ?? 0);
+                return false;
+            }
+
+            try
+            {
+                var request = new
+                {
+                    storeId = storeId,
+                    items = items.Select(i => new { productId = i.ProductId, quantity = i.Quantity }).ToList()
+                };
+
+                _logger.LogInformation("Calling InventoryService to reduce inventory for store {StoreId} with {ItemCount} items", storeId, items.Count);
+
+                var response = await _httpClient.PostAsJsonAsync("/api/inventory/reduce", request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("Successfully reduced inventory for store {StoreId}: {ItemCount} items", storeId, items.Count);
+                    return true;
+                }
+
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to reduce inventory. Status: {StatusCode}, Response: {Response}", response.StatusCode, errorContent);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception occurred while calling InventoryService to reduce inventory for store {StoreId}", storeId);
+                return false;
+            }
+        }
     }
 }

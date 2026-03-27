@@ -344,4 +344,65 @@ public class InventoryController : ControllerBase
             });
         }
     }
-}
+    /// <summary>
+    /// [INTERNAL] Reduce inventory when sale is completed (CASH or MOMO success)
+    /// </summary>
+    /// <remarks>
+    /// This is an INTERNAL endpoint - NOT exposed in public API docs
+    /// Called by PosService when:
+    /// - CASH payment: immediately after sale creation
+    /// - MOMO payment: after payment success webhook
+    /// </remarks>
+    [HttpPost("reduce")]
+    [ApiExplorerSettings(IgnoreApi = true)] // Hide from Swagger
+    [ProducesResponseType(typeof(ReduceInventoryResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReduceInventory([FromBody] ReduceInventoryRequestDto request)
+    {
+        try
+        {
+            if (request?.StoreId == Guid.Empty)
+                return BadRequest(new { success = false, message = "Store ID is required" });
+
+            if (request?.Items == null || !request.Items.Any())
+                return BadRequest(new { success = false, message = "Items list is required and cannot be empty" });
+
+            // Validate each item
+            foreach (var item in request.Items)
+            {
+                if (item.ProductId == Guid.Empty)
+                    return BadRequest(new { success = false, message = "Product ID is required for each item" });
+
+                if (item.Quantity <= 0)
+                    return BadRequest(new { success = false, message = "Quantity must be greater than 0" });
+            }
+
+            _logger.LogInformation("Reducing inventory for store {StoreId} with {ItemCount} items",
+                request.StoreId, request.Items.Count);
+
+            var result = await _inventoryService.ReduceInventoryAsync(request, Guid.Empty); // Empty GUID for internal operation
+
+            return Ok(new { success = result.Success, message = result.Message, data = result.ReducedItems });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "Inventory not found for store {StoreId}", request?.StoreId);
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid operation for store {StoreId}", request?.StoreId);
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reducing inventory for store {StoreId}", request?.StoreId);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while reducing inventory",
+                error = ex.Message
+            });
+        }
+    }}

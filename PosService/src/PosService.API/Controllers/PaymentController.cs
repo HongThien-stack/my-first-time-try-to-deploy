@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using PosService.Application.DTOs;
 using PosService.Application.Interfaces;
+using PosService.Application.Interfaces.Http;
 using PosService.Domain.Entities;
 using PosService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -17,17 +18,20 @@ namespace PosService.API.Controllers;
 public class PaymentController : ControllerBase
 {
     private readonly IMomoPaymentService _momoService;
+    private readonly IInventoryServiceClient _inventoryServiceClient;
     private readonly PosDbContext _dbContext;
     private readonly IConfiguration _config;
     private readonly ILogger<PaymentController> _logger;
 
     public PaymentController(
         IMomoPaymentService momoService,
+        IInventoryServiceClient inventoryServiceClient,
         PosDbContext dbContext,
         IConfiguration config,
         ILogger<PaymentController> logger)
     {
         _momoService = momoService;
+        _inventoryServiceClient = inventoryServiceClient;
         _dbContext = dbContext;
         _config = config;
         _logger = logger;
@@ -182,6 +186,35 @@ public class PaymentController : ControllerBase
                     }
 
                     await _dbContext.SaveChangesAsync();
+
+                    // Reduce inventory when MOMO payment succeeds
+                    try
+                    {
+                        var saleItems = await _dbContext.SaleItems
+                            .Where(si => si.SaleId == sale.Id)
+                            .ToListAsync();
+
+                        if (saleItems.Any())
+                        {
+                            var inventoryItems = saleItems.Select(si => (si.ProductId, Quantity: (int)si.Quantity)).ToList();
+                            var inventoryReduced = await _inventoryServiceClient.ReduceInventoryAsync(sale.StoreId, inventoryItems);
+
+                            if (inventoryReduced)
+                            {
+                                _logger.LogInformation("Inventory reduced for MOMO sale {SaleNumber} after payment success", sale.SaleNumber);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Failed to reduce inventory for MOMO sale {SaleNumber}", sale.SaleNumber);
+                                // Continue anyway - inventory can be manually reconciled
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error reducing inventory for MOMO sale {SaleNumber}", sale.SaleNumber);
+                        // Continue anyway - don't fail the payment webhook
+                    }
                 }
                 else
                 {

@@ -8,15 +8,18 @@ namespace InventoryService.Application.Services;
 public class InventoryManagementService : IInventoryService
 {
     private readonly IInventoryRepository _inventoryRepository;
+    private readonly IProductBatchRepository _productBatchRepository;
     private readonly IProductServiceClient _productServiceClient;
     private readonly ILogger<InventoryManagementService> _logger;
 
     public InventoryManagementService(
         IInventoryRepository inventoryRepository,
+        IProductBatchRepository productBatchRepository,
         IProductServiceClient productServiceClient,
         ILogger<InventoryManagementService> logger)
     {
         _inventoryRepository = inventoryRepository;
+        _productBatchRepository = productBatchRepository;
         _productServiceClient = productServiceClient;
         _logger = logger;
     }
@@ -211,6 +214,149 @@ public class InventoryManagementService : IInventoryService
         _logger.LogInformation("New inventory created with ID {InventoryId}", createdInventory.Id);
 
         return MapToDto(createdInventory);
+    }
+
+    /// <summary>
+    /// Trừ tồn kho khi sale complete (CASH) hoặc Momo payment success
+    /// Áp dụng FEFO (First Expiration First Out): trừ lô hàng với ngày hết hạn sớm nhất trước
+    /// </summary>
+    public async Task<ReduceInventoryResponseDto> ReduceInventoryAsync(ReduceInventoryRequestDto request, Guid performedBy)
+    {
+        _logger.LogInformation("Reducing inventory for store {StoreId} with {ItemCount} items (FEFO logic)", 
+            request.StoreId, request.Items.Count);
+
+        var response = new ReduceInventoryResponseDto { Success = true };
+        var reducedItems = new List<ReducedInventoryItemDto>();
+
+        try
+        {
+            foreach (var item in request.Items)
+            {
+                // Tìm inventory: ProductId + StoreId (location_id)
+                var inventory = await _inventoryRepository.GetByLocationAndProductAsync(
+                    "STORE", request.StoreId, item.ProductId);
+
+                if (inventory == null)
+                {
+                    _logger.LogWarning("Inventory not found for product {ProductId} at store {StoreId}", 
+                        item.ProductId, request.StoreId);
+                    throw new KeyNotFoundException(
+                        $"Inventory not found for product {item.ProductId} at store {request.StoreId}");
+                }
+
+                // Kiểm tra đủ tồn kho
+                if (inventory.Quantity < item.Quantity)
+                {
+                    _logger.LogError("Insufficient inventory for product {ProductId}. Required: {Required}, Available: {Available}", 
+                        item.ProductId, item.Quantity, inventory.AvailableQuantity);
+                    throw new InvalidOperationException(
+                        $"Insufficient inventory for product {item.ProductId}. Required: {item.Quantity}, Available: {inventory.AvailableQuantity}");
+                }
+
+                // Bước 1: Trừ tồn kho chính
+                inventory.Quantity -= item.Quantity;
+                inventory.UpdatedAt = DateTime.UtcNow;
+                await _inventoryRepository.UpdateAsync(inventory);
+
+                _logger.LogInformation("Inventory reduced for product {ProductId}: -{Quantity}, Remaining: {Remaining}", 
+                    item.ProductId, item.Quantity, inventory.Quantity);
+
+                // Bước 2: Trừ lô hàng theo FEFO (First Expiration First Out)
+                await ReduceBatchesByFEFOAsync(request.StoreId, item.ProductId, item.Quantity);
+
+                reducedItems.Add(new ReducedInventoryItemDto
+                {
+                    ProductId = item.ProductId,
+                    QuantityReduced = item.Quantity,
+                    RemainingQuantity = inventory.Quantity
+                });
+            }
+
+            response.ReducedItems = reducedItems;
+            response.Message = $"Successfully reduced inventory and batches for {reducedItems.Count} items";
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reducing inventory for store {StoreId}", request.StoreId);
+            response.Success = false;
+            response.Message = $"Error reducing inventory: {ex.Message}";
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Trừ lô hàng với logic FEFO: ngày hết hạn sớm nhất được ưu tiên trừ trước
+    /// Nếu lô hàng không đủ, chuyển sang lô hàng tiếp theo với ngày hết hạn gần hơn
+    /// </summary>
+    private async Task ReduceBatchesByFEFOAsync(Guid storeId, Guid productId, int quantityToReduce)
+    {
+        try
+        {
+            // Lấy tất cả lô hàng của sản phẩm tại cửa hàng (store)
+            // Stores được lưu với WarehouseId = StoreId trong hệ thống
+            var allBatches = await _productBatchRepository.GetByWarehouseIdAsync(storeId);
+            
+            // Lọc batches của sản phẩm này và có status AVAILABLE, sắp xếp theo ngày hết hạn sớm nhất
+            var batchesForProduct = allBatches
+                .Where(b => b.ProductId == productId && b.Status == "AVAILABLE")
+                .OrderBy(b => b.ExpiryDate ?? DateTime.MaxValue) // NULL expiry date = last (never expires)
+                .ThenBy(b => b.ReceivedAt) // Nếu cùng ngày hết hạn, lấy batch cũ hơn trước (FIFO)
+                .ToList();
+
+            if (!batchesForProduct.Any())
+            {
+                _logger.LogWarning("No available batches found for product {ProductId} at store {StoreId}", 
+                    productId, storeId);
+                return;
+            }
+
+            int remainingQty = quantityToReduce;
+            _logger.LogInformation("Starting FEFO batch reduction for product {ProductId}: need to reduce {Quantity} units from {BatchCount} batches",
+                productId, quantityToReduce, batchesForProduct.Count);
+
+            foreach (var batch in batchesForProduct)
+            {
+                if (remainingQty <= 0) break;
+
+                int qtyToReduceFromBatch = Math.Min(remainingQty, batch.Quantity);
+                batch.Quantity -= qtyToReduceFromBatch;
+                remainingQty -= qtyToReduceFromBatch;
+
+                // Đánh dấu batch là SOLD nếu quantity về 0
+                if (batch.Quantity <= 0)
+                {
+                    batch.Status = "SOLD";
+                    _logger.LogInformation("Batch {BatchId} ({BatchNumber}) marked as SOLD after reduction for product {ProductId}",
+                        batch.Id, batch.BatchNumber, productId);
+                }
+                else
+                {
+                    _logger.LogInformation("Batch {BatchId} ({BatchNumber}) reduced by {ReducedQty}, remaining: {Remaining}",
+                        batch.Id, batch.BatchNumber, qtyToReduceFromBatch, batch.Quantity);
+                }
+
+                await _productBatchRepository.UpdateAsync(batch);
+            }
+
+            if (remainingQty > 0)
+            {
+                _logger.LogWarning("Could not fully reduce batch quantity for product {ProductId}. Remaining: {Remaining}. This should not happen as inventory check passed.",
+                    productId, remainingQty);
+            }
+            else
+            {
+                _logger.LogInformation("Successfully completed FEFO batch reduction for product {ProductId}: {Quantity} units reduced",
+                    productId, quantityToReduce);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reducing batches for product {ProductId} at store {StoreId}", productId, storeId);
+            // Don't throw - batch reduction is auxiliary to inventory reduction
+            // Inventory is already reduced, batches are just for tracking
+        }
     }
 
     private InventoryDto MapToDto(Inventory inventory)

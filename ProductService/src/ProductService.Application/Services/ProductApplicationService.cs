@@ -36,6 +36,7 @@ public class ProductApplicationService : IProductService
         {
             Id = p.Id,
             Name = p.Name,
+            Sku = p.Sku,
             Price = p.Price,
             CategoryId = p.CategoryId,
             CategoryName = p.Category?.Name ?? string.Empty,

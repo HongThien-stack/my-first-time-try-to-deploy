@@ -15,6 +15,7 @@ public class SalesController : ControllerBase
     private readonly ISaleRepository _saleRepository;
     private readonly IProductServiceClient _productServiceClient;
     private readonly IPromotionServiceClient _promotionServiceClient;
+    private readonly IInventoryServiceClient _inventoryServiceClient;
     private readonly IMomoPaymentService _momoService;
     private readonly ILogger<SalesController> _logger;
     private readonly PosDbContext _dbContext;
@@ -23,6 +24,7 @@ public class SalesController : ControllerBase
         ISaleRepository saleRepository,
         IProductServiceClient productServiceClient,
         IPromotionServiceClient promotionServiceClient,
+        IInventoryServiceClient inventoryServiceClient,
         IMomoPaymentService momoService,
         ILogger<SalesController> logger,
         PosDbContext dbContext)
@@ -30,6 +32,7 @@ public class SalesController : ControllerBase
         _saleRepository = saleRepository;
         _productServiceClient = productServiceClient;
         _promotionServiceClient = promotionServiceClient;
+        _inventoryServiceClient = inventoryServiceClient;
         _momoService = momoService;
         _logger = logger;
         _dbContext = dbContext;
@@ -342,6 +345,24 @@ public class SalesController : ControllerBase
             _dbContext.Payments.Add(payment);
             await _dbContext.SaveChangesAsync();
 
+            // 7.5. For CASH payment, reduce inventory immediately
+            if (paymentMethod == "CASH")
+            {
+                var inventoryItems = request.Items.Select(i => (i.ProductId, i.Quantity)).ToList();
+                var inventoryReduced = await _inventoryServiceClient.ReduceInventoryAsync(request.StoreId, inventoryItems);
+
+                if (!inventoryReduced)
+                {
+                    _logger.LogWarning("Failed to reduce inventory for store {StoreId}, sale {SaleNumber}", 
+                        request.StoreId, createdSale.SaleNumber);
+                    // Continue anyway - inventory can be manually reconciled
+                }
+                else
+                {
+                    _logger.LogInformation("Inventory reduced for CASH sale {SaleNumber}", createdSale.SaleNumber);
+                }
+            }
+
             // 8. If MOMO, call Momo API to generate payment link
             if (paymentMethod == "MOMO")
             {
@@ -548,16 +569,10 @@ public class SalesController : ControllerBase
             CustomerId = s.CustomerId,
             SaleDate = s.SaleDate,
             Subtotal = s.Subtotal,
-            TaxAmount = s.TaxAmount,
-            DiscountAmount = s.DiscountAmount,
             TotalAmount = s.TotalAmount,
             PaymentMethod = s.PaymentMethod,
             PaymentStatus = s.PaymentStatus,
             Status = s.Status,
-            PromotionId = s.PromotionId,
-            VoucherCode = s.VoucherCode,
-            PointsUsed = s.PointsUsed,
-            PointsEarned = s.PointsEarned,
             Notes = s.Notes,
             CreatedAt = s.CreatedAt,
             ItemCount = s.SaleItems?.Count ?? 0
@@ -588,6 +603,46 @@ public class SalesController : ControllerBase
         {
             return NotFound();
         }
-        return Ok(sale);
+
+        var saleDetailDto = new SaleDetailDto
+        {
+            Id = sale.Id,
+            SaleNumber = sale.SaleNumber,
+            StoreId = sale.StoreId,
+            CashierId = sale.CashierId,
+            CustomerId = sale.CustomerId,
+            SaleDate = sale.SaleDate,
+            Subtotal = sale.Subtotal,
+            TotalAmount = sale.TotalAmount,
+            PaymentMethod = sale.PaymentMethod,
+            PaymentStatus = sale.PaymentStatus,
+            Status = sale.Status,
+            Notes = sale.Notes,
+            CreatedAt = sale.CreatedAt,
+            Items = sale.SaleItems?.Select(si => new SaleItemDetailDto
+            {
+                Id = si.Id,
+                ProductId = si.ProductId,
+                ProductName = si.ProductName,
+                Sku = si.Sku,
+                Quantity = si.Quantity,
+                UnitPrice = si.UnitPrice,
+                LineTotal = si.LineTotal
+            }).ToList() ?? new(),
+            Payments = sale.Payments?.Select(p => new PaymentDetailDto
+            {
+                Id = p.Id,
+                PaymentMethod = p.PaymentMethod,
+                Amount = p.Amount,
+                Status = p.Status,
+                CashReceived = p.CashReceived,
+                CashChange = p.CashChange,
+                TransactionReference = p.TransactionReference,
+                PaymentDate = p.PaymentDate,
+                CreatedAt = p.CreatedAt
+            }).ToList() ?? new()
+        };
+
+        return Ok(saleDetailDto);
     }
 }
