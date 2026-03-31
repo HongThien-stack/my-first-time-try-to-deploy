@@ -4,7 +4,7 @@ namespace InventoryService.Application.Interfaces;
 
 public interface IInventoryCheckRepository
 {
-    Task<IEnumerable<InventoryCheck>> GetAllAsync();
+    Task<IEnumerable<InventoryCheck>> GetAllAsync(int? year = null, int? month = null);
     Task<InventoryCheck?> GetByIdAsync(Guid id);
     Task<InventoryCheck?> GetByCheckNumberAsync(string checkNumber);
     Task<IEnumerable<InventoryCheck>> GetByLocationAsync(string locationType, Guid locationId);

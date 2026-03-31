@@ -140,7 +140,7 @@ public class ProductBatchController : ControllerBase
     }
 
     /// <summary>
-    /// Create outbound stock movement for all expired batches at a warehouse
+    /// Create outbound stock movement for all expired batches at a location
     /// Only Admin, Manager, Warehouse Manager, and Warehouse Admin can process expired batches
     /// </summary>
     [HttpPost("expired-batches/create-outbound")]
@@ -152,15 +152,33 @@ public class ProductBatchController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("Creating outbound stock movement for expired batches at warehouse {WarehouseId}", request.WarehouseId);
+            var locationType = string.IsNullOrWhiteSpace(request.LocationType)
+                ? "WAREHOUSE"
+                : request.LocationType.Trim().ToUpperInvariant();
+
+            var locationId = request.LocationId ?? request.WarehouseId;
+
+            _logger.LogInformation(
+                "Creating outbound stock movement for expired batches at {LocationType} {LocationId}",
+                locationType,
+                locationId);
 
             // Validate input
-            if (request.WarehouseId == Guid.Empty)
+            if (locationId == Guid.Empty)
             {
                 return BadRequest(new
                 {
                     success = false,
-                    message = "WarehouseId must be a valid non-empty GUID"
+                    message = "LocationId (or WarehouseId for backward compatibility) must be a valid non-empty GUID"
+                });
+            }
+
+            if (locationType is not ("WAREHOUSE" or "STORE"))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "LocationType must be one of: WAREHOUSE, STORE"
                 });
             }
 
@@ -179,11 +197,71 @@ public class ProductBatchController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating outbound for expired batches at warehouse {WarehouseId}", request.WarehouseId);
+            var locationId = request.LocationId ?? request.WarehouseId;
+            _logger.LogError(ex, "Error creating outbound for expired batches at location {LocationId}", locationId);
             return StatusCode(500, new
             {
                 success = false,
                 message = "An error occurred while creating outbound stock movement",
+                error = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Adjust batch quantity by physical count and synchronize inventory for the same product/location.
+    /// </summary>
+    [HttpPost("batch/adjust-quantity")]
+    [Authorize(Roles = "Admin,Manager,Warehouse Manager,Warehouse Admin,Staff")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> AdjustBatchQuantity([FromBody] AdjustBatchInventoryDto request)
+    {
+        try
+        {
+            if (request.BatchId == Guid.Empty)
+            {
+                return BadRequest(new { success = false, message = "BatchId must be a valid non-empty GUID" });
+            }
+
+            if (request.ActualQuantity < 0)
+            {
+                return BadRequest(new { success = false, message = "ActualQuantity cannot be negative" });
+            }
+
+            Guid? adjustedBy = null;
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (Guid.TryParse(userIdClaim, out var parsedUserId))
+            {
+                adjustedBy = parsedUserId;
+            }
+
+            var result = await _productBatchService.AdjustBatchAndInventoryAsync(request, adjustedBy);
+            return Ok(new
+            {
+                success = true,
+                message = "Batch and inventory adjusted successfully",
+                data = result
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("Adjust batch quantity failed: {Message}", ex.Message);
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adjusting batch quantity for BatchId {BatchId}", request.BatchId);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while adjusting batch and inventory",
                 error = ex.Message
             });
         }

@@ -34,11 +34,11 @@ public class InventoryCheckService : IInventoryCheckService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<InventoryCheckListDto>> GetAllInventoryChecksAsync()
+    public async Task<IEnumerable<InventoryCheckListDto>> GetAllInventoryChecksAsync(int? year = null, int? month = null)
     {
         try
         {
-            var checks = await _inventoryCheckRepository.GetAllAsync();
+            var checks = await _inventoryCheckRepository.GetAllAsync(year, month);
             
             return checks.Select(c => new InventoryCheckListDto
             {

@@ -241,22 +241,45 @@ public class ProductBatchService : IProductBatchService
     }
 
     /// <summary>
-    /// Create outbound stock movement for all expired batches at a warehouse
+    /// Create outbound stock movement for all expired batches at a location
     /// </summary>
     public async Task<OutboundStockMovementResponseDto> CreateOutboundFromExpiredBatchesAsync(CreateOutboundFromExpiredBatchesDto request)
     {
-        _logger.LogInformation("Creating outbound stock movement for expired batches at warehouse {WarehouseId}", request.WarehouseId);
+        var locationType = string.IsNullOrWhiteSpace(request.LocationType)
+            ? "WAREHOUSE"
+            : request.LocationType.Trim().ToUpperInvariant();
 
-        // Get all EXPIRED batches at the warehouse
-        var warehouseBatches = await _repository.GetByWarehouseIdAsync(request.WarehouseId);
-        var expiredBatches = warehouseBatches.Where(b => b.Status == "EXPIRED" && b.Quantity > 0).ToList();
+        if (locationType is not ("WAREHOUSE" or "STORE"))
+        {
+            throw new InvalidOperationException($"Invalid location type '{request.LocationType}'. Allowed values: WAREHOUSE, STORE");
+        }
+
+        var locationId = request.LocationId ?? request.WarehouseId;
+        if (locationId == Guid.Empty)
+        {
+            throw new InvalidOperationException("LocationId (or WarehouseId for backward compatibility) must be a valid non-empty GUID");
+        }
+
+        _logger.LogInformation(
+            "Creating outbound stock movement for expired batches at {LocationType} {LocationId}",
+            locationType,
+            locationId);
+
+        // Get all EXPIRED batches at the requested location.
+        // ProductBatch currently stores location id in WarehouseId field.
+        var locationBatches = await _repository.GetByWarehouseIdAsync(locationId);
+        var expiredBatches = locationBatches.Where(b => b.Status == "EXPIRED" && b.Quantity > 0).ToList();
 
         if (!expiredBatches.Any())
         {
-            throw new InvalidOperationException($"No expired batches found at warehouse {request.WarehouseId}");
+            throw new InvalidOperationException($"No expired batches found at {locationType} {locationId}");
         }
 
-        _logger.LogInformation("Found {Count} expired batches at warehouse {WarehouseId}", expiredBatches.Count, request.WarehouseId);
+        _logger.LogInformation(
+            "Found {Count} expired batches at {LocationType} {LocationId}",
+            expiredBatches.Count,
+            locationType,
+            locationId);
 
         // Create stock movement items
         var stockMovementItems = new List<StockMovementItem>();
@@ -295,11 +318,11 @@ public class ProductBatchService : IProductBatchService
             Id = Guid.NewGuid(),
             MovementNumber = movementNumber,
             MovementType = "OUTBOUND",
-            LocationId = request.WarehouseId,
-            LocationType = "WAREHOUSE",
+            LocationId = locationId,
+            LocationType = locationType,
             MovementDate = DateTime.UtcNow,
             Status = "COMPLETED",
-            Notes = $"Automatic outbound for expired batches. {request.Notes}",
+            Notes = request.Notes ?? $"Outbound for expired batches at {locationType} {locationId}",
             StockMovementItems = stockMovementItems
         };
 
@@ -309,14 +332,30 @@ public class ProductBatchService : IProductBatchService
         // Update inventory for each expired batch
         foreach (var batch in expiredBatches)
         {
-            var inventory = await _inventoryRepository.GetByLocationAndProductAsync("WAREHOUSE", request.WarehouseId, batch.ProductId);
+            var inventory = await _inventoryRepository.GetByLocationAndProductAsync(locationType, locationId, batch.ProductId);
             if (inventory != null)
             {
+                if (inventory.Quantity < batch.Quantity)
+                {
+                    throw new InvalidOperationException(
+                        $"Insufficient inventory for expired outbound. Product {batch.ProductId} at {locationType} {locationId}: " +
+                        $"available {inventory.Quantity}, required {batch.Quantity} from batch {batch.BatchNumber}");
+                }
+
                 inventory.Quantity -= batch.Quantity;
                 inventory.UpdatedAt = DateTime.UtcNow;
                 await _inventoryRepository.UpdateAsync(inventory);
-                _logger.LogInformation("Inventory updated: Product {ProductId} at Warehouse {WarehouseId} reduced by {Quantity}", 
-                    batch.ProductId, request.WarehouseId, batch.Quantity);
+                _logger.LogInformation(
+                    "Inventory updated: Product {ProductId} at {LocationType} {LocationId} reduced by {Quantity}",
+                    batch.ProductId,
+                    locationType,
+                    locationId,
+                    batch.Quantity);
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"Inventory record not found for Product {batch.ProductId} at {locationType} {locationId}");
             }
         }
 
@@ -327,8 +366,129 @@ public class ProductBatchService : IProductBatchService
             TotalBatchesProcessed = expiredBatches.Count,
             TotalQuantityOutbound = totalQuantity,
             MovementDate = stockMovement.MovementDate,
-            Message = $"Outbound created for {expiredBatches.Count} expired batches with total quantity {totalQuantity}",
+            Message = $"Outbound created for {expiredBatches.Count} expired batches at {locationType} {locationId} with total quantity {totalQuantity}",
             ProcessedBatches = processedBatches
+        };
+    }
+
+    public async Task<AdjustBatchInventoryResponseDto> AdjustBatchAndInventoryAsync(AdjustBatchInventoryDto request, Guid? adjustedBy)
+    {
+        var batch = await _repository.GetByIdAsync(request.BatchId)
+            ?? throw new KeyNotFoundException($"Batch {request.BatchId} not found");
+
+        if (request.ActualQuantity < 0)
+        {
+            throw new InvalidOperationException("ActualQuantity cannot be negative");
+        }
+
+        var locationType = string.IsNullOrWhiteSpace(request.LocationType)
+            ? "WAREHOUSE"
+            : request.LocationType.Trim().ToUpperInvariant();
+
+        if (locationType is not ("WAREHOUSE" or "STORE"))
+        {
+            throw new InvalidOperationException($"Invalid location type '{request.LocationType}'. Allowed values: WAREHOUSE, STORE");
+        }
+
+        var oldBatchQuantity = batch.Quantity;
+        var locationId = batch.WarehouseId;
+
+        if (request.LocationId.HasValue && request.LocationId.Value != locationId)
+        {
+            throw new InvalidOperationException(
+                $"LocationId mismatch. Batch belongs to {locationId} but request sent {request.LocationId.Value}");
+        }
+
+        // 1) Update batch to physical count.
+        batch.Quantity = request.ActualQuantity;
+        await _repository.UpdateAsync(batch);
+
+        // 2) Recalculate inventory from all batches for the same product/location.
+        var productBatchesAtLocation = (await _repository.GetByWarehouseIdAsync(locationId))
+            .Where(b => b.ProductId == batch.ProductId)
+            .ToList();
+
+        var recalculatedInventoryQuantity = productBatchesAtLocation.Sum(b => b.Quantity);
+
+        var inventory = await _inventoryRepository.GetByLocationAndProductAsync(locationType, locationId, batch.ProductId);
+        var oldInventoryQuantity = inventory?.Quantity ?? 0;
+
+        if (inventory != null)
+        {
+            inventory.Quantity = recalculatedInventoryQuantity;
+            inventory.UpdatedAt = DateTime.UtcNow;
+            await _inventoryRepository.UpdateAsync(inventory);
+        }
+        else
+        {
+            inventory = await _inventoryRepository.AddAsync(new Inventory
+            {
+                Id = Guid.NewGuid(),
+                ProductId = batch.ProductId,
+                LocationType = locationType,
+                LocationId = locationId,
+                Quantity = recalculatedInventoryQuantity,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
+
+        var newInventoryQuantity = inventory.Quantity;
+        var inventoryDelta = newInventoryQuantity - oldInventoryQuantity;
+
+        // 3) Log ADJUSTMENT movement for traceability.
+        var movementCount = await _stockMovementRepository.CountStockMovementAsync();
+        var movementNumber = $"SM-{DateTime.UtcNow:yyyyMMdd}-{(movementCount + 1):D3}";
+
+        var stockMovement = new StockMovement
+        {
+            Id = Guid.NewGuid(),
+            MovementNumber = movementNumber,
+            MovementType = "ADJUSTMENT",
+            LocationId = locationId,
+            LocationType = locationType,
+            MovementDate = DateTime.UtcNow,
+            ReceivedBy = adjustedBy,
+            Status = "COMPLETED",
+            Notes = request.Reason ??
+                    $"Manual quantity reconciliation for batch {batch.BatchNumber}. Batch {oldBatchQuantity} -> {batch.Quantity}, inventory {oldInventoryQuantity} -> {newInventoryQuantity}",
+            StockMovementItems = new List<StockMovementItem>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    ProductId = batch.ProductId,
+                    BatchId = batch.Id,
+                    Quantity = batch.Quantity - oldBatchQuantity,
+                    UnitPrice = null
+                }
+            }
+        };
+
+        await _stockMovementRepository.AddAsync(stockMovement);
+
+        _logger.LogInformation(
+            "Adjusted batch {BatchId} at {LocationType} {LocationId}. Batch {OldBatchQty}->{NewBatchQty}, inventory {OldInvQty}->{NewInvQty}",
+            batch.Id,
+            locationType,
+            locationId,
+            oldBatchQuantity,
+            batch.Quantity,
+            oldInventoryQuantity,
+            newInventoryQuantity);
+
+        return new AdjustBatchInventoryResponseDto
+        {
+            BatchId = batch.Id,
+            ProductId = batch.ProductId,
+            LocationId = locationId,
+            LocationType = locationType,
+            OldBatchQuantity = oldBatchQuantity,
+            NewBatchQuantity = batch.Quantity,
+            OldInventoryQuantity = oldInventoryQuantity,
+            NewInventoryQuantity = newInventoryQuantity,
+            InventoryDelta = inventoryDelta,
+            MovementNumber = movementNumber,
+            Message = "Batch and inventory were reconciled successfully"
         };
     }
 

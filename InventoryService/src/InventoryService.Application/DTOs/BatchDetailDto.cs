@@ -13,6 +13,9 @@ public class BatchDetailDto
     [JsonPropertyName("product_name")]
     public string ProductName { get; set; } = string.Empty;
 
+    [JsonPropertyName("unit")]
+    public string? Unit { get; set; } // Đơn vị sản phẩm (kg, cái, hộp, etc.)
+
     [JsonPropertyName("manufacturing_date")]
     public DateTime ManufacturingDate { get; set; }
 

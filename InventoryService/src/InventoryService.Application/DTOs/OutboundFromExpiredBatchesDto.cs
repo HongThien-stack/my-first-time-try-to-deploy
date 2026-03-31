@@ -6,9 +6,20 @@ namespace InventoryService.Application.DTOs;
 public class CreateOutboundFromExpiredBatchesDto
 {
     /// <summary>
-    /// Warehouse ID
+    /// Warehouse ID (legacy field, kept for backward compatibility)
     /// </summary>
     public Guid WarehouseId { get; set; }
+
+    /// <summary>
+    /// Location type for outbound creation (WAREHOUSE or STORE).
+    /// Defaults to WAREHOUSE when not provided.
+    /// </summary>
+    public string? LocationType { get; set; }
+
+    /// <summary>
+    /// Generic location id for outbound creation. If omitted, WarehouseId is used.
+    /// </summary>
+    public Guid? LocationId { get; set; }
 
     /// <summary>
     /// Optional notes about the outbound

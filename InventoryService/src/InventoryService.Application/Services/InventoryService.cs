@@ -29,8 +29,7 @@ public class InventoryManagementService : IInventoryService
         _logger.LogInformation("Getting all inventories");
         
         var inventories = await _inventoryRepository.GetAllAsync();
-        
-        return inventories.Select(MapToDto);
+        return await MapToDtosWithProductDetailsAsync(inventories);
     }
 
     public async Task<InventoryDto?> GetInventoryByIdAsync(Guid id)
@@ -39,7 +38,10 @@ public class InventoryManagementService : IInventoryService
         
         var inventory = await _inventoryRepository.GetByIdAsync(id);
         
-        return inventory != null ? MapToDto(inventory) : null;
+        if (inventory == null) return null;
+        
+        var dtos = await MapToDtosWithProductDetailsAsync(new[] { inventory });
+        return dtos.FirstOrDefault();
     }
 
     public async Task<IEnumerable<InventoryDto>> GetInventoriesByLocationAsync(string locationType, Guid locationId)
@@ -47,8 +49,7 @@ public class InventoryManagementService : IInventoryService
         _logger.LogInformation("Getting inventories by location: {LocationType}:{LocationId}", locationType, locationId);
         
         var inventories = await _inventoryRepository.GetByLocationAsync(locationType, locationId);
-        
-        return inventories.Select(MapToDto);
+        return await MapToDtosWithProductDetailsAsync(inventories);
     }
 
     public async Task<IEnumerable<InventoryDto>> GetInventoriesByProductAsync(Guid productId)
@@ -56,8 +57,7 @@ public class InventoryManagementService : IInventoryService
         _logger.LogInformation("Getting inventories by product: {ProductId}", productId);
         
         var inventories = await _inventoryRepository.GetByProductIdAsync(productId);
-        
-        return inventories.Select(MapToDto);
+        return await MapToDtosWithProductDetailsAsync(inventories);
     }
 
     public async Task<IEnumerable<InventoryDto>> GetLowStockItemsAsync(string? locationType = null)
@@ -65,8 +65,7 @@ public class InventoryManagementService : IInventoryService
         _logger.LogInformation("Getting low stock items");
         
         var inventories = await _inventoryRepository.GetLowStockItemsAsync(locationType);
-        
-        return inventories.Select(MapToDto);
+        return await MapToDtosWithProductDetailsAsync(inventories);
     }
 
     public async Task<LowStockAlertResponse> GetLowStockAlertsAsync(
@@ -359,6 +358,41 @@ public class InventoryManagementService : IInventoryService
         }
     }
 
+    /// <summary>
+    /// Map Inventory entities to DTOs with product details (unit) fetched from ProductService
+    /// </summary>
+    private async Task<IEnumerable<InventoryDto>> MapToDtosWithProductDetailsAsync(IEnumerable<Inventory> inventories)
+    {
+        var inventoryList = inventories.ToList();
+        if (!inventoryList.Any())
+            return Enumerable.Empty<InventoryDto>();
+
+        // Batch fetch product details for all inventory items
+        var productIds = inventoryList.Select(i => i.ProductId).Distinct().ToList();
+        var productDetailsMap = await _productServiceClient.GetProductsByIdsAsync(productIds);
+
+        // Map to DTOs with product unit included
+        return inventoryList.Select(inv =>
+        {
+            var productDetail = productDetailsMap.GetValueOrDefault(inv.ProductId);
+            return new InventoryDto
+            {
+                Id = inv.Id,
+                ProductId = inv.ProductId,
+                LocationType = inv.LocationType,
+                LocationId = inv.LocationId,
+                Quantity = inv.Quantity,
+                ReservedQuantity = inv.ReservedQuantity,
+                AvailableQuantity = inv.AvailableQuantity,
+                MinStockLevel = inv.MinStockLevel,
+                MaxStockLevel = inv.MaxStockLevel,
+                LastStockCheck = inv.LastStockCheck,
+                UpdatedAt = inv.UpdatedAt,
+                Unit = productDetail?.Unit ?? "unit" // Default to "unit" if not found
+            };
+        }).ToList();
+    }
+
     private InventoryDto MapToDto(Inventory inventory)
     {
         return new InventoryDto
@@ -373,7 +407,8 @@ public class InventoryManagementService : IInventoryService
             MinStockLevel = inventory.MinStockLevel,
             MaxStockLevel = inventory.MaxStockLevel,
             LastStockCheck = inventory.LastStockCheck,
-            UpdatedAt = inventory.UpdatedAt
+            UpdatedAt = inventory.UpdatedAt,
+            Unit = null // Use MapToDtosWithProductDetailsAsync() to populate unit
         };
     }
 }

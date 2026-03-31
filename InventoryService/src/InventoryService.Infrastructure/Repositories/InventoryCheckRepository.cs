@@ -14,10 +14,20 @@ public class InventoryCheckRepository : IInventoryCheckRepository
         _context = context;
     }
 
-    public async Task<IEnumerable<InventoryCheck>> GetAllAsync()
+    public async Task<IEnumerable<InventoryCheck>> GetAllAsync(int? year = null, int? month = null)
     {
-        return await _context.InventoryChecks
+        var query = _context.InventoryChecks
             .Include(c => c.InventoryCheckItems)
+            .AsQueryable();
+
+        if (year.HasValue && month.HasValue)
+        {
+            var startOfMonth = new DateTime(year.Value, month.Value, 1, 0, 0, 0, DateTimeKind.Utc);
+            var startOfNextMonth = startOfMonth.AddMonths(1);
+            query = query.Where(c => c.CheckDate >= startOfMonth && c.CheckDate < startOfNextMonth);
+        }
+
+        return await query
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
     }

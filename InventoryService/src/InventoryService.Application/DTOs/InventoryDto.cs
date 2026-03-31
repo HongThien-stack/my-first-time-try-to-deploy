@@ -14,5 +14,6 @@ public class InventoryDto
     public bool IsLowStock => AvailableQuantity.HasValue && MinStockLevel.HasValue && AvailableQuantity <= MinStockLevel;
     public DateTime? LastStockCheck { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public string? Unit { get; set; } // Đơn vị sản phẩm (kg, cái, hộp, etc.)
 }
 

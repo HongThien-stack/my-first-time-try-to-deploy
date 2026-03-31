@@ -27,16 +27,46 @@ public class InventoryChecksController : ControllerBase
     /// GET /api/inventory-checks - Get all inventory checks
     /// Roles: Admin, Manager, Warehouse Manager, Store Staff, Warehouse Staff
     /// </summary>
+    /// <param name="year">Optional year for monthly filtering (must be provided with month)</param>
+    /// <param name="month">Optional month for monthly filtering (1-12, must be provided with year)</param>
     /// <returns>List of all inventory checks</returns>
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAllInventoryChecks()
+    public async Task<IActionResult> GetAllInventoryChecks([FromQuery] int? year = null, [FromQuery] int? month = null)
     {
         try
         {
-            var checks = await _inventoryCheckService.GetAllInventoryChecksAsync();
+            if (year.HasValue != month.HasValue)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Both year and month must be provided together"
+                });
+            }
+
+            if (year.HasValue && (year.Value < 2000 || year.Value > 2100))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Year must be between 2000 and 2100"
+                });
+            }
+
+            if (month.HasValue && (month.Value < 1 || month.Value > 12))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Month must be between 1 and 12"
+                });
+            }
+
+            var checks = await _inventoryCheckService.GetAllInventoryChecksAsync(year, month);
             return Ok(new
             {
                 success = true,

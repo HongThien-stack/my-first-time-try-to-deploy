@@ -16,7 +16,12 @@ public interface IProductBatchService
     Task<int> UpdateExpiredBatchesAsync();
 
     /// <summary>
-    /// Create outbound stock movement for expired batches at a warehouse
+    /// Create outbound stock movement for expired batches at a location
     /// </summary>
     Task<OutboundStockMovementResponseDto> CreateOutboundFromExpiredBatchesAsync(CreateOutboundFromExpiredBatchesDto request);
+
+    /// <summary>
+    /// Adjust a batch quantity by physical count and synchronize related inventory quantity.
+    /// </summary>
+    Task<AdjustBatchInventoryResponseDto> AdjustBatchAndInventoryAsync(AdjustBatchInventoryDto request, Guid? adjustedBy);
 }

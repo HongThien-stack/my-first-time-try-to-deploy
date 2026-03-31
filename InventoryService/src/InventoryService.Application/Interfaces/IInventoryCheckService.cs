@@ -6,7 +6,7 @@ namespace InventoryService.Application.Interfaces;
 public interface IInventoryCheckService
 {
     // Existing methods
-    Task<IEnumerable<InventoryCheckListDto>> GetAllInventoryChecksAsync();
+    Task<IEnumerable<InventoryCheckListDto>> GetAllInventoryChecksAsync(int? year = null, int? month = null);
     Task<InventoryCheckDto?> GetInventoryCheckByIdAsync(Guid id);
     
     // Step 1: Create Inventory Check Session (STAFF role required)
