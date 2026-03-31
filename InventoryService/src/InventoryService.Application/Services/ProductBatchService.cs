@@ -403,15 +403,17 @@ public class ProductBatchService : IProductBatchService
         batch.Quantity = request.ActualQuantity;
         await _repository.UpdateAsync(batch);
 
-        // 2) Recalculate inventory from all batches for the same product/location.
-        var productBatchesAtLocation = (await _repository.GetByWarehouseIdAsync(locationId))
-            .Where(b => b.ProductId == batch.ProductId)
-            .ToList();
-
-        var recalculatedInventoryQuantity = productBatchesAtLocation.Sum(b => b.Quantity);
-
+        // 2) Reconcile inventory by delta of the adjusted batch only.
+        // Example: inventory 25, batch 10 -> 3 => new inventory = 25 - 10 + 3 = 18.
         var inventory = await _inventoryRepository.GetByLocationAndProductAsync(locationType, locationId, batch.ProductId);
         var oldInventoryQuantity = inventory?.Quantity ?? 0;
+        var recalculatedInventoryQuantity = oldInventoryQuantity - oldBatchQuantity + batch.Quantity;
+
+        if (recalculatedInventoryQuantity < 0)
+        {
+            throw new InvalidOperationException(
+                $"Invalid inventory reconciliation result ({recalculatedInventoryQuantity}) for Product {batch.ProductId} at {locationType} {locationId}");
+        }
 
         if (inventory != null)
         {
