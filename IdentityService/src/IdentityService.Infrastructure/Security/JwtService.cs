@@ -29,9 +29,10 @@ public class JwtService : IJwtService
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(ClaimTypes.Name, user.FullName ?? user.Email),
             new Claim(ClaimTypes.Role, user.Role.Name),
@@ -39,6 +40,22 @@ public class JwtService : IJwtService
             new Claim("status", user.Status),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
+        if (!string.IsNullOrWhiteSpace(user.WorkplaceType))
+        {
+            claims.Add(new Claim("workplace_type", user.WorkplaceType));
+        }
+
+        if (user.WorkplaceId.HasValue)
+        {
+            var workplaceId = user.WorkplaceId.Value.ToString();
+            claims.Add(new Claim("workplace_id", workplaceId));
+
+            if (string.Equals(user.WorkplaceType, "STORE", StringComparison.OrdinalIgnoreCase))
+            {
+                claims.Add(new Claim("store_id", workplaceId));
+            }
+        }
 
         var token = new JwtSecurityToken(
             issuer: issuer,
