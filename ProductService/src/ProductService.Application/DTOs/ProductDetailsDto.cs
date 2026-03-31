@@ -9,5 +9,6 @@ namespace ProductService.Application.DTOs
         public Guid CategoryId { get; set; }
         public string CategoryName { get; set; } = string.Empty;
         public Guid? SupplierId { get; set; }
+        public string? Unit { get; set; }
     }
 }

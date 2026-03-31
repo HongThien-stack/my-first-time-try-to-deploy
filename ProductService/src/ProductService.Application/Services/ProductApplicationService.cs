@@ -40,7 +40,8 @@ public class ProductApplicationService : IProductService
             Price = p.Price,
             CategoryId = p.CategoryId,
             CategoryName = p.Category?.Name ?? string.Empty,
-            SupplierId = p.SupplierId
+            SupplierId = p.SupplierId,
+            Unit = p.Unit
         });
     }
 
