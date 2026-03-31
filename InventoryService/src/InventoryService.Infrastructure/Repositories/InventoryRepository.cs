@@ -37,6 +37,15 @@ public class InventoryRepository : IInventoryRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Inventory>> GetByLocationIdAsync(Guid locationId)
+    {
+        return await _context.Inventories
+            .Where(i => i.LocationId == locationId)
+            .OrderBy(i => i.LocationType)
+            .ThenBy(i => i.ProductId)
+            .ToListAsync();
+    }
+
     public async Task<IEnumerable<Inventory>> GetByProductIdAsync(Guid productId)
     {
         return await _context.Inventories

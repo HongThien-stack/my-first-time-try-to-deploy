@@ -9,7 +9,7 @@ namespace IdentityService.API.Controllers;
 [ApiController]
 [Route("api/users")]
 [Tags("User Management")]
-[ Authorize]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
@@ -31,7 +31,7 @@ public class UsersController : ControllerBase
     /// </summary>
     /// <returns>List of all users</returns>
     [HttpGet("list")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Store Manager,Warehouse Manager,Store Staff,Warehouse Staff,Warehouse Admin")]
     public async Task<IActionResult> GetUsers()
     {
         try
@@ -64,7 +64,8 @@ public class UsersController : ControllerBase
     /// <param name="id">User ID</param>
     /// <returns>User details</returns>
     [HttpGet("details/{id}")]
-    public async Task<IActionResult> GetUser(Guid id)
+    [Authorize(Roles = "Admin,Store Manager,Warehouse Manager,Store Staff,Warehouse Staff,Warehouse Admin")]
+    public async Task<IActionResult> GetUser([FromRoute] Guid id)
     {
         try
         {
@@ -186,7 +187,8 @@ public class UsersController : ControllerBase
     /// <param name="request">Update user request</param>
     /// <returns>Updated user details</returns>
     [HttpPut("update/{id}")]
-    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequestDto request)
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateUser([FromRoute] Guid id, [FromBody] UpdateUserRequestDto request)
     {
         try
         {

@@ -8,13 +8,19 @@ namespace InventoryService.Application.Services;
 public class WarehouseService : IWarehouseService
 {
     private readonly IWarehouseRepository _warehouseRepository;
+    private readonly IInventoryRepository _inventoryRepository;
+    private readonly IProductBatchRepository _productBatchRepository;
     private readonly ILogger<WarehouseService> _logger;
 
     public WarehouseService(
         IWarehouseRepository warehouseRepository,
+        IInventoryRepository inventoryRepository,
+        IProductBatchRepository productBatchRepository,
         ILogger<WarehouseService> logger)
     {
         _warehouseRepository = warehouseRepository;
+        _inventoryRepository = inventoryRepository;
+        _productBatchRepository = productBatchRepository;
         _logger = logger;
     }
 
@@ -92,7 +98,44 @@ public class WarehouseService : IWarehouseService
         await _warehouseRepository.UpdateWarehouseAsync(warehouse);
     }
 
-    public async Task DeleteWarehouseAsync(Guid id) {
+    /// <summary>
+    /// Soft deletes a warehouse after validating that it is empty.
+    /// </summary>
+    /// <param name="id">The identifier of the warehouse to delete.</param>
+    /// <remarks>
+    /// The warehouse may only be deleted when:
+    /// - all inventory records for the warehouse have Quantity == 0
+    /// - all product batches in the warehouse have Quantity == 0
+    /// </remarks>
+    public async Task DeleteWarehouseAsync(Guid id)
+    {
+        // Verify the warehouse exists and is not already soft deleted.
+        var warehouse = await _warehouseRepository.GetByIdAsync(id);
+        if (warehouse == null || warehouse.IsDeleted)
+        {
+            throw new KeyNotFoundException($"Warehouse {id} not found");
+        }
+
+        // Load inventory entries for this warehouse.
+        var warehouseInventories = (await _inventoryRepository.GetByLocationAsync("WAREHOUSE", id)).ToList();
+
+        // Reject deletion if any inventory still has positive quantity.
+        if (warehouseInventories.Any(i => i.Quantity > 0))
+        {
+            throw new InvalidOperationException("Cannot delete warehouse because some inventory records still have quantity > 0.");
+        }
+
+        // Load batches for this warehouse.
+        var warehouseBatches = (await _productBatchRepository.GetByWarehouseIdAsync(id)).ToList();
+        var batchWithQuantity = warehouseBatches.FirstOrDefault(b => b.Quantity > 0);
+
+        // Reject deletion if any batch still holds positive quantity.
+        if (batchWithQuantity != null)
+        {
+            throw new InvalidOperationException("Cannot delete warehouse because some product batches still have quantity > 0.");
+        }
+
+        // All validations passed: soft delete the warehouse.
         await _warehouseRepository.DeleteWarehouseAsync(id);
     }
 }

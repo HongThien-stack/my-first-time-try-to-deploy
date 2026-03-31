@@ -172,7 +172,18 @@ public class WarehouseController : ControllerBase
         if (warehouse == null)
             return NotFound("Warehouse not found");
 
-        await _warehouseService.DeleteWarehouseAsync(id);
-        return Ok("Warehouse soft deleted successfully");
+        try
+        {
+            await _warehouseService.DeleteWarehouseAsync(id);
+            return Ok("Warehouse soft deleted successfully");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, "An internal server error occurred");
+        }
     }
 }
