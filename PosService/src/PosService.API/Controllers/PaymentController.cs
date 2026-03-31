@@ -239,53 +239,38 @@ public class PaymentController : ControllerBase
 
     /// <summary>
     /// Redirect endpoint sau khi khách thanh toán xong trên Momo
+    /// NOTE: Momo redirect URL không gửi signature. Signature verification chỉ xảy ra ở webhook (IPN callback).
+    /// Redirect return URL chỉ là confirmation page - status update phụ thuộc vào webhook callback.
     /// </summary>
     /// <param name="orderId">Mã đơn hàng</param>
     /// <param name="resultCode">Mã kết quả (0 = thành công)</param>
-    /// <param name="signature">Chữ ký từ Momo để xác thực</param>
     /// <returns>Redirect đến trang kết quả FE</returns>
     [HttpGet("momo/return")]
     public IActionResult MomoReturn(
         [FromQuery] string orderId, 
-        [FromQuery] int resultCode, 
-        [FromQuery] string signature = "")
+        [FromQuery] int resultCode)
     {
         var frontendSuccessUrl = _config["Momo:FrontendSuccessUrl"] ?? "http://localhost:3000/payment-success";
         var frontendFailureUrl = _config["Momo:FrontendFailureUrl"] ?? "http://localhost:3000/payment-failure";
 
-        // ✅ Verify signature nếu có (bảo mật)
-        if (!string.IsNullOrEmpty(signature))
-        {
-            try
-            {
-                var rawSignature = $"orderId={orderId}&resultCode={resultCode}";
-                var expectedSignature = _momoService.ComputeHmacSha256(rawSignature);
-                
-                if (!expectedSignature.Equals(signature, StringComparison.OrdinalIgnoreCase))
-                {
-                    // Signature không hợp lệ - có thể bị tấn công
-                    _logger.LogWarning($"Invalid Momo signature for orderId: {orderId}");
-                    return Redirect($"{frontendFailureUrl}?error=invalid_signature&orderId={orderId}");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error verifying Momo signature: {ex.Message}");
-                return Redirect($"{frontendFailureUrl}?error=verification_error&orderId={orderId}");
-            }
-        }
+        // ⚠️ IMPORTANT: Momo redirect result chỉ là confirmation từ user, không phải source-of-truth
+        // Payment status thực sự được update qua webhook callback (MomoNotify) khi Momo server send IPN
+        // Redirect result có thể bị fake, nên ta chỉ dùng để show thông báo tạm thời tới user
+        
+        _logger.LogInformation($"Momo redirect return - orderId: {orderId}, resultCode: {resultCode}");
 
-        // ✅ Redirect đến FE thay vì trả JSON
+        // Redirect đến FE với resultCode
         if (resultCode == 0)
         {
-            // Thanh toán thành công
-            _logger.LogInformation($"Momo payment success for orderId: {orderId}");
+            // Thanh toán thành công (theo Momo redirect)
+            // Nhưng payment status sẽ được confirm qua webhook callback
+            _logger.LogInformation($"Momo redirect shows success for orderId: {orderId}. Waiting for webhook confirmation...");
             return Redirect($"{frontendSuccessUrl}?orderId={orderId}&resultCode={resultCode}");
         }
         else
         {
             // Thanh toán thất bại hoặc bị hủy
-            _logger.LogWarning($"Momo payment failed for orderId: {orderId}. ResultCode: {resultCode}");
+            _logger.LogWarning($"Momo redirect shows failure for orderId: {orderId}. ResultCode: {resultCode}");
             return Redirect($"{frontendFailureUrl}?orderId={orderId}&resultCode={resultCode}");
         }
     }
