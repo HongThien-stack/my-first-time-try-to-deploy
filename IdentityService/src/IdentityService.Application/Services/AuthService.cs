@@ -216,9 +216,15 @@ public class AuthService : IAuthService
         {
             user.FullName = request.FullName;
         }
-        if (!string.IsNullOrEmpty(request.Phone))
+        if (request.RoleId.HasValue)
         {
-            user.Phone = request.Phone;
+            // Validate role exists
+            var role = await _roleRepository.GetByIdAsync(request.RoleId.Value);
+            if (role == null)
+            {
+                throw new InvalidOperationException($"Role with ID {request.RoleId.Value} not found");
+            }
+            user.RoleId = request.RoleId.Value;
         }
         if (!string.IsNullOrEmpty(request.Email))
         {
