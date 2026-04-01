@@ -31,7 +31,6 @@ public class WarehouseService : IWarehouseService
         var warehouses = await _warehouseRepository.GetAllAsync();
         
         return warehouses
-            .Where(w => !w.IsDeleted)
             .Select(w => new WarehouseDto
             {
                 Id = w.Id,

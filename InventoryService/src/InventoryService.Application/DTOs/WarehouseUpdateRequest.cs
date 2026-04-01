@@ -11,5 +11,8 @@ namespace InventoryService.Application.DTOs
         public string? Name { get; set; }
         public string? Location { get; set; }
         public Guid? ParentId { get; set; }
+        public decimal? Capacity { get; set; }
+        public string? Status { get; set; }
+        public bool? IsDeleted { get; set; }
     }
 }

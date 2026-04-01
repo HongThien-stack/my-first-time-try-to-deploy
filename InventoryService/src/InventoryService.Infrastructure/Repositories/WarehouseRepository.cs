@@ -17,7 +17,6 @@ public class WarehouseRepository : IWarehouseRepository
     public async Task<IEnumerable<Warehouse>> GetAllAsync()
     {
         return await _context.Warehouses
-            .Where(w => !w.IsDeleted)
             .OrderBy(w => w.Name)
             .ToListAsync();
     }
