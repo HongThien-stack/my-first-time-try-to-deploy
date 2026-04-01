@@ -6,5 +6,6 @@ namespace PosService.Application.Interfaces.Http
     {
         Task<Dictionary<Guid, int>> GetStockLevelsBatchAsync(IEnumerable<Guid> productIds);
         Task<bool> ReduceInventoryAsync(Guid storeId, List<(Guid ProductId, int Quantity)> items);
+        Task<CheckInventoryResponseDto> CheckAvailabilityAsync(Guid storeId, List<(Guid ProductId, int Quantity)> items);
     }
 }

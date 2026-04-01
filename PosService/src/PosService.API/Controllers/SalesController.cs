@@ -273,6 +273,28 @@ public class SalesController : ControllerBase
 
             var productDetailsMap = productDetails.ToDictionary(p => p.Id);
 
+            // 2.5. Check inventory availability BEFORE creating sale
+            var inventoryCheckItems = request.Items.Select(i => (i.ProductId, i.Quantity)).ToList();
+            var inventoryCheck = await _inventoryServiceClient.CheckAvailabilityAsync(request.StoreId, inventoryCheckItems);
+            
+            if (!inventoryCheck.IsAvailable)
+            {
+                // Build error message with product names and quantities
+                var unavailableProducts = string.Join(", ", 
+                    inventoryCheck.UnavailableItems.Select(u => 
+                        $"{u.ProductName} (need: {u.RequestedQty}, available: {u.AvailableQty})"));
+                
+                _logger.LogWarning("Insufficient inventory for sale at store {StoreId}. Unavailable: {UnavailableProducts}", 
+                    request.StoreId, unavailableProducts);
+                
+                return BadRequest(new { 
+                    success = false,
+                    message = "Insufficient inventory for some items",
+                    unavailableProducts = unavailableProducts,
+                    details = inventoryCheck.UnavailableItems
+                });
+            }
+
             // 3. Calculate totals (no promotions)
             decimal subtotal = 0;
             var saleItems = new List<SaleItem>();

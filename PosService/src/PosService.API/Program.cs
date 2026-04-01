@@ -120,11 +120,14 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<IProductSearchRepository, ProductSearchRepository>();
 builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
+builder.Services.AddScoped<ISaleRepository, SaleRepository>();
 
 // Register services
 builder.Services.AddScoped<IProductSearchService, ProductSearchService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<IPdfReceiptService, PdfReceiptService>();
+builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
+
 
 // Add CORS
 builder.Services.AddCors(options =>

@@ -83,5 +83,50 @@ namespace PosService.Infrastructure.HttpClients
                 return false;
             }
         }
+
+        /// <summary>
+        /// Kiểm tra xem store có đủ tồn kho cho các sản phẩm yêu cầu
+        /// Trả về danh sách các sản phẩm không đủ tồn kho kèm tên sản phẩm
+        /// </summary>
+        public async Task<CheckInventoryResponseDto> CheckAvailabilityAsync(Guid storeId, List<(Guid ProductId, int Quantity)> items)
+        {
+            var response = new CheckInventoryResponseDto { IsAvailable = true, UnavailableItems = new List<UnavailableItemDto>() };
+
+            if (storeId == Guid.Empty || items == null || !items.Any())
+            {
+                _logger.LogWarning("Invalid check inventory request: StoreId={StoreId}, ItemCount={ItemCount}", storeId, items?.Count ?? 0);
+                return response;
+            }
+
+            try
+            {
+                var request = new
+                {
+                    storeId = storeId,
+                    items = items.Select(i => new { productId = i.ProductId, quantity = i.Quantity }).ToList()
+                };
+
+                _logger.LogInformation("Calling InventoryService to check availability for store {StoreId} with {ItemCount} items", storeId, items.Count);
+
+                var httpResponse = await _httpClient.PostAsJsonAsync("/api/inventory/check-availability", request);
+
+                if (httpResponse.IsSuccessStatusCode)
+                {
+                    var result = await httpResponse.Content.ReadFromJsonAsync<CheckInventoryResponseDto>();
+                    _logger.LogInformation("Checked inventory availability for store {StoreId}: IsAvailable={IsAvailable}, UnavailableItems={Count}", 
+                        storeId, result?.IsAvailable ?? false, result?.UnavailableItems.Count ?? 0);
+                    return result ?? response;
+                }
+
+                var errorContent = await httpResponse.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to check inventory availability. Status: {StatusCode}, Response: {Response}", httpResponse.StatusCode, errorContent);
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception occurred while calling InventoryService to check availability for store {StoreId}", storeId);
+                return response;
+            }
+        }
     }
 }

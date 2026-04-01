@@ -20,4 +20,5 @@ public interface IInventoryService
     Task UpdateReservedQuantityAsync(Inventory inventory);
     Task<InventoryDto> CheckOrCreateInventoryAsync(CreateInventoryDto dto);
     Task<ReduceInventoryResponseDto> ReduceInventoryAsync(ReduceInventoryRequestDto request, Guid performedBy);
+    Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto request);
 }

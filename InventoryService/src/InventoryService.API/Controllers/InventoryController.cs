@@ -405,4 +405,48 @@ public class InventoryController : ControllerBase
                 error = ex.Message
             });
         }
-    }}
+    }
+
+    [HttpPost("check-availability")]
+    [ApiExplorerSettings(IgnoreApi = true)] // Hide from Swagger
+    [ProducesResponseType(typeof(CheckAvailabilityResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CheckAvailability([FromBody] CheckAvailabilityRequestDto request)
+    {
+        try
+        {
+            if (request?.StoreId == Guid.Empty)
+                return BadRequest(new { success = false, message = "Store ID is required" });
+
+            if (request?.Items == null || !request.Items.Any())
+                return BadRequest(new { success = false, message = "Items list is required and cannot be empty" });
+
+            // Validate each item
+            foreach (var item in request.Items)
+            {
+                if (item.ProductId == Guid.Empty)
+                    return BadRequest(new { success = false, message = "Product ID is required for each item" });
+
+                if (item.Quantity <= 0)
+                    return BadRequest(new { success = false, message = "Quantity must be greater than 0" });
+            }
+
+            _logger.LogInformation("Checking inventory availability for store {StoreId} with {ItemCount} items",
+                request.StoreId, request.Items.Count);
+
+            var result = await _inventoryService.CheckAvailabilityAsync(request);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking inventory availability for store {StoreId}", request?.StoreId);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An error occurred while checking inventory availability",
+                error = ex.Message
+            });
+        }
+    }
+}

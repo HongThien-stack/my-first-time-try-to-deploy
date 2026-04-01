@@ -411,4 +411,70 @@ public class InventoryManagementService : IInventoryService
             Unit = null // Use MapToDtosWithProductDetailsAsync() to populate unit
         };
     }
+
+    /// <summary>
+    /// Kiểm tra xem store có đủ tồn kho cho các sản phẩm yêu cầu
+    /// Không trừ tồn kho, chỉ kiểm tra và trả về danh sách sản phẩm không đủ
+    /// </summary>
+    public async Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto request)
+    {
+        _logger.LogInformation("Checking inventory availability for store {StoreId} with {ItemCount} items", 
+            request.StoreId, request.Items.Count);
+
+        var response = new CheckAvailabilityResponseDto
+        {
+            IsAvailable = true,
+            UnavailableItems = new List<UnavailableItemDto>()
+        };
+
+        try
+        {
+            // Batch fetch product details for unavailable items report
+            var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
+            var productDetailsMap = await _productServiceClient.GetProductsByIdsAsync(productIds);
+
+            // Check each item's availability
+            foreach (var item in request.Items)
+            {
+                var inventory = await _inventoryRepository.GetByLocationAndProductAsync(
+                    "STORE", request.StoreId, item.ProductId);
+
+                int availableQty = inventory?.Quantity ?? 0;
+
+                // If insufficient, add to unavailable list
+                if (availableQty < item.Quantity)
+                {
+                    response.IsAvailable = false;
+
+                    var productDetail = productDetailsMap.GetValueOrDefault(item.ProductId);
+                    var productName = productDetail?.Name ?? $"Product {item.ProductId}";
+
+                    response.UnavailableItems.Add(new UnavailableItemDto
+                    {
+                        ProductId = item.ProductId,
+                        ProductName = productName,
+                        RequestedQty = item.Quantity,
+                        AvailableQty = availableQty
+                    });
+
+                    _logger.LogWarning(
+                        "Insufficient inventory for product {ProductId} ({ProductName}). Required: {Required}, Available: {Available}",
+                        item.ProductId, productName, item.Quantity, availableQty);
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Sufficient inventory for product {ProductId}. Required: {Required}, Available: {Available}",
+                        item.ProductId, item.Quantity, availableQty);
+                }
+            }
+
+            return response;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking inventory availability for store {StoreId}", request.StoreId);
+            throw;
+        }
+    }
 }
