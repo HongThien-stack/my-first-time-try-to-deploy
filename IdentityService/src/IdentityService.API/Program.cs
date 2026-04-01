@@ -54,8 +54,17 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Configure Database
+var identityConnectionString = builder.Configuration.GetConnectionString("IdentityDB")
+    ?? throw new InvalidOperationException("Connection string 'IdentityDB' is not configured.");
+
+if (!builder.Environment.IsDevelopment() && UsesLocalSqlServer(identityConnectionString))
+{
+    throw new InvalidOperationException(
+        "IdentityDB connection string points to localhost. Configure ConnectionStrings__IdentityDB for Docker or deployed environments.");
+}
+
 builder.Services.AddDbContext<IdentityDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("IdentityDB")));
+    options.UseSqlServer(identityConnectionString));
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -137,6 +146,30 @@ app.MapControllers();
 app.Logger.LogInformation("========================================");
 app.Logger.LogInformation("Identity Service Started Successfully");
 app.Logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
+app.Logger.LogInformation("IdentityDB target: {IdentityDbTarget}", DescribeSqlServerTarget(identityConnectionString));
 app.Logger.LogInformation("========================================");
 
 app.Run();
+
+static bool UsesLocalSqlServer(string connectionString)
+{
+    var normalized = connectionString.Replace(" ", string.Empty).ToLowerInvariant();
+    return normalized.Contains("server=localhost")
+        || normalized.Contains("data source=localhost")
+        || normalized.Contains("server=127.0.0.1")
+        || normalized.Contains("data source=127.0.0.1");
+}
+
+static string DescribeSqlServerTarget(string connectionString)
+{
+    foreach (var segment in connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        if (segment.StartsWith("Server=", StringComparison.OrdinalIgnoreCase) ||
+            segment.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase))
+        {
+            return segment[(segment.IndexOf('=') + 1)..];
+        }
+    }
+
+    return "unknown";
+}
