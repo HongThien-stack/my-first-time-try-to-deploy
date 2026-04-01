@@ -9,7 +9,7 @@ namespace InventoryService.API.Controllers;
 
 [ApiController]
 [Route("api/inventory-checks")]
-[Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager,Store Staff,Warehouse Staff")]
+[Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager,Store Staff,Warehouse Staff,Warehouse Admin")]
 public class InventoryChecksController : ControllerBase
 {
     private readonly IInventoryCheckService _inventoryCheckService;
@@ -133,12 +133,12 @@ public class InventoryChecksController : ControllerBase
 
     /// <summary>
     /// POST /api/inventory-checks - Create a new inventory check session (Step 1)
-    /// Roles: Admin, Manager, Warehouse Manager, Store Staff, Warehouse Staff
+    /// Roles: Admin, Manager, Warehouse Manager, Store Staff, Warehouse Staff, Warehouse Admin
     /// </summary>
     /// <param name="dto">Inventory check creation data</param>
     /// <returns>Created inventory check</returns>
     [HttpPost]
-    [Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager,Store Staff,Warehouse Staff")]
+    [Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager,Store Staff,Warehouse Staff,Warehouse Admin")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
