@@ -57,7 +57,7 @@ public class WarehouseService : IWarehouseService
         
         var warehouse = await _warehouseRepository.GetByIdAsync(id);
         
-        if (warehouse == null || warehouse.IsDeleted)
+        if (warehouse == null)
         {
             return null;
         }
@@ -80,7 +80,7 @@ public class WarehouseService : IWarehouseService
     {
         var warehouse = await _warehouseRepository.GetByIdAsync(id);
         
-        if (warehouse == null || warehouse.IsDeleted)
+        if (warehouse == null)
         {
             return null;
         }

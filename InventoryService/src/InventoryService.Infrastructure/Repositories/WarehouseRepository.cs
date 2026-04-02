@@ -24,7 +24,7 @@ public class WarehouseRepository : IWarehouseRepository
     public async Task<List<Warehouse>> GetAllWarehouseByParentIdAsync(Guid parentId)
     {
         return await _context.Warehouses
-            .Where(w => w.ParentId == parentId && !w.IsDeleted)
+            .Where(w => w.ParentId == parentId)
             .OrderBy(w => w.Name)
             .ToListAsync();
     }
@@ -32,7 +32,7 @@ public class WarehouseRepository : IWarehouseRepository
     public async Task<Warehouse?> GetByIdAsync(Guid id)
     {
         return await _context.Warehouses
-            .FirstOrDefaultAsync(w => w.Id == id && !w.IsDeleted);
+            .FirstOrDefaultAsync(w => w.Id == id);
     }
 
     public async Task AddWarehouseAsync(Warehouse warehouse)

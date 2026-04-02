@@ -108,6 +108,17 @@ public class WarehouseController : ControllerBase
     {
         try
         {
+            // Validate input
+            if (request == null || string.IsNullOrWhiteSpace(request.Name))
+                return BadRequest(new { success = false, message = "Warehouse name is required" });
+
+            if (request.Capacity <= 0)
+                return BadRequest(new { success = false, message = "Capacity must be greater than 0" });
+
+            var validStatuses = new[] { "ACTIVE", "INACTIVE" };
+            if (!validStatuses.Contains(request.Status))
+                return BadRequest(new { success = false, message = "Status must be ACTIVE or INACTIVE" });
+
             Warehouse warehouse = new Warehouse
             {
                 Id = Guid.NewGuid(),
@@ -123,11 +134,22 @@ public class WarehouseController : ControllerBase
 
             await _warehouseService.AddWarehouseAsync(warehouse);
 
-            return Ok("Warehouse added successfully");
+            return Ok(new
+            {
+                success = true,
+                message = "Warehouse added successfully",
+                data = warehouse.Id
+            });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return StatusCode(500, "An internal server error occured");
+            _logger.LogError(ex, "Error adding warehouse");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An internal server error occurred",
+                error = ex.Message
+            });
         }
     }
 
@@ -136,30 +158,64 @@ public class WarehouseController : ControllerBase
     public async Task<IActionResult> UpdateWarehouse(Guid id, [FromBody] WarehouseUpdateRequest request)
     {
         if (request == null)
-            return BadRequest("Invalid request body");
+            return BadRequest(new { success = false, message = "Invalid request body" });
 
         var warehouse = await _warehouseService.GetWarehouseAsync(id);
 
         if (warehouse == null)
-            return NotFound("Warehouse not found");
-
-        if (request.Name != null)
-            warehouse.Name = request.Name;
-
-        if (request.Location != null)
-            warehouse.Location = request.Location;
-
-        if (request.ParentId != null)
-            warehouse.ParentId = request.ParentId;
+            return NotFound(new { success = false, message = "Warehouse not found" });
 
         try
         {
+            // Validate and update fields
+            if (request.Name != null)
+            {
+                if (string.IsNullOrWhiteSpace(request.Name))
+                    return BadRequest(new { success = false, message = "Warehouse name cannot be empty" });
+                warehouse.Name = request.Name;
+            }
+
+            if (request.Location != null)
+                warehouse.Location = request.Location;
+
+            if (request.ParentId != null)
+                warehouse.ParentId = request.ParentId;
+
+            if (request.Capacity != null)
+            {
+                if (request.Capacity <= 0)
+                    return BadRequest(new { success = false, message = "Capacity must be greater than 0" });
+                warehouse.Capacity = request.Capacity.Value;
+            }
+
+            if (request.Status != null)
+            {
+                var validStatuses = new[] { "ACTIVE", "INACTIVE" };
+                if (!validStatuses.Contains(request.Status))
+                    return BadRequest(new { success = false, message = "Status must be ACTIVE or INACTIVE" });
+                warehouse.Status = request.Status;
+            }
+
+            if (request.IsDeleted != null)
+                warehouse.IsDeleted = request.IsDeleted.Value;
+
             await _warehouseService.UpdateWarehouseAsync(warehouse);
-            return Ok("Warehouse updated successfully");
+            return Ok(new
+            {
+                success = true,
+                message = "Warehouse updated successfully",
+                data = warehouse
+            });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            return StatusCode(500, "An internal server error occurred");
+            _logger.LogError(ex, "Error updating warehouse {WarehouseId}", id);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An internal server error occurred",
+                error = ex.Message
+            });
         }
     }
 
@@ -170,20 +226,45 @@ public class WarehouseController : ControllerBase
         var warehouse = await _warehouseService.GetWarehouseAsync(id);
 
         if (warehouse == null)
-            return NotFound("Warehouse not found");
+            return NotFound(new { success = false, message = "Warehouse not found" });
 
         try
         {
             await _warehouseService.DeleteWarehouseAsync(id);
-            return Ok("Warehouse soft deleted successfully");
+            return Ok(new
+            {
+                success = true,
+                message = "Warehouse soft deleted successfully",
+                data = id
+            });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(new { success = false, message = ex.Message });
+            _logger.LogWarning("Cannot delete warehouse {WarehouseId}: {Reason}", id, ex.Message);
+            return BadRequest(new
+            {
+                success = false,
+                message = ex.Message
+            });
         }
-        catch (Exception)
+        catch (KeyNotFoundException ex)
         {
-            return StatusCode(500, "An internal server error occurred");
+            _logger.LogWarning("Warehouse not found for deletion: {WarehouseId}", id);
+            return NotFound(new
+            {
+                success = false,
+                message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting warehouse {WarehouseId}", id);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "An internal server error occurred",
+                error = ex.Message
+            });
         }
     }
 }
