@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace ProductService.Application.DTOs;
 
@@ -70,6 +71,12 @@ public class UpdateProductRequestDto
     public string? ImageUrl { get; set; }
 
     public string? Images { get; set; }
+
+    // Hình ảnh upload
+    public IFormFile? MainImage { get; set; }
+
+    [MaxLength(10, ErrorMessage = "Tối đa 10 ảnh phụ")]
+    public List<IFormFile>? AdditionalImages { get; set; }
 
     // Trạng thái
     public bool? IsAvailable { get; set; }

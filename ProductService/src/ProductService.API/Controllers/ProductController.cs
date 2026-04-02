@@ -189,7 +189,8 @@ public class ProductController : ControllerBase
     /// PUT /api/products/{id} - Cập nhật sản phẩm
     /// </summary>
     [HttpPut("Update-Product")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProductRequestDto? request)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Update(Guid id, [FromForm] UpdateProductRequestDto? request)
     {
         try
         {

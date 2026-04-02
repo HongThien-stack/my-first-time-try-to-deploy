@@ -431,8 +431,73 @@ public class ProductApplicationService : IProductService
         if (request.ShelfLifeDays.HasValue)          product.ShelfLifeDays = request.ShelfLifeDays;
         if (request.StorageInstructions is not null) product.StorageInstructions = request.StorageInstructions.Trim();
         if (request.IsPerishable.HasValue)           product.IsPerishable = request.IsPerishable.Value;
-        if (request.ImageUrl is not null)            product.ImageUrl = request.ImageUrl.Trim();
-        if (request.Images is not null)              product.Images = request.Images;
+        
+        // Handle image uploads (similar to Create)
+        try
+        {
+            if (request.MainImage != null)
+            {
+                _logger.LogInformation("Uploading new main image for product {ProductId}", id);
+                
+                // Delete old main image from Cloudinary if exists
+                if (!string.IsNullOrEmpty(product.ImageUrl))
+                {
+                    var oldPublicId = GetPublicIdFromUrl(product.ImageUrl);
+                    if (!string.IsNullOrEmpty(oldPublicId))
+                    {
+                        await _cloudinaryService.DeleteImageAsync(oldPublicId);
+                    }
+                }
+                
+                // Upload new main image
+                product.ImageUrl = await _cloudinaryService.UploadImageAsync(request.MainImage, "products");
+            }
+            else if (request.ImageUrl is not null)
+            {
+                product.ImageUrl = request.ImageUrl.Trim();
+            }
+
+            if (request.AdditionalImages != null && request.AdditionalImages.Any())
+            {
+                _logger.LogInformation("Uploading {Count} additional images", request.AdditionalImages.Count);
+                
+                // Delete old additional images from Cloudinary if exists
+                if (!string.IsNullOrEmpty(product.Images))
+                {
+                    try
+                    {
+                        var oldUrls = JsonSerializer.Deserialize<List<string>>(product.Images) ?? new List<string>();
+                        foreach (var url in oldUrls)
+                        {
+                            var publicId = GetPublicIdFromUrl(url);
+                            if (!string.IsNullOrEmpty(publicId))
+                            {
+                                await _cloudinaryService.DeleteImageAsync(publicId);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to delete old images from Cloudinary");
+                    }
+                }
+                
+                // Upload new additional images
+                var additionalImageUrls = await _cloudinaryService.UploadImagesAsync(
+                    request.AdditionalImages, "products");
+                product.Images = JsonSerializer.Serialize(additionalImageUrls);
+            }
+            else if (request.Images is not null)
+            {
+                product.Images = request.Images;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error handling images for product update");
+            throw;
+        }
+        
         if (request.IsAvailable.HasValue)            product.IsAvailable = request.IsAvailable.Value;
         if (request.IsFeatured.HasValue)             product.IsFeatured = request.IsFeatured.Value;
         if (request.IsNew.HasValue)                  product.IsNew = request.IsNew.Value;
