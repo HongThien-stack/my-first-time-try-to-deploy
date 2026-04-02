@@ -113,30 +113,22 @@ public class InventoryCheckService : IInventoryCheckService
         _logger.LogInformation("User {UserId} (Role: {Role}) creating inventory check for {LocationType}:{LocationId}", 
             userContext.UserId, userContext.Role, dto.LocationType, dto.LocationId);
 
-        // BACKEND RULE 1: Role validation - STAFF can create checks
-        if (!userContext.IsStaff)
-        {
-            _logger.LogWarning("User {UserId} with role {Role} attempted to create inventory check (forbidden)",
-                userContext.UserId, userContext.Role);
-            throw new UnauthorizedAccessException($"{ErrorCodes.RoleNotAuthorized}: Only STAFF members can create inventory checks");
-        }
-
-        // BACKEND RULE 2: Validate location
+        // BACKEND RULE 1: Validate location
         await ValidateLocationAsync(dto.LocationType, dto.LocationId);
 
-        // BACKEND RULE 3: Validate check type
+        // BACKEND RULE 2: Validate check type
         if (!IsValidCheckType(dto.CheckType))
         {
             throw new ArgumentException($"{ErrorCodes.InvalidCheckType}: Invalid check type: {dto.CheckType}. Must be FULL, PARTIAL, or SPOT.");
         }
 
-        // BACKEND RULE 4: Validate location type
+        // BACKEND RULE 3: Validate location type
         if (!IsValidLocationType(dto.LocationType))
         {
             throw new ArgumentException($"{ErrorCodes.InvalidLocationType}: Invalid location type: {dto.LocationType}. Must be WAREHOUSE or STORE.");
         }
 
-        // BACKEND RULE 5: Unique session rule - Check for active PENDING check at this location
+        // BACKEND RULE 4: Unique session rule - Check for active PENDING check at this location
         var existingChecks = await _inventoryCheckRepository.GetByLocationAsync(dto.LocationType, dto.LocationId);
         var activePendingCheck = existingChecks.FirstOrDefault(c => c.Status == "PENDING");
         
@@ -200,21 +192,13 @@ public class InventoryCheckService : IInventoryCheckService
         _logger.LogInformation("User {UserId} (Role: {Role}) submitting inventory check {Id}",
             userContext.UserId, userContext.Role, id);
 
-        // BACKEND RULE 1: Role validation - STAFF can submit
-        if (!userContext.IsStaff)
-        {
-            _logger.LogWarning("User {UserId} with role {Role} attempted to submit inventory check (forbidden)",
-                userContext.UserId, userContext.Role);
-            throw new UnauthorizedAccessException($"{ErrorCodes.RoleNotAuthorized}: Only STAFF members can submit inventory check results");
-        }
-
         var check = await _inventoryCheckRepository.GetByIdAsync(id);
         if (check == null)
         {
             throw new KeyNotFoundException($"{ErrorCodes.InventoryCheckNotFound}: Inventory check {id} not found");
         }
 
-        // BACKEND RULE 2: State machine - Must be PENDING to submit
+        // BACKEND RULE 1: State machine - Must be PENDING to submit
         if (check.Status != "PENDING")
         {
             _logger.LogWarning("Invalid state transition: Cannot submit check {CheckNumber} with status {Status}",
@@ -223,7 +207,7 @@ public class InventoryCheckService : IInventoryCheckService
                 $"{ErrorCodes.InvalidStateTransition}: Inventory check {id} cannot be submitted. Current status: {check.Status}. Expected: PENDING");
         }
 
-        // BACKEND RULE 3: Prevent duplicate submission
+        // BACKEND RULE 2: Prevent duplicate submission
         if (check.InventoryCheckItems.Any())
         {
             _logger.LogWarning("Duplicate submission attempt for check {CheckNumber}",check.CheckNumber);
@@ -231,7 +215,7 @@ public class InventoryCheckService : IInventoryCheckService
                 $"{ErrorCodes.InventoryCheckAlreadySubmitted}: Inventory check {id} has already been submitted");
         }
 
-        // BACKEND RULE 4: Validate negative quantities
+        // BACKEND RULE 3: Validate negative quantities
         foreach (var item in dto.Items)
         {
             if (item.ActualQuantity < 0)
@@ -246,7 +230,7 @@ public class InventoryCheckService : IInventoryCheckService
 
         foreach (var item in dto.Items)
         {
-            // BACKEND RULE 5: Get system quantity from inventories
+            // BACKEND RULE 4: Get system quantity from inventories
             var inventory = await _inventoryRepository.GetByLocationAndProductAsync(
                 check.LocationType, check.LocationId, item.ProductId);
 
@@ -306,21 +290,13 @@ public class InventoryCheckService : IInventoryCheckService
         _logger.LogInformation("User {UserId} (Role: {Role}) reconciling inventory check {Id}",
             userContext.UserId, userContext.Role, id);
 
-        // BACKEND RULE 1: Role validation - MANAGER can reconcile
-        if (!userContext.IsManager)
-        {
-            _logger.LogWarning("User {UserId} with role {Role} attempted to reconcile inventory check (forbidden)",
-                userContext.UserId, userContext.Role);
-            throw new UnauthorizedAccessException($"{ErrorCodes.RoleNotAuthorized}: Only MANAGER role can reconcile inventory checks");
-        }
-
         var check = await _inventoryCheckRepository.GetByIdAsync(id);
         if (check == null)
         {
             throw new KeyNotFoundException($"{ErrorCodes.InventoryCheckNotFound}: Inventory check {id} not found");
         }
 
-        // Must be completed to reconcile
+        // BACKEND RULE 1: Must be completed to reconcile
         if (check.Status != "COMPLETED")
         {
             throw new InvalidOperationException($"{ErrorCodes.InvalidStateTransition}: Inventory check {id} must be COMPLETED to reconcile. Current status: {check.Status}");
@@ -353,21 +329,13 @@ public class InventoryCheckService : IInventoryCheckService
         _logger.LogInformation("User {UserId} (Role: {Role}) approving inventory check {Id}",
             userContext.UserId, userContext.Role, id);
 
-        // BACKEND RULE 1: Role validation - MANAGER can approve
-        if (!userContext.IsManager)
-        {
-            _logger.LogWarning("User {UserId} with role {Role} attempted to approve inventory check (forbidden)",
-                userContext.UserId, userContext.Role);
-            throw new UnauthorizedAccessException($"{ErrorCodes.RoleNotAuthorized}: Only MANAGER role can approve inventory checks");
-        }
-
         var check = await _inventoryCheckRepository.GetByIdAsync(id);
         if (check == null)
         {
             throw new KeyNotFoundException($"{ErrorCodes.InventoryCheckNotFound}: Inventory check {id} not found");
         }
 
-        // Must be completed to approve
+        // BACKEND RULE 1: Must be completed to approve
         if (check.Status != "COMPLETED")
         {
             throw new InvalidOperationException($"{ErrorCodes.InvalidStateTransition}: Inventory check {id} must be COMPLETED to approve. Current status: {check.Status}");
@@ -402,27 +370,19 @@ public class InventoryCheckService : IInventoryCheckService
         _logger.LogInformation("User {UserId} (Role: {Role}) adjusting inventory for check {Id}",
             userContext.UserId, userContext.Role, id);
 
-        // BACKEND RULE 1: Role validation - MANAGER can adjust
-        if (!userContext.IsManager)
-        {
-            _logger.LogWarning("User {UserId} with role {Role} attempted to adjust inventory (forbidden)",
-                userContext.UserId, userContext.Role);
-            throw new UnauthorizedAccessException($"{ErrorCodes.RoleNotAuthorized}: Only MANAGER role can adjust inventory");
-        }
-
         var check = await _inventoryCheckRepository.GetByIdAsync(id);
         if (check == null)
         {
             throw new KeyNotFoundException($"{ErrorCodes.InventoryCheckNotFound}: Inventory check {id} not found");
         }
 
-        // BACKEND RULE 2: State machine - Must be COMPLETED
+        // BACKEND RULE 1: State machine - Must be COMPLETED
         if (check.Status != "COMPLETED")
         {
             throw new InvalidOperationException($"{ErrorCodes.InvalidStateTransition}: Inventory check {id} must be COMPLETED. Current status: {check.Status}");
         }
 
-        // BACKEND RULE 7: Prevent double adjustment
+        // BACKEND RULE 2: Prevent double adjustment
         var checkState = InventoryCheckState.ParseFromNotes(check.Notes ?? string.Empty);
         if (checkState.IsAdjusted)
         {
@@ -449,7 +409,7 @@ public class InventoryCheckService : IInventoryCheckService
                 ?? throw new InvalidOperationException($"{ErrorCodes.InternalServerError}: Failed to retrieve inventory check");
         }
 
-        // BACKEND RULE 5: Begin database transaction
+        // BACKEND RULE 3: Begin database transaction
         await _inventoryLockingRepository.ExecuteInTransactionAsync(async () =>
         {
             // Generate movement number (for future implementation)
@@ -482,7 +442,7 @@ foreach (var item in discrepancies)
 
                 _inventoryLockingRepository.UpdateInventoryInTransaction(inventory);
 
-                // BACKEND RULE 8: Log the adjustment (audit trail)
+                // BACKEND RULE 6: Log the adjustment (audit trail)
                 // TODO: Temporarily disabled - InventoryLog entity doesn't match inventory_history table
                 /*
                 var log = new InventoryLog
