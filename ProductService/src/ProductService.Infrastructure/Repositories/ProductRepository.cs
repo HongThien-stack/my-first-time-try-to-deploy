@@ -18,7 +18,7 @@ public class ProductRepository : IProductRepository
     {
         return await _context.Products
             .Include(p => p.Category)
-            .Where(p => ids.Contains(p.Id))
+            .Where(p => ids.Contains(p.Id) && !p.IsDeleted)
             .ToListAsync();
     }
 
@@ -26,6 +26,7 @@ public class ProductRepository : IProductRepository
     {
         return await _context.Products
             .Include(p => p.Category)
+            .Where(p => !p.IsDeleted)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
     }
@@ -34,14 +35,14 @@ public class ProductRepository : IProductRepository
     {
         return await _context.Products
             .Include(p => p.Category)
-            .FirstOrDefaultAsync(p => p.Id == id);
+            .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
     }
 
     public async Task<Product?> GetBySkuAsync(string sku)
     {
         return await _context.Products
             .Include(p => p.Category)
-            .FirstOrDefaultAsync(p => p.Sku == sku);
+            .FirstOrDefaultAsync(p => p.Sku == sku && !p.IsDeleted);
     }
 
     public async Task<Product> CreateAsync(Product product)
