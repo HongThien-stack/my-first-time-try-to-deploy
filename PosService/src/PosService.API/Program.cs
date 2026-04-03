@@ -127,6 +127,7 @@ builder.Services.AddScoped<IProductSearchService, ProductSearchService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<IPdfReceiptService, PdfReceiptService>();
 builder.Services.AddScoped<IRevenueReportService, RevenueReportService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 
 
 // Add CORS

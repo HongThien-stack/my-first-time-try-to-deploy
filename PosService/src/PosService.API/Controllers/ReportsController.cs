@@ -19,10 +19,12 @@ public class ReportsController : ControllerBase
     };
 
     private readonly IRevenueReportService _revenueReportService;
+    private readonly IReportService _reportService;
 
-    public ReportsController(IRevenueReportService revenueReportService)
+    public ReportsController(IRevenueReportService revenueReportService, IReportService reportService)
     {
         _revenueReportService = revenueReportService;
+        _reportService = reportService;
     }
 
     [HttpGet("manager/revenue")]
@@ -74,6 +76,78 @@ public class ReportsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+    }
+
+    [HttpGet("revenue-trend")]
+    [Authorize(Roles = "Admin,Manager,Store Manager")]
+    public async Task<IActionResult> GetRevenueTrend([FromQuery] RevenueTrendRequestDto request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var scopedStoreId = ResolveScopedStoreId();
+            var result = await _reportService.GetRevenueTrendAsync(request, scopedStoreId, cancellationToken);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("top-products")]
+    [Authorize(Roles = "Admin,Manager,Store Manager")]
+    public async Task<IActionResult> GetTopProducts([FromQuery] TopProductsRequestDto request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var scopedStoreId = ResolveScopedStoreId();
+            var result = await _reportService.GetTopProductsAsync(request, scopedStoreId, cancellationToken);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("inventory-summary")]
+    [Authorize(Roles = "Admin,Manager,Store Manager")]
+    public async Task<IActionResult> GetInventorySummary([FromQuery] int lowStockThreshold = 10, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var scopedStoreId = ResolveScopedStoreId();
+            var result = await _reportService.GetInventorySummaryAsync(scopedStoreId, lowStockThreshold, cancellationToken);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    private Guid? ResolveScopedStoreId()
+    {
+        if (User.IsInRole("Admin"))
+        {
+            return null;
+        }
+
+        var managerStoreId = ExtractStoreIdFromClaims(User);
+        if (!managerStoreId.HasValue)
+        {
+            throw new UnauthorizedAccessException("Store scope is required for non-admin users.");
+        }
+
+        return managerStoreId.Value;
     }
 
     private static Guid? ExtractStoreIdFromClaims(ClaimsPrincipal user)
