@@ -497,16 +497,46 @@ foreach (var item in discrepancies)
     {
         var year = DateTime.UtcNow.Year;
         var checks = await _inventoryCheckRepository.GetAllAsync();
-        var count = checks.Count(c => c.CheckNumber.StartsWith($"IC-{year}"));
-        return $"IC-{year}-{(count + 1):D3}";
+        var prefix = $"IC-{year}-";
+        var nextNumber = GetNextSequenceNumber(
+            checks.Select(c => c.CheckNumber),
+            prefix);
+
+        return $"{prefix}{nextNumber:D3}";
     }
 
     private async Task<string> GenerateMovementNumberAsync()
     {
         var year = DateTime.UtcNow.Year;
         var movements = await _stockMovementRepository.GetAllAsync();
-        var count = movements.Count(m => m.MovementNumber.StartsWith($"SM-{year}"));
-        return $"SM-{year}-{(count + 1):D3}";
+        var prefix = $"SM-{year}-";
+        var nextNumber = GetNextSequenceNumber(
+            movements.Select(m => m.MovementNumber),
+            prefix);
+
+        return $"{prefix}{nextNumber:D3}";
+    }
+
+    private static int GetNextSequenceNumber(IEnumerable<string?> values, string prefix)
+    {
+        var max = 0;
+
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value) ||
+                !value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var suffix = value[prefix.Length..];
+            if (int.TryParse(suffix, out var sequence) && sequence > max)
+            {
+                max = sequence;
+            }
+        }
+
+        return max + 1;
     }
 
     private async Task ValidateLocationAsync(string locationType, Guid locationId)
