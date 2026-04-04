@@ -73,6 +73,106 @@ public class ReportService : IReportService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<AdminTopProductsTrendResponseDto> GetAdminTopProductsTrendAsync(
+        TopProductsRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var topN = request.TopN <= 0 ? 10 : Math.Min(request.TopN, MaxTopN);
+        var (fromUtc, toUtcExclusive) = !string.IsNullOrWhiteSpace(request.Period)
+            ? ResolveDateRangeFromPeriod(request.Period, request.FromDate, request.ToDate)
+            : ResolveDateRange(request.FromDate, request.ToDate, "DAY");
+
+        var salesInRange = _dbContext.Sales
+            .AsNoTracking()
+            .Where(s => s.Status == "COMPLETED" && s.PaymentStatus == "PAID")
+            .Where(s => s.SaleDate >= fromUtc && s.SaleDate < toUtcExclusive);
+
+        if (request.StoreId.HasValue)
+        {
+            salesInRange = salesInRange.Where(s => s.StoreId == request.StoreId.Value);
+        }
+
+        var overallTopProducts = await salesInRange
+            .SelectMany(s => s.SaleItems)
+            .GroupBy(si => new { si.ProductId, si.ProductName })
+            .Select(g => new TopProductReportDto
+            {
+                ProductId = g.Key.ProductId,
+                ProductName = g.Key.ProductName,
+                QuantitySold = g.Sum(x => x.Quantity),
+                Revenue = g.Sum(x => x.Quantity * x.UnitPrice)
+            })
+            .OrderByDescending(x => x.QuantitySold)
+            .ThenByDescending(x => x.Revenue)
+            .Take(topN)
+            .ToListAsync(cancellationToken);
+
+        var storeOrderStats = await salesInRange
+            .GroupBy(s => s.StoreId)
+            .Select(g => new
+            {
+                StoreId = g.Key,
+                TotalOrders = g.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        var storeProductRows = await salesInRange
+            .SelectMany(s => s.SaleItems.Select(si => new
+            {
+                s.StoreId,
+                si.ProductId,
+                si.ProductName,
+                si.Quantity,
+                si.UnitPrice
+            }))
+            .GroupBy(x => new { x.StoreId, x.ProductId, x.ProductName })
+            .Select(g => new
+            {
+                g.Key.StoreId,
+                g.Key.ProductId,
+                g.Key.ProductName,
+                QuantitySold = g.Sum(x => x.Quantity),
+                Revenue = g.Sum(x => x.Quantity * x.UnitPrice)
+            })
+            .ToListAsync(cancellationToken);
+
+        var orderCountByStore = storeOrderStats.ToDictionary(x => x.StoreId, x => x.TotalOrders);
+
+        var storeTopProducts = storeProductRows
+            .GroupBy(x => x.StoreId)
+            .Select(g => new StoreTopProductsDto
+            {
+                StoreId = g.Key,
+                TotalOrders = orderCountByStore.TryGetValue(g.Key, out var totalOrders) ? totalOrders : 0,
+                TotalRevenue = g.Sum(x => x.Revenue),
+                TopProducts = g
+                    .OrderByDescending(x => x.QuantitySold)
+                    .ThenByDescending(x => x.Revenue)
+                    .Take(topN)
+                    .Select(x => new TopProductReportDto
+                    {
+                        ProductId = x.ProductId,
+                        ProductName = x.ProductName,
+                        QuantitySold = x.QuantitySold,
+                        Revenue = x.Revenue
+                    })
+                    .ToList()
+            })
+            .OrderByDescending(x => x.TotalRevenue)
+            .ToList();
+
+        return new AdminTopProductsTrendResponseDto
+        {
+            SelectedStoreId = request.StoreId,
+            Period = string.IsNullOrWhiteSpace(request.Period) ? "LAST_7_DAYS" : request.Period.Trim().ToUpperInvariant(),
+            FromDate = fromUtc,
+            ToDate = toUtcExclusive.AddDays(-1),
+            TopN = topN,
+            OverallTopProducts = overallTopProducts,
+            StoreTopProducts = storeTopProducts
+        };
+    }
+
     public async Task<InventorySummaryDto> GetInventorySummaryAsync(
         Guid? storeId,
         int lowStockThreshold = 10,

@@ -2,6 +2,8 @@ namespace PosService.Application.DTOs;
 
 public class StoreDashboardResponseDto
 {
+    public Guid StoreId { get; set; }
+    public string StoreName { get; set; } = string.Empty;
     public string Period { get; set; } = string.Empty;
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }

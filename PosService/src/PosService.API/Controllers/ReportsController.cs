@@ -18,6 +18,14 @@ public class ReportsController : ControllerBase
         "workplaceId"
     };
 
+    private static readonly string[] StoreNameClaimKeys =
+    {
+        "store_name",
+        "storeName",
+        "workplace_name",
+        "workplaceName"
+    };
+
     private readonly IRevenueReportService _revenueReportService;
     private readonly IReportService _reportService;
 
@@ -55,6 +63,8 @@ public class ReportsController : ControllerBase
         try
         {
             var result = await _revenueReportService.GetManagerRevenueAsync(managerStoreId.Value, request, cancellationToken);
+            result.StoreId = managerStoreId.Value;
+            result.StoreName = ExtractStoreNameFromClaims(User);
             return Ok(result);
         }
         catch (ArgumentException ex)
@@ -104,13 +114,34 @@ public class ReportsController : ControllerBase
     {
         try
         {
+            if (!User.IsInRole("Admin") && request.StoreId.HasValue)
+            {
+                return Forbid();
+            }
+
             var scopedStoreId = ResolveScopedStoreId();
-            var result = await _reportService.GetTopProductsAsync(request, scopedStoreId, cancellationToken);
+            var effectiveStoreId = scopedStoreId ?? request.StoreId;
+            var result = await _reportService.GetTopProductsAsync(request, effectiveStoreId, cancellationToken);
             return Ok(result);
         }
         catch (UnauthorizedAccessException)
         {
             return Forbid();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("admin/top-products-trend")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAdminTopProductsTrend([FromQuery] TopProductsRequestDto request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _reportService.GetAdminTopProductsTrendAsync(request, cancellationToken);
+            return Ok(result);
         }
         catch (ArgumentException ex)
         {
@@ -192,12 +223,16 @@ public class ReportsController : ControllerBase
             };
 
             var revenue = await _revenueReportService.GetManagerRevenueAsync(managerStoreId.Value, revenueRequest, cancellationToken);
+            revenue.StoreId = managerStoreId.Value;
+            revenue.StoreName = ExtractStoreNameFromClaims(User);
             var revenueTrend = await _reportService.GetRevenueTrendAsync(trendRequest, managerStoreId, cancellationToken);
             var topProducts = await _reportService.GetTopProductsAsync(topProductsRequest, managerStoreId, cancellationToken);
             var inventorySummary = await _reportService.GetInventorySummaryAsync(managerStoreId, request.LowStockThreshold, cancellationToken);
 
             return Ok(new StoreDashboardResponseDto
             {
+                StoreId = managerStoreId.Value,
+                StoreName = ExtractStoreNameFromClaims(User),
                 Period = normalizedPeriod,
                 FromDate = fromDate,
                 ToDate = toDate,
@@ -222,6 +257,12 @@ public class ReportsController : ControllerBase
         if (User.IsInRole("Admin"))
         {
             return null;
+        }
+
+        var workplaceType = User.FindFirst("workplace_type")?.Value;
+        if (!string.Equals(workplaceType, "STORE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Only STORE-scoped manager can access this report.");
         }
 
         var managerStoreId = ExtractStoreIdFromClaims(User);
@@ -278,5 +319,19 @@ public class ReportsController : ControllerBase
         }
 
         return null;
+    }
+
+    private static string ExtractStoreNameFromClaims(ClaimsPrincipal user)
+    {
+        foreach (var claimKey in StoreNameClaimKeys)
+        {
+            var claimValue = user.FindFirst(claimKey)?.Value;
+            if (!string.IsNullOrWhiteSpace(claimValue))
+            {
+                return claimValue;
+            }
+        }
+
+        return "UNKNOWN_STORE";
     }
 }
