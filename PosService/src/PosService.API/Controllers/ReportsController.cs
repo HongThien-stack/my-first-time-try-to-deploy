@@ -114,13 +114,24 @@ public class ReportsController : ControllerBase
     {
         try
         {
-            if (!User.IsInRole("Admin") && request.StoreId.HasValue)
+            Guid? effectiveStoreId;
+
+            if (User.IsInRole("Admin"))
             {
-                return Forbid();
+                // Admin can view all stores or specify a specific store
+                effectiveStoreId = request.StoreId;
+            }
+            else
+            {
+                // Manager/Store Manager cannot specify a different store - they see only their own store
+                if (request.StoreId.HasValue)
+                {
+                    return Forbid();
+                }
+
+                effectiveStoreId = ResolveScopedStoreId();
             }
 
-            var scopedStoreId = ResolveScopedStoreId();
-            var effectiveStoreId = scopedStoreId ?? request.StoreId;
             var result = await _reportService.GetTopProductsAsync(request, effectiveStoreId, cancellationToken);
             return Ok(result);
         }
