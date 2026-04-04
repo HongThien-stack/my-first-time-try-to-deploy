@@ -89,6 +89,29 @@ public class RevenueReportService : IRevenueReportService
 
     private static (DateTime FromUtc, DateTime ToUtcExclusive) ResolveDateRange(RevenueReportRequestDto request)
     {
+        // If Period is specified, use it (takes precedence over FilterType)
+        if (!string.IsNullOrWhiteSpace(request.Period))
+        {
+            var period = request.Period.Trim().ToUpperInvariant();
+            var today = DateTime.UtcNow.Date;
+
+            return period switch
+            {
+                "TODAY" => (today, today.AddDays(1)),
+                "YESTERDAY" => (today.AddDays(-1), today),
+                "THIS_MONTH" => (new DateTime(today.Year, today.Month, 1), today.AddMonths(1)),
+                "LAST_7_DAYS" => (today.AddDays(-6), today.AddDays(1)),
+                "CUSTOM" => ResolveCustomDateRange(request),
+                _ => ResolveDateRangeByFilterType(request) // Fallback to FilterType if unknown period
+            };
+        }
+
+        // Fallback to FilterType-based resolution
+        return ResolveDateRangeByFilterType(request);
+    }
+
+    private static (DateTime FromUtc, DateTime ToUtcExclusive) ResolveDateRangeByFilterType(RevenueReportRequestDto request)
+    {
         var filterType = (request.FilterType ?? "DAY").Trim().ToUpperInvariant();
 
         if (request.FromDate.HasValue && request.ToDate.HasValue)
@@ -131,5 +154,23 @@ public class RevenueReportService : IRevenueReportService
             "YEAR" => (new DateTime(pivot.Year, 1, 1), new DateTime(pivot.Year, 1, 1).AddYears(1)),
             _ => throw new ArgumentException("filterType must be one of DAY, MONTH, YEAR, RANGE.")
         };
+    }
+
+    private static (DateTime FromUtc, DateTime ToUtcExclusive) ResolveCustomDateRange(RevenueReportRequestDto request)
+    {
+        if (!request.FromDate.HasValue || !request.ToDate.HasValue)
+        {
+            throw new ArgumentException("fromDate and toDate are required when period is CUSTOM.");
+        }
+
+        var from = request.FromDate.Value.Date;
+        var to = request.ToDate.Value.Date;
+
+        if (from > to)
+        {
+            throw new ArgumentException("Invalid date range: fromDate must be earlier than or equal to toDate.");
+        }
+
+        return (from, to.AddDays(1));
     }
 }

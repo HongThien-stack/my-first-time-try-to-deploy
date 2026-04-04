@@ -24,7 +24,11 @@ public class ReportService : IReportService
         CancellationToken cancellationToken = default)
     {
         var groupBy = NormalizeGroupBy(request.GroupBy);
-        var (fromUtc, toUtcExclusive) = ResolveDateRange(request.FromDate, request.ToDate, groupBy);
+        
+        // Use Period if specified, otherwise use FromDate/ToDate
+        var (fromUtc, toUtcExclusive) = !string.IsNullOrWhiteSpace(request.Period)
+            ? ResolveDateRangeFromPeriod(request.Period, request.FromDate, request.ToDate)
+            : ResolveDateRange(request.FromDate, request.ToDate, groupBy);
 
         var query = BuildCompletedSalesQuery(fromUtc, toUtcExclusive, storeId)
             .SelectMany(s => s.SaleItems)
@@ -44,7 +48,11 @@ public class ReportService : IReportService
         CancellationToken cancellationToken = default)
     {
         var topN = request.TopN <= 0 ? 10 : Math.Min(request.TopN, MaxTopN);
-        var (fromUtc, toUtcExclusive) = ResolveDateRange(request.FromDate, request.ToDate, "DAY");
+        
+        // Use Period if specified, otherwise use FromDate/ToDate
+        var (fromUtc, toUtcExclusive) = !string.IsNullOrWhiteSpace(request.Period)
+            ? ResolveDateRangeFromPeriod(request.Period, request.FromDate, request.ToDate)
+            : ResolveDateRange(request.FromDate, request.ToDate, "DAY");
 
         var query = BuildCompletedSalesQuery(fromUtc, toUtcExclusive, storeId)
             .SelectMany(s => s.SaleItems)
@@ -144,11 +152,54 @@ public class ReportService : IReportService
         var today = DateTime.UtcNow.Date;
         return groupBy switch
         {
-            "DAY" => (today.AddDays(-29), today.AddDays(1)),
-            "MONTH" => (new DateTime(today.Year, 1, 1), today.AddDays(1)),
-            "YEAR" => (new DateTime(today.Year - 4, 1, 1), new DateTime(today.Year + 1, 1, 1)),
-            _ => (today.AddDays(-29), today.AddDays(1))
+            "DAY" => (today.AddDays(-6), today.AddDays(1)), // Last 7 days
+            "MONTH" => (new DateTime(today.Year, 1, 1), today.AddDays(1)), // Year to date
+            "YEAR" => (new DateTime(today.Year - 4, 1, 1), new DateTime(today.Year + 1, 1, 1)), // Last 5 years
+            _ => (today.AddDays(-6), today.AddDays(1))
         };
+    }
+
+    /// <summary>
+    /// Resolves date range from Period parameter (used by trending and top products APIs)
+    /// </summary>
+    private static (DateTime FromUtc, DateTime ToUtcExclusive) ResolveDateRangeFromPeriod(string period, DateTime? customFromDate = null, DateTime? customToDate = null)
+    {
+        if (string.IsNullOrWhiteSpace(period))
+            return (DateTime.MinValue, DateTime.MaxValue); // No period specified, shouldn't happen
+
+        var normalizedPeriod = period.Trim().ToUpperInvariant();
+        var today = DateTime.UtcNow.Date;
+
+        return normalizedPeriod switch
+        {
+            "TODAY" => (today, today.AddDays(1)),
+            "YESTERDAY" => (today.AddDays(-1), today),
+            "THIS_MONTH" => (new DateTime(today.Year, today.Month, 1), today.AddMonths(1)),
+            "LAST_7_DAYS" => (today.AddDays(-6), today.AddDays(1)),
+            "CUSTOM" => ResolveDateRangeFromCustom(customFromDate, customToDate),
+            _ => (today.AddDays(-6), today.AddDays(1)) // Default to last 7 days
+        };
+    }
+
+    /// <summary>
+    /// Resolves custom date range, ensuring proper handling of from/to dates
+    /// </summary>
+    private static (DateTime FromUtc, DateTime ToUtcExclusive) ResolveDateRangeFromCustom(DateTime? fromDate, DateTime? toDate)
+    {
+        if (!fromDate.HasValue || !toDate.HasValue)
+        {
+            throw new ArgumentException("fromDate and toDate are required when period is CUSTOM.");
+        }
+
+        var from = fromDate.Value.Date;
+        var to = toDate.Value.Date;
+
+        if (from > to)
+        {
+            throw new ArgumentException("Invalid date range: fromDate must be earlier than or equal to toDate.");
+        }
+
+        return (from, to.AddDays(1));
     }
 
     private static async Task<IReadOnlyList<RevenueTrendPointDto>> BuildDailyTrendAsync(
