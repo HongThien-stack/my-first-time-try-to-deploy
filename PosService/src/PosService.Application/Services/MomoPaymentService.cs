@@ -17,8 +17,8 @@ public class MomoPaymentService : IMomoPaymentService
     private string AccessKey => _config["Momo:AccessKey"] ?? "klm05TvNBzhg7h7j";
     private string SecretKey => _config["Momo:SecretKey"] ?? "at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa";
     private string Endpoint => _config["Momo:Endpoint"] ?? "https://test-payment.momo.vn/v2/gateway/api/create";
-    private string ReturnUrl => _config["Momo:ReturnUrl"] ?? "http://localhost:5000/api/payment/momo/return";
-    private string NotifyUrl => _config["Momo:NotifyUrl"] ?? "http://localhost:5000/api/payment/momo/notify";
+    private string ReturnUrl => _config["Momo:ReturnUrl"] ?? "http://13.229.29.52:5006/api/payment/momo/return";
+    private string NotifyUrl => _config["Momo:NotifyUrl"] ?? "http://13.229.29.52:5006/api/payment/momo/notify";
 
     public MomoPaymentService(HttpClient httpClient, IConfiguration config)
     {

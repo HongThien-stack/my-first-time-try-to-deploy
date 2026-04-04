@@ -163,8 +163,8 @@ services:
       Momo__Endpoint: "${POS_MOMO_ENDPOINT:-https://test-payment.momo.vn/v2/gateway/api/create}"
       Momo__ReturnUrl: "${POS_MOMO_RETURN_URL:-http://13.229.29.52:5006/api/payment/momo/return}"
       Momo__NotifyUrl: "${POS_MOMO_NOTIFY_URL:-http://13.229.29.52:5006/api/payment/momo/notify}"
-      Momo__FrontendSuccessUrl: "${POS_FRONTEND_SUCCESS_URL:-http://localhost:3000/payment-success}"
-      Momo__FrontendFailureUrl: "${POS_FRONTEND_FAILURE_URL:-http://localhost:3000/payment-failure}"
+      Momo__FrontendSuccessUrl: "${POS_FRONTEND_SUCCESS_URL:-https://bhx-mu.vercel.app/cashier/payment-success}"
+      Momo__FrontendFailureUrl: "${POS_FRONTEND_FAILURE_URL:-https://bhx-mu.vercel.app/cashier/payment-failure}"
     ports:
       - "5006:8080"
     networks:
