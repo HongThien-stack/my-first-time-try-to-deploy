@@ -91,6 +91,19 @@ public class RevenueReportService : IRevenueReportService
     {
         var filterType = (request.FilterType ?? "DAY").Trim().ToUpperInvariant();
 
+        if (request.FromDate.HasValue && request.ToDate.HasValue)
+        {
+            var from = request.FromDate.Value.Date;
+            var to = request.ToDate.Value.Date;
+
+            if (from > to)
+            {
+                throw new ArgumentException("Invalid date range: fromDate must be earlier than or equal to toDate.");
+            }
+
+            return (from, to.AddDays(1));
+        }
+
         if (filterType == "RANGE")
         {
             if (!request.FromDate.HasValue || !request.ToDate.HasValue)

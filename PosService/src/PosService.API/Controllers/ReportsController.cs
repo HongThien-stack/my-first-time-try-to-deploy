@@ -134,6 +134,89 @@ public class ReportsController : ControllerBase
         }
     }
 
+    [HttpGet("manager/dashboard")]
+    [Authorize(Roles = "Manager,Store Manager")]
+    public async Task<IActionResult> GetManagerDashboard([FromQuery] StoreDashboardRequestDto request, CancellationToken cancellationToken)
+    {
+        if (request == null)
+        {
+            return BadRequest(new { message = "Request is required." });
+        }
+
+        if (request.TopN <= 0)
+        {
+            request.TopN = 5;
+        }
+
+        if (request.LowStockThreshold <= 0)
+        {
+            request.LowStockThreshold = 10;
+        }
+
+        var workplaceType = User.FindFirst("workplace_type")?.Value;
+        if (!string.Equals(workplaceType, "STORE", StringComparison.OrdinalIgnoreCase))
+        {
+            return Forbid();
+        }
+
+        var managerStoreId = ExtractStoreIdFromClaims(User);
+        if (!managerStoreId.HasValue)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var (fromDate, toDate, normalizedPeriod) = ResolveDashboardDateRange(request);
+
+            var revenueRequest = new RevenueReportRequestDto
+            {
+                StoreId = managerStoreId.Value,
+                FilterType = "RANGE",
+                FromDate = fromDate,
+                ToDate = toDate
+            };
+
+            var trendRequest = new RevenueTrendRequestDto
+            {
+                FromDate = fromDate,
+                ToDate = toDate,
+                GroupBy = string.IsNullOrWhiteSpace(request.GroupBy) ? "DAY" : request.GroupBy
+            };
+
+            var topProductsRequest = new TopProductsRequestDto
+            {
+                FromDate = fromDate,
+                ToDate = toDate,
+                TopN = request.TopN
+            };
+
+            var revenue = await _revenueReportService.GetManagerRevenueAsync(managerStoreId.Value, revenueRequest, cancellationToken);
+            var revenueTrend = await _reportService.GetRevenueTrendAsync(trendRequest, managerStoreId, cancellationToken);
+            var topProducts = await _reportService.GetTopProductsAsync(topProductsRequest, managerStoreId, cancellationToken);
+            var inventorySummary = await _reportService.GetInventorySummaryAsync(managerStoreId, request.LowStockThreshold, cancellationToken);
+
+            return Ok(new StoreDashboardResponseDto
+            {
+                Period = normalizedPeriod,
+                FromDate = fromDate,
+                ToDate = toDate,
+                Revenue = revenue,
+                RevenueTrend = revenueTrend,
+                TopProducts = topProducts,
+                InventorySummary = inventorySummary
+            });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     private Guid? ResolveScopedStoreId()
     {
         if (User.IsInRole("Admin"))
@@ -148,6 +231,39 @@ public class ReportsController : ControllerBase
         }
 
         return managerStoreId.Value;
+    }
+
+    private static (DateTime FromDate, DateTime ToDate, string Period) ResolveDashboardDateRange(StoreDashboardRequestDto request)
+    {
+        var period = (request.Period ?? "LAST_7_DAYS").Trim().ToUpperInvariant();
+        var today = DateTime.UtcNow.Date;
+
+        return period switch
+        {
+            "TODAY" => (today, today, "TODAY"),
+            "YESTERDAY" => (today.AddDays(-1), today.AddDays(-1), "YESTERDAY"),
+            "THIS_MONTH" => (new DateTime(today.Year, today.Month, 1), today, "THIS_MONTH"),
+            "CUSTOM" => ResolveCustomDateRange(request),
+            _ => (today.AddDays(-6), today, "LAST_7_DAYS")
+        };
+    }
+
+    private static (DateTime FromDate, DateTime ToDate, string Period) ResolveCustomDateRange(StoreDashboardRequestDto request)
+    {
+        if (!request.FromDate.HasValue || !request.ToDate.HasValue)
+        {
+            throw new ArgumentException("fromDate and toDate are required when period is CUSTOM.");
+        }
+
+        var from = request.FromDate.Value.Date;
+        var to = request.ToDate.Value.Date;
+
+        if (from > to)
+        {
+            throw new ArgumentException("Invalid date range: fromDate must be earlier than or equal to toDate.");
+        }
+
+        return (from, to, "CUSTOM");
     }
 
     private static Guid? ExtractStoreIdFromClaims(ClaimsPrincipal user)
