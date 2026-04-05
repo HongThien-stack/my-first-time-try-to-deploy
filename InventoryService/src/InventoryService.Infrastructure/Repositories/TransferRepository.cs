@@ -24,6 +24,8 @@ public class TransferRepository : ITransferRepository
     {
         return await _context.Transfers
             .Where(t => t.FromLocationId == fromLocationId)
+            .OrderByDescending(t => t.CreatedAt)
+            .ThenByDescending(t => t.TransferDate)
             .ToListAsync();
     }
 
