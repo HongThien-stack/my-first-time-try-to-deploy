@@ -281,11 +281,11 @@ public class TransferService : ITransferService
         } // Kết thúc foreach
 
         // 5. Tạo StockMovement INBOUND ghi nhận tại kho đích
-        var movementCount = await _stockMovementRepository.CountByDateAsync(DateTime.UtcNow);
+        var movementNumber = await GenerateMovementNumberAsync(DateTime.UtcNow);
         var stockMovement = new StockMovement
         {
             Id = Guid.NewGuid(),
-            MovementNumber = $"SM-{DateTime.UtcNow:yyyyMMdd}-{(movementCount + 1):D3}",
+            MovementNumber = movementNumber,
             MovementType = "INBOUND",
             LocationId = transfer.ToLocationId,
             LocationType = transfer.ToLocationType,
@@ -367,11 +367,11 @@ public class TransferService : ITransferService
         }
 
         // 4. Tạo StockMovement OUTBOUND
-        var movementCount = await _stockMovementRepository.CountByDateAsync(DateTime.UtcNow);
+        var movementNumber = await GenerateMovementNumberAsync(DateTime.UtcNow);
         var stockMovement = new StockMovement
         {
             Id = Guid.NewGuid(),
-            MovementNumber = $"SM-{DateTime.UtcNow:yyyyMMdd}-{(movementCount + 1):D3}",
+            MovementNumber = movementNumber,
             MovementType = "OUTBOUND",
             LocationId = transfer.FromLocationId,
             LocationType = transfer.FromLocationType,
@@ -468,7 +468,38 @@ public class TransferService : ITransferService
         var now = DateTime.UtcNow;
         var prefix = $"TRF-{now:yyyy}-";
         var allTransfers = await _transferRepository.GetAllAsync();
-        var todayTransfers = allTransfers.Where(t => t.TransferNumber.StartsWith(prefix)).Count();
-        return $"{prefix}{(todayTransfers + 1):D3}";
+        var nextNumber = GetNextSequenceNumber(allTransfers.Select(t => t.TransferNumber), prefix);
+        return $"{prefix}{nextNumber:D3}";
+    }
+
+    private async Task<string> GenerateMovementNumberAsync(DateTime movementDate)
+    {
+        var prefix = $"SM-{movementDate:yyyyMMdd}-";
+        var allMovements = await _stockMovementRepository.GetAllAsync();
+        var nextNumber = GetNextSequenceNumber(allMovements.Select(m => m.MovementNumber), prefix);
+        return $"{prefix}{nextNumber:D3}";
+    }
+
+    private static int GetNextSequenceNumber(IEnumerable<string?> existingNumbers, string prefix)
+    {
+        return existingNumbers
+            .Where(number => !string.IsNullOrWhiteSpace(number) && number.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Select(number => TryParseSequenceNumber(number!, prefix))
+            .Where(sequence => sequence.HasValue)
+            .Select(sequence => sequence!.Value)
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+    }
+
+    private static int? TryParseSequenceNumber(string existingNumber, string prefix)
+    {
+        if (existingNumber.Length <= prefix.Length)
+        {
+            return null;
+        }
+
+        return int.TryParse(existingNumber[prefix.Length..], out var sequence)
+            ? sequence
+            : null;
     }
 }
