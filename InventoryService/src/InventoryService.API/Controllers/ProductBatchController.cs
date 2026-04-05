@@ -212,7 +212,7 @@ public class ProductBatchController : ControllerBase
     /// Adjust batch quantity by physical count and synchronize inventory for the same product/location.
     /// </summary>
     [HttpPost("batch/adjust-quantity")]
-    [Authorize(Roles = "Admin,Store Manager,Warehouse Manager,Warehouse Admin")]
+    [Authorize(Roles = "Admin,Manager,Store Manager,Warehouse Manager,Warehouse Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
