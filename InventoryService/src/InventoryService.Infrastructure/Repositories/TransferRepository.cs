@@ -17,6 +17,8 @@ public class TransferRepository : ITransferRepository
     {
         return await _context.Transfers
             .Include(t => t.TransferItems)
+            .OrderByDescending(t => t.CreatedAt)
+            .ThenByDescending(t => t.TransferDate)
             .ToListAsync();
     }
 
@@ -61,6 +63,8 @@ public class TransferRepository : ITransferRepository
         return await _context.Transfers
             .Include(t => t.TransferItems)
             .Where(t => t.Status == status)
+            .OrderByDescending(t => t.CreatedAt)
+            .ThenByDescending(t => t.TransferDate)
             .ToListAsync();
     }
 
