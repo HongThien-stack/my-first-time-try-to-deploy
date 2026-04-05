@@ -117,12 +117,19 @@ public class SalesController : ControllerBase
             // 6. If Momo payment, return with payment URL
             if (request.PaymentMethod?.ToUpper() == "MOMO")
             {
+                var paymentUrl = Url.ActionLink(
+                    action: nameof(PaymentController.CreateMomoPayment),
+                    controller: "Payment",
+                    values: new { saleId = createdSale.Id, paymentType = "WALLET" },
+                    protocol: Request.Scheme)
+                    ?? $"{Request.Scheme}://{Request.Host}/api/payment/momo/create/{createdSale.Id}?paymentType=WALLET";
+
                 return Ok(new
                 {
                     saleId = createdSale.Id,
                     message = "Sale created successfully. Please proceed to Momo payment.",
                     paymentRequired = true,
-                    redirectUrl = $"http://localhost:5006/api/payment/momo/create/{createdSale.Id}"
+                    redirectUrl = paymentUrl
                 });
             }
 
