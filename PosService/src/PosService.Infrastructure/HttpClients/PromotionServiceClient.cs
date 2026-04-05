@@ -42,32 +42,18 @@ namespace PosService.Infrastructure.HttpClients
                 var responseStream = await response.Content.ReadAsStreamAsync();
                 var result = await JsonSerializer.DeserializeAsync<PromotionCalculationResultDto>(responseStream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-                return result ?? BuildFallbackResult(request);
+                return result ?? new PromotionCalculationResultDto();
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogWarning(ex, "PromotionService is unavailable. Continuing without promotions.");
-                return BuildFallbackResult(request);
+                _logger.LogError(ex, "HTTP request to PromotionService failed.");
+                throw;
             }
             catch (JsonException ex)
             {
-                _logger.LogWarning(ex, "PromotionService returned an invalid payload. Continuing without promotions.");
-                return BuildFallbackResult(request);
+                _logger.LogError(ex, "Failed to deserialize response from PromotionService.");
+                throw;
             }
-        }
-
-        private static PromotionCalculationResultDto BuildFallbackResult(PromotionCalculationRequestDto request)
-        {
-            var subtotal = request.Items.Sum(item => item.UnitPrice * item.Quantity);
-
-            return new PromotionCalculationResultDto
-            {
-                Subtotal = subtotal,
-                TotalDiscountAmount = 0,
-                TotalAmount = subtotal,
-                PointsEarned = (int)Math.Floor(subtotal / 1000),
-                AppliedPromotions = new List<AppliedPromotionDto>()
-            };
         }
     }
 }
