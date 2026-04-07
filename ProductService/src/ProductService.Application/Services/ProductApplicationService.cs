@@ -375,10 +375,10 @@ public class ProductApplicationService : IProductService
         var effectiveOriginalPrice = request.OriginalPrice ?? product.OriginalPrice;
         var effectiveCostPrice     = request.CostPrice ?? product.CostPrice;
 
-        // 3. Giá gốc phải < giá bán
-        //    (original_price = giá gốc/giá tham chiếu, luôn thấp hơn giá bán ra thị trường)
-        if (effectiveOriginalPrice.HasValue && effectiveOriginalPrice.Value >= effectivePrice)
-            throw new ArgumentException($"Giá gốc ({effectiveOriginalPrice.Value:N0}đ) phải nhỏ hơn giá bán ({effectivePrice:N0}đ).");
+        // 3. Giá gốc phải >= giá bán
+        //    (original_price = giá niêm yết, luôn lớn hơn hoặc bằng giá bán)
+        if (effectiveOriginalPrice.HasValue && effectiveOriginalPrice.Value < effectivePrice)
+            throw new ArgumentException($"Giá gốc ({effectiveOriginalPrice.Value:N0}đ) phải lớn hơn hoặc bằng giá bán ({effectivePrice:N0}đ).");
 
         // 4. Giá vốn phải < giá gốc (nếu có) và < giá bán
         //    (cost_price = giá vốn nhập kho, luôn thấp nhất)
